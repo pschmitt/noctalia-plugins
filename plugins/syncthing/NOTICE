@@ -1,0 +1,7 @@
+This directory is a fork of the `rylos/syncthing` Noctalia plugin by Marco
+Ziliani, from https://github.com/noctalia-dev/community-plugins/tree/main/syncthing.
+
+The upstream plugin manifest declares the MIT license. Its MIT license text is
+preserved at ../../LICENSES/MIT.txt. This fork keeps the upstream attribution;
+pschmitt's modifications are distributed with the rest of this repository
+under GPL-3.0-or-later.
