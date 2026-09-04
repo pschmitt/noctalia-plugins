@@ -1,35 +1,76 @@
 --!nonstrict
 -- Screencast indicator poller — the headless [[service]] entry.
 --
--- Detection is intentionally *not* reimplemented here: it stays in the
--- existing Hyprland-side pipeline (screencast.sh + xdg-portal-screencast-
--- watcher.sh, see plugin.toml header), which busctl-monitors the
--- xdg-desktop-portal D-Bus ScreenCast interface and cross-checks PipeWire
--- links to name the screensharing app(s). This just tails the JSON state
--- file that pipeline already maintains for other consumers (the Waybar
--- module it replaces, and the Home Assistant sensor script).
+-- A live xdg-desktop-portal capture appears as a PipeWire link touching an
+-- xdg-desktop-portal node. Query that graph directly instead of depending on
+-- an external busctl watcher or a shared /tmp state file. `@pw-dump@` is
+-- substituted by the Nix package, so the only prerequisite is the PipeWire
+-- session that portal-based screensharing already requires.
 
--- TMPDIR is unset in this graphical session, so both screencast.sh and this
--- poller resolve the same "${TMPDIR:-/tmp}" default independently; there's
--- no env passthrough between a Luau plugin service and the shell scripts to
--- keep them pointed at literally the same path otherwise.
-local STATEFILE = "/tmp/screencast.json"
-
+local PW_DUMP = "@pw-dump@"
 local lastKey = ""
 
 local function pollMs()
   return (tonumber(noctalia.getConfig("poll_interval")) or 2) * 1000
 end
 
-local function poll()
-  local raw = noctalia.readFile(STATEFILE)
-  local data = raw and noctalia.json.decode(raw) or nil
+local function nodeProps(object)
+  local info = object.info or {}
+  return info.props or object.props or {}
+end
 
-  local active = data ~= nil and data.state == "on"
-  local apps = (data and data.apps) or {}
-  local output = (data and data.output) or ""
+local function portalApps(raw)
+  local graph = noctalia.json.decode(raw)
+  if type(graph) ~= "table" then
+    return {}
+  end
 
-  local key = tostring(active) .. "|" .. tostring(output) .. "|" .. table.concat(apps, ",")
+  local portalNodes = {}
+  local nodes = {}
+  for _, object in ipairs(graph) do
+    if object.type == "PipeWire:Interface:Node" then
+      local props = nodeProps(object)
+      local id = tostring(object.id)
+      nodes[id] = props
+      if tostring(props["node.name"] or ""):find("xdg%-desktop%-portal") then
+        portalNodes[id] = true
+      end
+    end
+  end
+
+  local apps = {}
+  for _, object in ipairs(graph) do
+    if object.type == "PipeWire:Interface:Link" then
+      local info = object.info or {}
+      local props = nodeProps(object)
+      local input = tostring(info["input-node-id"] or props["link.input.node"] or "")
+      local output = tostring(info["output-node-id"] or props["link.output.node"] or "")
+      if portalNodes[input] or portalNodes[output] then
+        -- A portal link has one portal endpoint and one client endpoint.
+        -- Report the latter's PipeWire node name, matching the old helper.
+        for _, id in ipairs({ input, output }) do
+          if id ~= "" and not portalNodes[id] then
+            local name = tostring((nodes[id] or {})["node.name"] or "")
+            if name ~= "" then
+              apps[name] = true
+            end
+          end
+        end
+      end
+    end
+  end
+
+  local names = {}
+  for name in pairs(apps) do
+    table.insert(names, name)
+  end
+  table.sort(names)
+  return names
+end
+
+local function publish(apps)
+  local active = #apps > 0
+  local key = tostring(active) .. "|" .. table.concat(apps, ",")
   if key == lastKey then
     return
   end
@@ -37,9 +78,19 @@ local function poll()
 
   noctalia.state.set("screencast_status", {
     active = active,
-    output = output,
     apps = apps,
   })
+end
+
+local function poll()
+  noctalia.runAsync({ PW_DUMP }, function(result)
+    if result.exitCode ~= 0 then
+      noctalia.log("pw-dump failed: " .. noctalia.string.trim(result.stderr or ""))
+      publish({})
+      return
+    end
+    publish(portalApps(result.stdout or ""))
+  end, 5000)
 end
 
 poll()

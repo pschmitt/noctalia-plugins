@@ -1,23 +1,16 @@
-# Port of the old Waybar custom/screencast module
-# (home-manager/gui/hyprland/waybar/custom_modules/screencast.sh) to
-# Noctalia. Detection itself is unchanged and lives outside this plugin:
-# home-manager/gui/hyprland/bin/scripts/screencast.sh (state machine) and
-# xdg-portal-screencast-watcher.sh (busctl monitor on
-# org.freedesktop.portal.ScreenCast), wired up as a systemd user service in
-# home-manager/gui/hyprland/services/xdg-portal-screencast-watcher.nix. That
-# pipeline is also consumed by the Home Assistant sensor in
-# home-manager/gui/go-hass-agent/scripts/screencast.sh, so this plugin just
-# reads its state file rather than re-detecting screencasting itself.
+# Detects active portal shares directly from PipeWire's graph. The packaged
+# plugin embeds an absolute pw-dump path; it needs neither jq nor an external
+# xdg-desktop-portal watcher/state-file service.
 
 id = "pschmitt/screencast"
 name = "Screencast Indicator"
-version = "0.2.0"
-plugin_api = 15 # noctalia.readFile(), confirmed available at this level by noctalia-syncthing
+version = "0.3.0"
+plugin_api = 24 # argument-array runAsync() keeps the pw-dump call shell-free
 author = "pschmitt"
 license = "GPL-3.0-only"
 tags = ["bar", "indicator", "utility"]
 icon = "screen-share"
-description = "Red dot + REC bar indicator while screensharing, ported from the Waybar custom/screencast widget."
+description = "Red dot + REC bar indicator while portal-based screensharing is active."
 
 # ── Plugin-level settings (shared by every entry, edited in Settings -> Plugins) ──
 

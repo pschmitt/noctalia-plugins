@@ -19,6 +19,7 @@ stdenvNoCC.mkDerivation {
       ../../plugins/battery-icon/plugin.toml
       ../../plugins/battery-icon/service.luau
       ../../plugins/battery-icon/bar.luau
+      ../../plugins/battery-icon/README.md
       ../../plugins/battery-icon/translations
     ];
   };
@@ -32,7 +33,7 @@ stdenvNoCC.mkDerivation {
     dest=$out/share/noctalia-plugins/battery-icon
     mkdir -p "$dest"
 
-    cp plugin.toml bar.luau "$dest"/
+    cp plugin.toml bar.luau README.md "$dest"/
     cp -r translations "$dest"/
     mkdir -p "$dest"/sounds
     cp -L ${sound-theme-freedesktop}/share/sounds/freedesktop/stereo/power-plug.oga "$dest"/sounds/charging.oga

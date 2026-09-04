@@ -1,17 +1,17 @@
 {
   lib,
   stdenvNoCC,
-  timew-status,
 }:
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-timewarrior";
-  version = "0.6.0";
+  version = "0.7.0";
 
   src = lib.fileset.toSource {
     root = ../../plugins/timewarrior;
     fileset = lib.fileset.unions [
       ../../plugins/timewarrior/plugin.toml
+      ../../plugins/timewarrior/README.md
       ../../plugins/timewarrior/service.luau
       ../../plugins/timewarrior/bar.luau
       ../../plugins/timewarrior/panel.luau
@@ -30,12 +30,9 @@ stdenvNoCC.mkDerivation {
     dest=$out/share/noctalia-plugins/timewarrior
     mkdir -p "$dest"
 
-    cp plugin.toml bar.luau panel.luau "$dest"/
+    cp plugin.toml README.md bar.luau panel.luau "$dest"/
     cp -r lib assets translations "$dest"/
-    substitute service.luau "$dest"/service.luau \
-      --subst-var-by timewIsOn ${timew-status}/bin/timew-is-on \
-      --subst-var-by timewTotal ${timew-status}/bin/timew-total \
-      --subst-var-by timewWeekBreakdown ${timew-status}/bin/timew-week-breakdown
+    cp service.luau "$dest"/
 
     runHook postInstall
   '';

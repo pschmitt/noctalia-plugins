@@ -10,7 +10,7 @@
 -- driven by our own update() tick, not the service's poll interval, so the
 -- animation stays smooth regardless of how often the state file is checked.
 
-local state = noctalia.state.get("screencast_status") or { active = false, apps = {}, output = "" }
+local state = noctalia.state.get("screencast_status") or { active = false, apps = {} }
 
 -- update() tick while pulsing: fast enough for a smooth breathe, cheap enough
 -- (plain ui.box/label re-render, no image generation) to not matter.
@@ -33,9 +33,6 @@ end
 local function tooltip()
   local apps = state.apps or {}
   local text = #apps > 0 and ("Screensharing: " .. table.concat(apps, ", ")) or "Screensharing"
-  if state.output and state.output ~= "" then
-    text = text .. " (" .. state.output .. ")"
-  end
   return text
 end
 

@@ -1,8 +1,8 @@
 --!nonstrict
 -- Duration formatting shared by bar.luau and panel.luau. Every duration this
 -- plugin displays (state.duration, week/month/year totals, day breakdown) is
--- "H:MM" text from pkgs/local/timew-status's --minutes flag, so parsing it is
--- the same everywhere.
+-- "H:MM" text calculated directly from Timewarrior's JSON export, so parsing
+-- it is the same everywhere.
 --
 -- bar_time_format/panel_time_format use {hours}/{minutes} placeholder
 -- substitution — the same {token} style noctalia.tr() uses for translation

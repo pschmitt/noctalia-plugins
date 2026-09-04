@@ -17,17 +17,13 @@
         system:
         let
           pkgs = import nixpkgs { inherit system; };
-          timew-status = pkgs.callPackage ./pkgs/timew-status { };
         in
         {
-          inherit timew-status;
           noctalia-battery-icon = pkgs.callPackage ./pkgs/noctalia-battery-icon { };
           noctalia-osd = pkgs.callPackage ./pkgs/noctalia-osd { };
           noctalia-screencast = pkgs.callPackage ./pkgs/noctalia-screencast { };
           noctalia-syncthing = pkgs.callPackage ./pkgs/noctalia-syncthing { };
-          noctalia-timewarrior = pkgs.callPackage ./pkgs/noctalia-timewarrior {
-            inherit timew-status;
-          };
+          noctalia-timewarrior = pkgs.callPackage ./pkgs/noctalia-timewarrior { };
           default = pkgs.symlinkJoin {
             name = "noctalia-plugins";
             paths = [
@@ -35,7 +31,7 @@
               (pkgs.callPackage ./pkgs/noctalia-osd { })
               (pkgs.callPackage ./pkgs/noctalia-screencast { })
               (pkgs.callPackage ./pkgs/noctalia-syncthing { })
-              (pkgs.callPackage ./pkgs/noctalia-timewarrior { inherit timew-status; })
+              (pkgs.callPackage ./pkgs/noctalia-timewarrior { })
             ];
           };
         }

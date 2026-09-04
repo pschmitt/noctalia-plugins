@@ -1,9 +1,13 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.6.0"
-plugin_api = 15 # noctalia.openSettings(), for the panel's settings button
+version = "0.7.0"
+# Uses Noctalia's argument-array subprocess API to run the declared `timew`
+# dependency without a shell or a Nix-provided helper binary.
+plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
+# `timew` is the Timewarrior CLI. JSON is decoded with noctalia.json, so jq is
+# deliberately not a runtime dependency.
 dependencies = ["timew"]
 tags = ["bar", "productivity", "time-tracking"]
 icon = "clock-hour-3"

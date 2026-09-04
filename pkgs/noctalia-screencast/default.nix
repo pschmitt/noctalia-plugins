@@ -1,11 +1,12 @@
 {
   lib,
+  pipewire,
   stdenvNoCC,
 }:
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-screencast";
-  version = "0.2.0";
+  version = "0.3.0";
 
   src = lib.fileset.toSource {
     root = ../../plugins/screencast;
@@ -13,6 +14,7 @@ stdenvNoCC.mkDerivation {
       ../../plugins/screencast/plugin.toml
       ../../plugins/screencast/service.luau
       ../../plugins/screencast/bar.luau
+      ../../plugins/screencast/README.md
       ../../plugins/screencast/translations
     ];
   };
@@ -26,8 +28,10 @@ stdenvNoCC.mkDerivation {
     dest=$out/share/noctalia-plugins/screencast
     mkdir -p "$dest"
 
-    cp plugin.toml service.luau bar.luau "$dest"/
+    cp plugin.toml bar.luau README.md "$dest"/
     cp -r translations "$dest"/
+    substitute service.luau "$dest"/service.luau \
+      --replace-fail "@pw-dump@" "${lib.getExe' pipewire "pw-dump"}"
 
     runHook postInstall
   '';

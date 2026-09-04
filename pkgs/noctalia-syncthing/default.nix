@@ -12,6 +12,7 @@ stdenvNoCC.mkDerivation {
     root = ../../plugins/syncthing;
     fileset = lib.fileset.unions [
       ../../plugins/syncthing/plugin.toml
+      ../../plugins/syncthing/README.md
       ../../plugins/syncthing/bar.luau
       ../../plugins/syncthing/service.luau
       ../../plugins/syncthing/panel.luau
@@ -43,7 +44,7 @@ stdenvNoCC.mkDerivation {
     dest=$out/share/noctalia-plugins/syncthing
     mkdir -p "$dest"/assets
 
-    cp plugin.toml bar.luau service.luau panel.luau desktop.luau launcher.luau shortcut.luau "$dest"/
+    cp plugin.toml README.md bar.luau service.luau panel.luau desktop.luau launcher.luau shortcut.luau "$dest"/
     cp -r lib translations "$dest"/
     for svg in assets/status-*.svg; do
       rsvg-convert -w 256 -h 256 -o "$dest/assets/$(basename "''${svg%.svg}.png")" "$svg"

@@ -2,7 +2,7 @@
   "settings": {
     "poll_interval": {
       "label": "Poll interval (seconds)",
-      "description": "How often to re-check the screencast state file for changes."
+      "description": "How often to query PipeWire for active portal screencasts."
     },
     "dot_color": {
       "label": "Dot color",
