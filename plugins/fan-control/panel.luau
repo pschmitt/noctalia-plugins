@@ -87,6 +87,28 @@ local function selectMode(mode)
   dispatch({ action = "set_mode", mode = mode })
 end
 
+local function selectPowerProfile(profile)
+  dispatch({ action = "set_power_profile", profile = profile })
+end
+
+local POWER_PROFILE_BUTTONS = {
+  { profile = "power-saver", glyph = "battery-low", label = "panel.power_saver" },
+  { profile = "balanced", glyph = "scale", label = "panel.balanced" },
+  { profile = "performance", glyph = "rocket", label = "panel.performance" },
+}
+
+local function powerProfileButton(spec)
+  return ui.button({
+    glyph = spec.glyph,
+    variant = snap.powerProfile == spec.profile and "primary" or "ghost",
+    controlSize = "sm",
+    tooltip = noctalia.tr(spec.label),
+    onClick = function()
+      selectPowerProfile(spec.profile)
+    end,
+  })
+end
+
 local function modeButton(mode, glyph, label)
   if mode == "full" then
     return ui.row({
@@ -192,7 +214,7 @@ local function fanRow(index, fan, multiFan, shown)
 end
 
 local function temperatureRow()
-  local color = colors.icon(snap)
+  local color = colors.temperatureColor(snap)
   return ui.row({ gap = 8, align = "center" }, {
     ui.glyph({ name = "temperature", size = 14, color = color }),
     ui.label({ text = noctalia.tr("tooltip.temperature"), fontSize = 10, color = "on_surface_variant", flexGrow = 1 }),
@@ -220,20 +242,29 @@ local function loadRow()
 end
 
 local function header()
+  local subtitle = tostring(snap.rpm or 0) .. " RPM"
+  if monitorOnly() then
+    local profile = snap.powerProfile ~= "" and noctalia.tr("panel." .. snap.powerProfile:gsub("-", "_"))
+      or noctalia.tr("panel.power_profile")
+    subtitle = subtitle .. " · " .. profile
+  end
   local children = {
-    ui.glyph({ name = "car-fan", size = 28, color = colors.icon(snap) }),
+    ui.glyph({ name = "car-fan", size = 28, color = "on_surface" }),
     ui.column({ gap = 2, flexGrow = 1 }, {
       ui.label({ text = noctalia.tr("panel.title"), fontSize = 16, fontWeight = "bold" }),
       ui.label({
-        text = tostring(snap.rpm or 0) .. " RPM"
-          .. (monitorOnly() and " · " .. noctalia.tr("panel.power_profile") or ""),
+        text = subtitle,
         fontSize = 12,
         color = "on_surface_variant",
         maxLines = 1,
       }),
     }),
   }
-  if not monitorOnly() then
+  if monitorOnly() then
+    for _, spec in POWER_PROFILE_BUTTONS do
+      table.insert(children, powerProfileButton(spec))
+    end
+  else
     table.insert(children, modeButton("auto", "settings-automation", noctalia.tr("panel.auto")))
     table.insert(children, modeButton("full", "car-fan", noctalia.tr("panel.full")))
     table.insert(children, modeButton("manual", "adjustments", noctalia.tr("panel.manual")))

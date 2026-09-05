@@ -5,17 +5,22 @@
   },
   "notify": {
     "fan_error_body": "Could not set the fan mode/speed. Check the Noctalia service log for the driver error.",
-    "fan_error_title": "Fan control"
+    "fan_error_title": "Fan control",
+    "power_profile_error_body": "Could not change the power profile. Check that power-profiles-daemon is running.",
+    "power_profile_error_title": "Power profile"
   },
   "panel": {
     "auto": "Auto",
+    "balanced": "Balanced",
     "fan_rpm": "Fan {index}: {rpm} RPM",
     "fan_speed": "Fan speed",
     "full": "Full blast",
     "load_graph": "Load average (1 min)",
     "load_average": "Load average",
     "manual": "Manual",
+    "performance": "Performance",
     "power_profile": "Power-profile controlled",
+    "power_saver": "Power saver",
     "rpm_graph": "Fan speed",
     "temp_graph": "Temperature",
     "title": "Fan control",
@@ -90,7 +95,7 @@
       "label": "Colorize text"
     },
     "alt_mode": {
-      "description": "For firmware or power-profile-controlled hosts where PWM writes have no effect. Keeps RPM/temperature reporting but disables all direct fan changes.",
+      "description": "For firmware or power-profile-controlled hosts where PWM writes have no effect. Keeps RPM/temperature reporting and controls power-profiles-daemon instead of direct PWM writes.",
       "label": "Alternate mode (power-profile controlled)"
     },
     "full_color": {

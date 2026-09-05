@@ -55,9 +55,11 @@ Lua memory is shared between them):
   `thinkpad_acpi` the slider's 101 positions are mapped onto the hardware's 8
   discrete levels (0–7); dragging it always feels smooth, only the value
   committed on release is quantized.
-- **Monitor-only mode** — for firmware or power-profile-controlled machines
-  where PWM writes have no useful effect. It keeps the RPM and temperature
-  readouts while removing every direct control from the panel and widget.
+- **Alternate power-profile mode** — for firmware or power-profile-controlled
+  machines where PWM writes have no useful effect. It keeps the RPM and
+  temperature readouts, replaces direct PWM controls with Power saver,
+  Balanced, and Performance controls, and leaves the widget's non-panel
+  actions disabled.
 - **Temperature readout** from a configurable thermal zone.
 
 ## Requirements
@@ -150,7 +152,8 @@ noctalia msg plugins enable pschmitt/fan-control
 |---------|------|---------|--------------|
 | Bar display | select | `rpm` | What to show next to the icon: fan speed, temperature, or nothing |
 | Show units in bar | bool | `true` | Show "RPM"/"°C" next to the number in the bar |
-| Alternate mode | bool | `false` | For power-profile-controlled hosts; disables all direct fan writes while retaining RPM/temperature reporting |
+| Bar icon | select | `fan` | Fan or thermometer glyph for the bar widget |
+| Alternate mode | bool | `false` | For power-profile-controlled hosts; replaces direct fan writes with power-profiles-daemon controls while retaining RPM/temperature reporting |
 | Speed step (%) | int | `10` | Slider granularity, and the increase/decrease actions' step |
 | Left/Right/Middle click, Scroll up/down | select | see below | Action for each input: open panel, cycle Auto→Full→Manual, increase/decrease speed, or nothing. Defaults: left=panel, right=cycle_mode, scroll up=increase, scroll down=decrease, middle=none |
 | Colorize icon / Colorize text | bool | `true` | Whether the icon/text are tinted at all |

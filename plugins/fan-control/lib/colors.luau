@@ -35,6 +35,20 @@ function M.modeColor(snap)
   return configuredColor("auto_color", "on_surface")
 end
 
+-- Panel temperature indicators are deliberately independent from the bar's
+-- configurable color trigger: a manual/full fan override must never make a
+-- normal temperature look alarming (or vice versa).
+function M.temperatureColor(snap)
+  local lo = tonumber(noctalia.getConfig("temp_threshold_low")) or 60
+  local hi = tonumber(noctalia.getConfig("temp_threshold_high")) or 80
+  return tierColor(
+    snap.temp or 0, lo, hi,
+    configuredColor("temp_low_color", "on_surface"),
+    configuredColor("temp_mid_color", "primary"),
+    configuredColor("temp_high_color", "error")
+  )
+end
+
 -- The color color_trigger currently resolves to, independent of whether the
 -- icon/text actually get tinted with it — that's colorize_icon/
 -- colorize_text, applied by the caller (M.icon/M.text below). Full blast is
@@ -42,14 +56,7 @@ end
 function M.ruleColor(snap)
   local trigger = noctalia.getConfig("color_trigger")
   if trigger == "temp" then
-    local lo = tonumber(noctalia.getConfig("temp_threshold_low")) or 60
-    local hi = tonumber(noctalia.getConfig("temp_threshold_high")) or 80
-    return tierColor(
-      snap.temp or 0, lo, hi,
-      configuredColor("temp_low_color", "on_surface"),
-      configuredColor("temp_mid_color", "primary"),
-      configuredColor("temp_high_color", "error")
-    )
+    return M.temperatureColor(snap)
   elseif trigger == "rpm" then
     local lo = tonumber(noctalia.getConfig("rpm_threshold_low")) or 2000
     local hi = tonumber(noctalia.getConfig("rpm_threshold_high")) or 4000

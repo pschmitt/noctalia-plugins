@@ -29,6 +29,11 @@ local SEP = "__NTF_SEP__"
 local LOAD_SEP = "__NTF_LOAD_SEP__"
 local CPU_SEP = "__NTF_CPU_SEP__"
 local LOADAVG_PATH = "/proc/loadavg"
+local POWER_PROFILES = {
+  ["power-saver"] = true,
+  balanced = true,
+  performance = true,
+}
 
 -- backend = "thinkpad" | "hwmon" | "none". Detected once; cleared (like
 -- configXml below) whenever the plugin settings change, since hwmon_name is a
@@ -55,9 +60,12 @@ local snapshot = {
   fans = {}, -- hwmon only: { { rpm = N }, ... }, one per channel
   loadAvg = { one = 0, five = 0, fifteen = 0 },
   cpuCount = 0,
+  powerProfile = "",
 }
 
 local reading = false
+local readingPowerProfile = false
+local readPowerProfile
 
 -- Rolling temp/RPM/load history for the panel's graph, oldest first. Capped
 -- rather than windowed by time: at the 2.5s poll interval this stores 10
@@ -103,6 +111,7 @@ local function publish()
     fans = snapshot.fans,
     loadAvg = snapshot.loadAvg,
     cpuCount = snapshot.cpuCount,
+    powerProfile = snapshot.powerProfile,
     history = history,
   })
 end
@@ -356,7 +365,28 @@ local function readNow()
   end
 end
 
+readPowerProfile = function()
+  if readingPowerProfile then
+    return
+  end
+  readingPowerProfile = true
+  local launched = noctalia.runAsync("powerprofilesctl get 2>/dev/null", function(res)
+    readingPowerProfile = false
+    local profile = noctalia.string.trim(res.stdout or "")
+    snapshot.powerProfile = POWER_PROFILES[profile] and profile or ""
+    publish()
+  end, READ_TIMEOUT_MS)
+  if not launched then
+    readingPowerProfile = false
+  end
+end
+
 local function poll()
+  if noctalia.getConfig("alt_mode") == true then
+    -- Keep this independent from hwmon reads: a missing/slow
+    -- powerprofilesctl must not delay RPM or temperature updates.
+    readPowerProfile()
+  end
   if not detected then
     runDetect(readNow)
   else
@@ -444,8 +474,35 @@ local function applyPercent(percent, selectedIndex)
   end
 end
 
+local function applyPowerProfile(profile)
+  if not POWER_PROFILES[profile] then
+    return
+  end
+  snapshot.powerProfile = profile
+  publish()
+  noctalia.runAsync("powerprofilesctl set " .. shellQuote(profile), function(res)
+    if res.exitCode ~= 0 then
+      noctalia.notifyError(
+        noctalia.tr("notify.power_profile_error_title"),
+        noctalia.tr("notify.power_profile_error_body")
+      )
+      noctalia.log("power-profile change failed: " .. (res.stderr or ""))
+    end
+    readPowerProfile()
+  end, WRITE_TIMEOUT_MS)
+end
+
 noctalia.state.watch(COMMAND, function(cmd)
-  if noctalia.getConfig("alt_mode") == true or type(cmd) ~= "table" or not detected or backend == "none" then
+  if type(cmd) ~= "table" then
+    return
+  end
+  if noctalia.getConfig("alt_mode") == true then
+    if cmd.action == "set_power_profile" then
+      applyPowerProfile(cmd.profile)
+    end
+    return
+  end
+  if not detected or backend == "none" then
     return
   end
   if cmd.action == "set_mode" and (cmd.mode == "auto" or cmd.mode == "full" or cmd.mode == "manual") then
