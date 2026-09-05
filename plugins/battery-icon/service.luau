@@ -265,7 +265,7 @@ else
   done
 fi
 echo BACKEND_END
-echo CPUCOUNT:@nproc@
+echo CPUCOUNT:$(@nproc@)
 printf 'TEMP:%s\n' "$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)"
 read -r one five fifteen _ < /proc/loadavg 2>/dev/null
 printf 'LOAD:%s %s %s\n' "$one" "$five" "$fifteen"
