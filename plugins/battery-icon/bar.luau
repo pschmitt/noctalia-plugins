@@ -38,5 +38,44 @@ function update()
 end
 
 function onClick()
-  noctalia.togglePanel(PANEL_ID)
+  runAction("action_left_click")
+end
+
+-- Configurable bar actions follow the same scroll convention as Noctalia's
+-- built-in widgets: positive steps are scroll-down.
+local function toggleCaffeine()
+  local details = noctalia.state.get("battery_icon.details") or {}
+  noctalia.state.set("battery_icon.command", {
+    action = "set_caffeine",
+    enabled = details.caffeineEnabled ~= true,
+  })
+end
+
+local ACTIONS = {
+  panel = function()
+    noctalia.togglePanel(PANEL_ID)
+  end,
+  cycle_power_profile = function()
+    noctalia.runAsync("noctalia msg power-cycle", function(_result) end, 5000)
+  end,
+  toggle_caffeine = toggleCaffeine,
+}
+
+function runAction(settingKey)
+  local action = ACTIONS[noctalia.getConfig(settingKey)]
+  if action then
+    action()
+  end
+end
+
+function onRightClick()
+  runAction("action_right_click")
+end
+
+function onMiddleClick()
+  runAction("action_middle_click")
+end
+
+function onScroll(_axis, steps, _startsGesture)
+  runAction(steps > 0 and "action_scroll_down" or "action_scroll_up")
 end

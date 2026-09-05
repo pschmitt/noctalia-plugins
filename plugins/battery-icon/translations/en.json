@@ -36,6 +36,30 @@
     "title": "Power control"
   },
   "settings": {
+    "action": {
+      "description": "What this bar-widget interaction does",
+      "options": {
+        "cycle_power_profile": "Cycle power profile",
+        "none": "Nothing",
+        "panel": "Open power control",
+        "toggle_caffeine": "Toggle Caffeine"
+      }
+    },
+    "action_left_click": {
+      "label": "Left click"
+    },
+    "action_middle_click": {
+      "label": "Middle click"
+    },
+    "action_right_click": {
+      "label": "Right click"
+    },
+    "action_scroll_down": {
+      "label": "Scroll down"
+    },
+    "action_scroll_up": {
+      "label": "Scroll up"
+    },
     "battery_device": {
       "label": "Battery device",
       "description": "sysfs power_supply device name (BAT0, BAT1, ...)."

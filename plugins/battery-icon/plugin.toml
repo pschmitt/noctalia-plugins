@@ -169,6 +169,73 @@ default = 8
 min = 1
 max = 64
 
+# ── Bar widget actions ───────────────────────────────────────────────────────
+
+[[setting]]
+key = "action_left_click"
+type = "select"
+label_key = "settings.action_left_click.label"
+description_key = "settings.action.description"
+default = "panel"
+options = [
+  { value = "panel", label_key = "settings.action.options.panel" },
+  { value = "cycle_power_profile", label_key = "settings.action.options.cycle_power_profile" },
+  { value = "toggle_caffeine", label_key = "settings.action.options.toggle_caffeine" },
+  { value = "none", label_key = "settings.action.options.none" },
+]
+
+[[setting]]
+key = "action_right_click"
+type = "select"
+label_key = "settings.action_right_click.label"
+description_key = "settings.action.description"
+default = "cycle_power_profile"
+options = [
+  { value = "panel", label_key = "settings.action.options.panel" },
+  { value = "cycle_power_profile", label_key = "settings.action.options.cycle_power_profile" },
+  { value = "toggle_caffeine", label_key = "settings.action.options.toggle_caffeine" },
+  { value = "none", label_key = "settings.action.options.none" },
+]
+
+[[setting]]
+key = "action_middle_click"
+type = "select"
+label_key = "settings.action_middle_click.label"
+description_key = "settings.action.description"
+default = "toggle_caffeine"
+options = [
+  { value = "panel", label_key = "settings.action.options.panel" },
+  { value = "cycle_power_profile", label_key = "settings.action.options.cycle_power_profile" },
+  { value = "toggle_caffeine", label_key = "settings.action.options.toggle_caffeine" },
+  { value = "none", label_key = "settings.action.options.none" },
+]
+
+[[setting]]
+key = "action_scroll_up"
+type = "select"
+label_key = "settings.action_scroll_up.label"
+description_key = "settings.action.description"
+default = "cycle_power_profile"
+options = [
+  { value = "panel", label_key = "settings.action.options.panel" },
+  { value = "cycle_power_profile", label_key = "settings.action.options.cycle_power_profile" },
+  { value = "toggle_caffeine", label_key = "settings.action.options.toggle_caffeine" },
+  { value = "none", label_key = "settings.action.options.none" },
+]
+
+[[setting]]
+key = "action_scroll_down"
+type = "select"
+label_key = "settings.action_scroll_down.label"
+description_key = "settings.action.description"
+default = "cycle_power_profile"
+options = [
+  { value = "panel", label_key = "settings.action.options.panel" },
+  { value = "cycle_power_profile", label_key = "settings.action.options.cycle_power_profile" },
+  { value = "toggle_caffeine", label_key = "settings.action.options.toggle_caffeine" },
+  { value = "none", label_key = "settings.action.options.none" },
+]
+
 [[service]]
 id = "poller"
 entry = "service.luau"
