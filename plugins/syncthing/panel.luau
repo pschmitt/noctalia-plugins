@@ -262,8 +262,11 @@ local function deviceStateText(device)
 end
 
 local function deviceRow(device)
+  -- A device that is simply not connected reads as a problem, so it takes the
+  -- error color (the `on_error` role is the ink for an error-*filled* surface —
+  -- near-black in a dark palette — and would be unreadable here).
   local color = device.paused and stateColors.get("paused")
-    or (device.connected and stateColors.get("idle") or stateColors.get("disconnected"))
+    or (device.connected and stateColors.get("idle") or stateColors.get("error"))
   local subtitle = deviceStateText(device)
   if device.connected and not device.paused then
     if device.address ~= "" then
