@@ -107,15 +107,17 @@ render = function()
         color = "on_surface_variant",
       }),
     }),
-    ui.label({
-      text = string.format(
-        "load: %.2f %.2f %.2f",
-        (snap.loadAvg or {}).one or 0,
-        (snap.loadAvg or {}).five or 0,
-        (snap.loadAvg or {}).fifteen or 0
-      ),
-      fontSize = 11,
-      color = "on_surface_variant",
+    ui.row({ justify = "end" }, {
+      ui.label({
+        text = string.format(
+          "load: %.2f %.2f %.2f",
+          (snap.loadAvg or {}).one or 0,
+          (snap.loadAvg or {}).five or 0,
+          (snap.loadAvg or {}).fifteen or 0
+        ),
+        fontSize = 11,
+        color = "on_surface_variant",
+      }),
     }),
   }
 
