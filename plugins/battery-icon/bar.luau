@@ -1,11 +1,10 @@
 --!nonstrict
 -- Battery icon bar widget — displays the pre-rendered PNG from the
 -- service (percentage baked directly into the icon body). Left-click opens
--- Control Center's power tab via the manifest's [widget.actions] binding
--- (plugin.toml), not a script callback — that's the only path that anchors
--- the panel under the click instead of centering it on the bar.
+-- this plugin's compact power panel under the bar widget.
 
 local state = noctalia.state.get("battery_icon")
+local PANEL_ID = "pschmitt/battery-icon:power"
 
 local function render()
   if state == nil or state.path == nil then
@@ -36,4 +35,8 @@ render()
 
 function update()
   render()
+end
+
+function onClick()
+  noctalia.togglePanel(PANEL_ID)
 end

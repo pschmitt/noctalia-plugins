@@ -6,7 +6,7 @@ author = "pschmitt"
 license = "GPL-3.0-only"
 tags = ["bar", "system", "hardware"]
 icon = "battery-2"
-description = "Material 3 Expressive battery indicator with an internal percentage, clipped level fill, and charging bolt, rendered as a live-generated bitmap."
+description = "Material 3 Expressive battery indicator with a compact power-control panel, rendered as a live-generated bitmap."
 # magick renders the icon bitmap, powerprofilesctl detects Battery Saver
 # (drawn as the Android-style "+" glyph, not a body colour). busctl reads upower's OnBattery property (the portable
 # "external power connected?" bit — see AC_ONLINE_CMD in service.luau) and,
@@ -144,6 +144,13 @@ label_key = "settings.charging_sound_enabled.label"
 description_key = "settings.charging_sound_enabled.description"
 default = false
 
+[[setting]]
+key = "show_fan_controls"
+type = "bool"
+label_key = "settings.show_fan_controls.label"
+description_key = "settings.show_fan_controls.description"
+default = true
+
 [[service]]
 id = "poller"
 entry = "service.luau"
@@ -170,11 +177,11 @@ entry = "bar.luau"
   min = 8
   max = 48
 
-  # Routed through the anchored panel-toggle dispatcher (same one native bar
-  # widgets use) so Control Center opens under the click instead of centered
-  # on the bar — noctalia.togglePanel()/CLI panel-toggle always open
-  # unanchored. Matches the built-in battery widget's default gesture
-  # (widget_gesture_defaults.cpp: kBattery). Users can override or disable it
-  # per-instance in Settings, same as any built-in widget's actions.
-  [widget.actions]
-  left = "panel-toggle control-center power"
+[[panel]]
+id = "power"
+entry = "panel.luau"
+width = 390
+height = 460
+placement = "attached"
+position = "auto"
+open_near_click = true

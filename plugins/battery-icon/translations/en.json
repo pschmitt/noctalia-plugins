@@ -1,4 +1,26 @@
 {
+  "notify": {
+    "power_profile_error_body": "Could not change the power profile. Check that power-profiles-daemon is running.",
+    "power_profile_error_title": "Power profile"
+  },
+  "panel": {
+    "auto": "Auto",
+    "balanced": "Balanced",
+    "battery": "Battery",
+    "battery_health": "Battery health",
+    "charging": "Charging",
+    "charging_threshold": "Charging threshold",
+    "full_blast": "Full blast",
+    "load_average": "Load average",
+    "manual": "Manual",
+    "not_available": "Not available",
+    "other_devices": "Other devices",
+    "performance": "Performance",
+    "power": "Power",
+    "power_saver": "Power saver",
+    "temperature": "Temperature",
+    "title": "Power control"
+  },
   "settings": {
     "battery_device": {
       "label": "Battery device",
@@ -55,6 +77,10 @@
     "charging_sound_enabled": {
       "label": "Play sound on plug/unplug",
       "description": "Plays a short sound the moment the charger connects, and a different one when it's disconnected. Off by default."
+    },
+    "show_fan_controls": {
+      "label": "Show fan controls",
+      "description": "Show fan Auto, Full blast, and Manual controls in the power panel when the Fan Control plugin is available."
     },
     "icon_width": {
       "label": "Icon width",

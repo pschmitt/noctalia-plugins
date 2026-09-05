@@ -3,15 +3,17 @@
   stdenvNoCC,
   coreutils,
   imagemagick,
+  gnused,
   power-profiles-daemon,
   roboto,
   sound-theme-freedesktop,
   systemd,
+  upower,
 }:
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-battery-icon";
-  version = "0.4.5";
+  version = "0.5.0";
 
   src = lib.fileset.toSource {
     root = ../../plugins/battery-icon;
@@ -19,6 +21,7 @@ stdenvNoCC.mkDerivation {
       ../../plugins/battery-icon/plugin.toml
       ../../plugins/battery-icon/service.luau
       ../../plugins/battery-icon/bar.luau
+      ../../plugins/battery-icon/panel.luau
       ../../plugins/battery-icon/README.md
       ../../plugins/battery-icon/translations
     ];
@@ -33,7 +36,7 @@ stdenvNoCC.mkDerivation {
     dest=$out/share/noctalia-plugins/battery-icon
     mkdir -p "$dest"
 
-    cp plugin.toml bar.luau README.md "$dest"/
+    cp plugin.toml bar.luau panel.luau README.md "$dest"/
     cp -r translations "$dest"/
     mkdir -p "$dest"/sounds
     cp -L ${sound-theme-freedesktop}/share/sounds/freedesktop/stereo/power-plug.oga "$dest"/sounds/charging.oga
@@ -44,7 +47,9 @@ stdenvNoCC.mkDerivation {
       --subst-var-by powerprofilesctl ${power-profiles-daemon}/bin/powerprofilesctl \
       --subst-var-by udevadm ${systemd}/bin/udevadm \
       --subst-var-by busctl ${systemd}/bin/busctl \
-      --subst-var-by stdbuf ${coreutils}/bin/stdbuf
+      --subst-var-by stdbuf ${coreutils}/bin/stdbuf \
+      --subst-var-by sed ${gnused}/bin/sed \
+      --subst-var-by upower ${upower}/bin/upower
 
     runHook postInstall
   '';

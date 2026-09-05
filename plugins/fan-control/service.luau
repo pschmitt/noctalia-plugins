@@ -102,6 +102,7 @@ local function publish()
   noctalia.state.set(SNAPSHOT, {
     backend = snapshot.backend,
     available = snapshot.available,
+    controlMode = noctalia.getConfig("alt_mode") == true and "power-profile" or "direct",
     temp = snapshot.temp,
     mode = snapshot.mode,
     level = snapshot.level,

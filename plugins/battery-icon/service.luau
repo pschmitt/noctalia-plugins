@@ -36,6 +36,14 @@ local lastPowerSaver = false
 local lastProfile = nil
 local soundReady = { charging = false, unplug = false }
 
+local DETAILS = "battery_icon.details"
+local COMMAND = "battery_icon.command"
+local POWER_PROFILES = {
+  ["power-saver"] = true,
+  balanced = true,
+  performance = true,
+}
+
 -- "Is external power connected?", most portable source first.
 --
 -- upower's daemon-level OnBattery property is the canonical answer: it
@@ -97,6 +105,60 @@ local function parseNumber(s)
   local raw = trim(s)
   local n = tonumber(raw:match("^%a%s+(.+)$") or raw)
   return n ~= nil and math.round(n) or nil
+end
+
+-- Main-pack health and charge thresholds are exposed by the kernel when the
+-- firmware supports them. Other UPower devices (mouse, headset, keyboard,
+-- phone, ...) are collected alongside it for the power panel; the bar icon
+-- continues to be driven only by the configured main battery.
+local function detailsCommand(device)
+  local root = "/sys/class/power_supply/" .. device
+  local mainPath = "/org/freedesktop/UPower/devices/battery_" .. device
+  return "full=$(cat " .. root .. "/energy_full 2>/dev/null || cat " .. root
+    .. "/charge_full 2>/dev/null); design=$(cat " .. root
+    .. "/energy_full_design 2>/dev/null || cat " .. root
+    .. "/charge_full_design 2>/dev/null); start=$(cat " .. root
+    .. "/charge_control_start_threshold 2>/dev/null); finish=$(cat " .. root
+    .. "/charge_control_end_threshold 2>/dev/null); printf 'BATTERY\\t%s\\t%s\\t%s\\t%s\\n' \"$full\" \"$design\" \"$start\" \"$finish\"; "
+    .. "@upower@ -e 2>/dev/null | while IFS= read -r d; do [ \"$d\" = "
+    .. "'" .. mainPath .. "' ] && continue; [ \"$d\" = '/org/freedesktop/UPower/devices/DisplayDevice' ] && continue; info=$(@upower@ -i \"$d\" 2>/dev/null); percent=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*percentage:[[:space:]]*\\([0-9][0-9]*\\)%.*/\\1/p'); [ -z \"$percent\" ] && continue; label=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*model:[[:space:]]*//p'); [ -z \"$label\" ] && label=${d##*/}; printf 'DEVICE\\t%s\\t%s\\n' \"$label\" \"$percent\"; done"
+end
+
+local function parseDetails(output)
+  local details = { health = nil, thresholdStart = nil, thresholdEnd = nil, devices = {} }
+  for line in (output or ""):gmatch("[^\n]+") do
+    local full, design, start, finish = line:match("^BATTERY\t([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)$")
+    if full then
+      local fullValue = tonumber(full)
+      local designValue = tonumber(design)
+      if fullValue and designValue and designValue > 0 then
+        details.health = math.clamp(math.round(fullValue * 100 / designValue), 0, 100)
+      end
+      details.thresholdStart = tonumber(start)
+      details.thresholdEnd = tonumber(finish)
+    else
+      local label, percent = line:match("^DEVICE\t(.-)\t(%d+)$")
+      if label and percent then
+        table.insert(details.devices, { label = label, percent = tonumber(percent) })
+      end
+    end
+  end
+  return details
+end
+
+local function publishDetails(percent, charging, status, profile, limit, output)
+  local details = parseDetails(output)
+  noctalia.state.set(DETAILS, {
+    percent = percent,
+    charging = charging,
+    status = status,
+    powerProfile = POWER_PROFILES[profile] and profile or "",
+    chargeLimit = limit,
+    health = details.health,
+    thresholdStart = details.thresholdStart,
+    thresholdEnd = details.thresholdEnd,
+    devices = details.devices,
+  })
 end
 
 -- Highest level observed while external power was connected and the firmware
@@ -537,38 +599,61 @@ local function poll()
           end
           lastCharging = charging
 
-          local key = tostring(percent)
-            .. (charging and "c" or "d")
-            .. (powerSaver and "s" or "n")
-            .. tostring(cfg.fullAt)
-            .. cfg.lowColor
-            .. cfg.mediumColor
-            .. cfg.highColor
-            .. cfg.chargingColor
-            .. cfg.chargingBoltColor
-            .. cfg.textColor
-            .. cfg.emptyColor
+          noctalia.runAsync(detailsCommand(cfg.device), function(detailsResult)
+            -- Always publish panel data, even when the rendered icon is
+            -- unchanged (for example, a wireless mouse can change charge
+            -- while the laptop battery stays at 80%).
+            publishDetails(percent, charging, status, profile ~= "" and profile or (lastProfile or ""), cfg.fullAt, detailsResult.stdout)
 
-          if key == lastKey then
-            return
-          end
-          lastKey = key
+            local key = tostring(percent)
+              .. (charging and "c" or "d")
+              .. (powerSaver and "s" or "n")
+              .. tostring(cfg.fullAt)
+              .. cfg.lowColor
+              .. cfg.mediumColor
+              .. cfg.highColor
+              .. cfg.chargingColor
+              .. cfg.chargingBoltColor
+              .. cfg.textColor
+              .. cfg.emptyColor
 
-          local dataDir = noctalia.pluginDataDir()
-          if dataDir == nil then
-            return
-          end
+            if key == lastKey then
+              return
+            end
+            lastKey = key
 
-          if edge then
-            startPulse(cfg, percent, charging, powerSaver, dataDir)
-          else
-            regenerate(cfg, percent, charging, powerSaver, dataDir)
-          end
+            local dataDir = noctalia.pluginDataDir()
+            if dataDir == nil then
+              return
+            end
+
+            if edge then
+              startPulse(cfg, percent, charging, powerSaver, dataDir)
+            else
+              regenerate(cfg, percent, charging, powerSaver, dataDir)
+            end
+          end, 5000)
         end, 5000)
       end, 5000)
     end, 5000)
   end, 5000)
 end
+
+noctalia.state.watch(COMMAND, function(cmd)
+  if type(cmd) ~= "table" or cmd.action ~= "set_power_profile" or not POWER_PROFILES[cmd.profile] then
+    return
+  end
+  noctalia.runAsync("@powerprofilesctl@ set " .. cmd.profile, function(result)
+    if result.exitCode ~= 0 then
+      noctalia.notifyError(
+        noctalia.tr("notify.power_profile_error_title"),
+        noctalia.tr("notify.power_profile_error_body")
+      )
+      noctalia.log("battery-icon: power-profile change failed: " .. trim(result.stderr))
+    end
+    poll()
+  end, 5000)
+end)
 
 poll()
 
