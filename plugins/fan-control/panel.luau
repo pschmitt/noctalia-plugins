@@ -79,34 +79,15 @@ local function clearSliderState()
 end
 
 local function modeButton(mode, glyph, label)
-  local selected = snap.mode == mode
   return ui.button({
     glyph = glyph,
-    variant = selected and (mode == "full" and "destructive" or "primary") or "ghost",
+    variant = snap.mode == mode and "primary" or "ghost",
     controlSize = "sm",
     tooltip = label,
     onClick = function()
       clearSliderState()
       dispatch({ action = "set_mode", mode = mode })
     end,
-  })
-end
-
-local function stateChip(text, fill, color)
-  return ui.row({
-    fill = fill,
-    radius = 4,
-    padding = 4,
-    flexGrow = 1,
-    align = "center",
-    justify = "center",
-  }, {
-    ui.label({
-      text = text,
-      fontSize = 10,
-      color = color,
-      maxLines = 1,
-    }),
   })
 end
 
@@ -124,7 +105,13 @@ local function fanRow(index, fan, multiFan, shown)
     end
     return ui.row({ gap = 6, align = "center" }, {
       fanLabel,
-      stateChip(noctalia.tr("panel.full"), "error/0.35", "on_error"),
+      ui.label({
+        text = noctalia.tr("panel.full"),
+        fontSize = 10,
+        color = "on_error",
+        flexGrow = 1,
+        maxLines = 1,
+      }),
       rpm,
     })
   end
