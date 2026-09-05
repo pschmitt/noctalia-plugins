@@ -91,15 +91,6 @@ local function modeButton(mode, glyph, label)
   })
 end
 
-local function modeLabel()
-  if snap.mode == "full" then
-    return noctalia.tr("panel.full")
-  elseif snap.mode == "manual" then
-    return noctalia.tr("panel.manual")
-  end
-  return noctalia.tr("mode.auto")
-end
-
 local function stateChip(text, fill, color)
   return ui.label({
     text = text,
@@ -220,7 +211,6 @@ render = function()
     ui.row({ gap = 6, align = "center" }, {
       ui.glyph({ name = "car-fan", color = colors.icon(snap) }),
       ui.label({ text = noctalia.tr("panel.title"), fontWeight = "bold" }),
-      ui.label({ text = modeLabel(), fontSize = 10, color = colors.icon(snap), width = 46, maxLines = 1 }),
       modeButton("auto", "settings-automation", noctalia.tr("panel.auto")),
       modeButton("full", "car-fan", noctalia.tr("panel.full")),
       modeButton("manual", "adjustments", noctalia.tr("panel.manual")),
