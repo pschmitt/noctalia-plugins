@@ -413,9 +413,22 @@ local function runWrite(cmd, onDone)
   end, WRITE_TIMEOUT_MS)
 end
 
--- Auto/full are absolute mode writes. Entering Manual starts at 100% instead
--- of inheriting an unknown automatic duty cycle (or accidentally starting at
--- 0% after Auto); the sliders then change individual channels where the
+-- When leaving Auto, hwmon's current PWM is the best available estimate of
+-- the firmware-selected duty. ThinkPad's "auto" does not report one, so use
+-- a conservative 50% starting point instead of an unexpected full blast.
+local function manualStartPercent()
+  if backend == "hwmon" then
+    local first = snapshot.fans[1]
+    local pwm = first and tonumber(first.pwm)
+    if pwm then
+      return math.clamp(math.floor(pwm * 100 / 255 + 0.5), 0, 100)
+    end
+  end
+  return 50
+end
+
+-- Auto/full are absolute mode writes; Manual uses the current PWM estimate
+-- when available. The sliders then change individual channels where the
 -- backend exposes more than one.
 local function applyMode(mode)
   if backend == "thinkpad" then
@@ -427,8 +440,8 @@ local function applyMode(mode)
       level = "disengaged"
       snapshot.percent = 100
     else
-      level = thinkpadLevelFromPercent(100)
-      snapshot.percent = 100
+      snapshot.percent = manualStartPercent()
+      level = thinkpadLevelFromPercent(snapshot.percent)
     end
     snapshot.level = level
     snapshot.mode = mode
@@ -443,9 +456,10 @@ local function applyMode(mode)
       runWrite(hwmonWriteCmd(2, nil), readNow)
     else
       hwmonMaxMode = mode
-      snapshot.percent = 100
+      snapshot.percent = mode == "manual" and manualStartPercent() or 100
       publish()
-      runWrite(hwmonWriteCmd(1, 255), readNow)
+      local pwmValue = math.floor(snapshot.percent * 255 / 100 + 0.5)
+      runWrite(hwmonWriteCmd(1, pwmValue), readNow)
     end
   end
 end

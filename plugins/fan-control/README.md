@@ -50,8 +50,8 @@ Lua memory is shared between them):
 - **Status coloring** — the widget turns red at full speed and uses the
   accent color under manual control.
 - **Manual control** — Auto, Full (uncapped/no software limit), or a 0–100%
-  slider. Entering Manual starts at 100% rather than inheriting an unknown
-  firmware-controlled duty cycle; adjust from there with the slider. On
+  slider. Entering Manual preserves the current hwmon PWM duty where it is
+  observable; controllers that cannot report it start at 50%. On
   `thinkpad_acpi` the slider's 101 positions are mapped onto the hardware's 8
   discrete levels (0–7); dragging it always feels smooth, only the value
   committed on release is quantized.
