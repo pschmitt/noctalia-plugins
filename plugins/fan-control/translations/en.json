@@ -11,6 +11,8 @@
     "auto": "Auto",
     "fan_rpm": "Fan {index}: {rpm} RPM",
     "full": "Full",
+    "load_average": "Load average (1 / 5 / 15 min)",
+    "load_graph": "Load average (1 min)",
     "manual": "Manual",
     "rpm_graph": "Fan speed",
     "temp_graph": "Temperature",

@@ -2,8 +2,9 @@
 
 A fan monitor and manual speed control for **Noctalia v5**. The bar widget
 shows the current fan RPM and turns a warning color when the fan is at full
-speed or a manual level. Clicking it opens a panel with Auto/Full buttons and
-a slider for manual speed — no root needed at runtime.
+speed or a manual level. Clicking it opens a panel with Auto/Full buttons, a
+manual speed slider, the system load average for the 1, 5, and 15 minute
+windows, and a 1-minute load trend graph — no root needed at runtime.
 
 > Fork of [piero-93/thinkpad-fan](https://github.com/noctalia-dev/community-plugins/tree/main/thinkpad-fan),
 > generalized past `thinkpad_acpi` to also drive any fan exposed through the

@@ -26,6 +26,8 @@ local POLL_MS = 2500
 local READ_TIMEOUT_MS = 4000
 local WRITE_TIMEOUT_MS = 4000
 local SEP = "__NTF_SEP__"
+local LOAD_SEP = "__NTF_LOAD_SEP__"
+local LOADAVG_PATH = "/proc/loadavg"
 
 -- backend = "thinkpad" | "hwmon" | "none". Detected once; cleared (like
 -- configXml below) whenever the plugin settings change, since hwmon_name is a
@@ -46,6 +48,7 @@ local snapshot = {
   rpm = 0, -- primary/max RPM, for the widget
   fanCount = 0,
   fans = {}, -- hwmon only: { { rpm = N }, ... }, one per channel
+  loadAvg = { one = 0, five = 0, fifteen = 0 },
 }
 
 local reading = false
@@ -58,7 +61,11 @@ local MAX_HISTORY = 60
 local history = {}
 
 local function pushHistory()
-  table.insert(history, { temp = snapshot.temp, rpm = snapshot.rpm })
+  table.insert(history, {
+    temp = snapshot.temp,
+    rpm = snapshot.rpm,
+    load = snapshot.loadAvg.one,
+  })
   if #history > MAX_HISTORY then
     table.remove(history, 1)
   end
@@ -88,6 +95,7 @@ local function publish()
     rpm = snapshot.rpm,
     fanCount = snapshot.fanCount,
     fans = snapshot.fans,
+    loadAvg = snapshot.loadAvg,
     history = history,
   })
 end
@@ -136,7 +144,8 @@ end
 
 local function thinkpadReadCmd()
   return "cat " .. shellQuote(THINKPAD_FAN_PATH) .. " 2>/dev/null; echo " .. SEP
-    .. "; cat " .. shellQuote(thermalPath()) .. " 2>/dev/null"
+    .. "; cat " .. shellQuote(thermalPath()) .. " 2>/dev/null; echo " .. LOAD_SEP
+    .. "; cat " .. LOADAVG_PATH .. " 2>/dev/null"
 end
 
 local function thinkpadWriteCmd(level)
@@ -198,7 +207,8 @@ local function hwmonReadCmd()
         .. `echo RPM{chan}:$(cat {shellQuote(hwmonDir .. "/fan" .. chan .. "_input")} 2>/dev/null)`
     )
   end
-  return table.concat(parts, "; ") .. "; echo " .. SEP .. "; cat " .. shellQuote(thermalPath()) .. " 2>/dev/null"
+  return table.concat(parts, "; ") .. "; echo " .. SEP .. "; cat " .. shellQuote(thermalPath())
+    .. " 2>/dev/null; echo " .. LOAD_SEP .. "; cat " .. LOADAVG_PATH .. " 2>/dev/null"
 end
 
 -- enable: 0 (full/no control), 1 (manual), 2 (auto) — the standard hwmon PWM
@@ -296,7 +306,10 @@ local function readNow()
     local out = res.stdout or ""
     local sepAt = out:find(SEP, 1, true)
     local body = sepAt and out:sub(1, sepAt - 1) or out
-    local tempOut = sepAt and out:sub(sepAt + #SEP) or ""
+    local tempAndLoad = sepAt and out:sub(sepAt + #SEP) or ""
+    local loadAt = tempAndLoad:find(LOAD_SEP, 1, true)
+    local tempOut = loadAt and tempAndLoad:sub(1, loadAt - 1) or tempAndLoad
+    local loadOut = loadAt and tempAndLoad:sub(loadAt + #LOAD_SEP) or ""
     if backend == "thinkpad" then
       parseThinkpad(body)
     else
@@ -305,6 +318,14 @@ local function readNow()
     local raw = tonumber(noctalia.string.trim(tempOut))
     if raw then
       snapshot.temp = math.floor(raw / 1000 + 0.5)
+    end
+    local loadOne, loadFive, loadFifteen = loadOut:match("^%s*(%S+)%s+(%S+)%s+(%S+)")
+    if loadOne then
+      snapshot.loadAvg = {
+        one = tonumber(loadOne) or 0,
+        five = tonumber(loadFive) or 0,
+        fifteen = tonumber(loadFifteen) or 0,
+      }
     end
     if snapshot.available then
       pushHistory()

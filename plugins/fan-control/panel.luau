@@ -80,6 +80,16 @@ local function historyRange(history, key)
   return lo or 0, hi or 0
 end
 
+local function loadAverageText()
+  local load = snap.loadAvg or {}
+  return string.format(
+    "%.2f · %.2f · %.2f",
+    load.one or 0,
+    load.five or 0,
+    load.fifteen or 0
+  )
+end
+
 local function dispatch(payload)
   reqId += 1
   payload.requestId = tostring(os.time()) .. "-" .. tostring(reqId)
@@ -106,6 +116,10 @@ render = function()
         fontSize = 12,
         color = "on_surface_variant",
       }),
+    }),
+    ui.row({ align = "center", justify = "space_between" }, {
+      ui.label({ text = noctalia.tr("panel.load_average"), fontSize = 11, color = "on_surface_variant" }),
+      ui.label({ text = loadAverageText(), fontSize = 11, color = "on_surface_variant" }),
     }),
   }
 
@@ -151,6 +165,7 @@ render = function()
   if #(snap.history or {}) > 1 then
     local tempLo, tempHi = historyRange(snap.history, "temp")
     local rpmLo, rpmHi = historyRange(snap.history, "rpm")
+    local loadLo, loadHi = historyRange(snap.history, "load")
     table.insert(children, ui.column({ gap = 4 }, {
       ui.row({ align = "center", justify = "space_between" }, {
         ui.label({ text = noctalia.tr("panel.temp_graph"), fontSize = 11, color = "on_surface_variant" }),
@@ -178,6 +193,21 @@ render = function()
       ui.graph({
         values = graphSeries(snap.history, "rpm"),
         color = "primary",
+        lineWidth = 2,
+        fillOpacity = 0.2,
+        height = 30,
+      }),
+      ui.row({ align = "center", justify = "space_between" }, {
+        ui.label({ text = noctalia.tr("panel.load_graph"), fontSize = 11, color = "on_surface_variant" }),
+        ui.label({
+          text = string.format("%.2f–%.2f", loadLo, loadHi),
+          fontSize = 11,
+          color = "on_surface_variant",
+        }),
+      }),
+      ui.graph({
+        values = graphSeries(snap.history, "load"),
+        color = "secondary",
         lineWidth = 2,
         fillOpacity = 0.2,
         height = 30,
