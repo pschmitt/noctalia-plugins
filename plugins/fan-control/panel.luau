@@ -65,19 +65,7 @@ local function telemetrySummary()
       temperature,
     })
   end
-
-  local controls = {}
-  for i, fan in snap.fans do
-    table.insert(controls, ui.button({
-      text = string.format("F%d %d RPM", i, fan.rpm or 0),
-      fontSize = 10,
-      variant = "default",
-      flexGrow = 1,
-      tooltip = noctalia.tr("panel.fan_rpm", { index = tostring(i), rpm = tostring(fan.rpm or 0) }),
-    }))
-  end
-  table.insert(controls, temperature)
-  return ui.row({ gap = 6 }, controls)
+  return temperature
 end
 
 local function shownPercent()
@@ -153,10 +141,11 @@ local function dispatch(payload)
   noctalia.state.set(COMMAND, payload)
 end
 
-local function modeButton(mode, label, fontSize, flexGrow)
+local function modeButton(mode, label, glyph, fontSize, flexGrow)
   local active = snap.mode == mode
   return ui.button({
     text = label,
+    glyph = glyph,
     fontSize = fontSize,
     variant = active and "primary" or "ghost",
     flexGrow = flexGrow or 1,
@@ -198,9 +187,9 @@ render = function()
   local multiFan = (snap.fanCount or 0) > 1
 
   table.insert(children, ui.row({ gap = 6 }, {
-    modeButton("auto", noctalia.tr("panel.auto")),
-    modeButton("full", noctalia.tr("panel.full")),
-    modeButton("manual", noctalia.tr("panel.manual") .. " " .. tostring(shown) .. "%", 12, 1.35),
+    modeButton("auto", noctalia.tr("panel.auto"), "settings-automation"),
+    modeButton("full", noctalia.tr("panel.full"), "fan"),
+    modeButton("manual", noctalia.tr("panel.manual") .. " " .. tostring(shown) .. "%", "adjustments", 12, 1.35),
   }))
 
   local manualControls = {}
@@ -209,7 +198,11 @@ render = function()
       local fanShown = shownFanPercent(i, fan)
       table.insert(manualControls, ui.row({ align = "center", justify = "space_between" }, {
         ui.label({ text = string.format("Fan %d", i), fontWeight = "medium" }),
-        ui.label({ text = tostring(fanShown) .. "%", fontWeight = "bold", color = "primary" }),
+        ui.label({
+          text = string.format("%d RPM  %d%%", fan.rpm or 0, fanShown),
+          fontWeight = "bold",
+          color = "primary",
+        }),
       }))
       table.insert(manualControls, ui.slider({
         min = 0,
