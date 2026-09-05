@@ -129,11 +129,13 @@ render = function()
         fontSize = 11,
         color = loadColor(loadOne, cpuCount),
       }),
+      ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" }),
       ui.label({
         text = string.format("%.2f", loadFive),
         fontSize = 11,
         color = loadColor(loadFive, cpuCount),
       }),
+      ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" }),
       ui.label({
         text = string.format("%.2f", loadFifteen),
         fontSize = 11,
@@ -180,6 +182,7 @@ render = function()
       end,
     }),
   }))
+  table.insert(children, ui.separator({}))
 
   if #(snap.history or {}) > 1 then
     local tempLo, tempHi = historyRange(snap.history, "temp")
