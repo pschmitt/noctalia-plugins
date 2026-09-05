@@ -88,7 +88,7 @@ local function modeButton(mode, glyph, label)
     return ui.row({
       width = 32,
       height = 32,
-      fill = snap.mode == mode and "error" or nil,
+      fill = snap.mode == mode and colors.fullColor() or nil,
       radius = 8,
       align = "center",
       justify = "center",
@@ -132,7 +132,7 @@ local function fanRow(index, fan, multiFan, shown)
       ui.label({
         text = noctalia.tr("panel.full"),
         fontSize = 10,
-        color = colors.fullColor(),
+        color = "on_surface_variant",
         flexGrow = 1,
         maxLines = 1,
       }),
