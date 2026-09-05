@@ -1,5 +1,7 @@
 --!nonstrict
 
+local colors = require("./lib/colors.luau")
+
 local SNAPSHOT = "fan.snapshot"
 local COMMAND = "fan.command"
 local PANEL_ID = "pschmitt/fan-control:panel"
@@ -17,38 +19,15 @@ local snap = noctalia.state.get(SNAPSHOT) or {
 local isVertical = false
 local reqId = 0
 
--- Each mode's color is user-overridable (auto_color/manual_color/full_color
--- settings); empty (the default) falls back to a sensible theme token — an
--- error/warning tint for "full" (uncapped, no software limit), the accent
--- for a manual level, and neutral for auto.
-local function configuredColor(key, fallback)
-  local custom = noctalia.getConfig(key)
-  if type(custom) == "string" and custom ~= "" then
-    return custom
-  end
-  return fallback
-end
-
-local function accent()
-  if noctalia.getConfig("colorize_by_status") == false then
-    return configuredColor("auto_color", "on_surface")
-  end
-  if snap.mode == "full" then
-    return configuredColor("full_color", "error")
-  elseif snap.mode == "manual" then
-    return configuredColor("manual_color", "primary")
-  end
-  return configuredColor("auto_color", "on_surface")
-end
-
 local function displayText()
   local mode = noctalia.getConfig("bar_display")
+  local showUnits = noctalia.getConfig("bar_show_units") ~= false
   if mode == "temp" then
-    return (snap.temp or 0) .. "°C"
+    return (snap.temp or 0) .. (showUnits and "°C" or "")
   elseif mode == "none" then
     return nil
   end
-  return (snap.rpm or 0) .. " RPM"
+  return (snap.rpm or 0) .. (showUnits and " RPM" or "")
 end
 
 local function modeText()
@@ -73,12 +52,11 @@ local function tooltipRows()
 end
 
 local function render()
-  local color = accent()
-  local children = { ui.glyph({ name = "car-fan", color = color }) }
+  local children = { ui.glyph({ name = "car-fan", color = colors.icon(snap) }) }
 
   local text = (not isVertical) and displayText() or nil
   if text then
-    table.insert(children, ui.label({ text = text, fontWeight = "bold", color = color }))
+    table.insert(children, ui.label({ text = text, fontWeight = "bold", color = colors.text(snap) }))
   end
 
   local container = isVertical and ui.column or ui.row

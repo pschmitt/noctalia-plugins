@@ -44,7 +44,7 @@
       "label": "Scroll up"
     },
     "auto_color": {
-      "description": "Icon/text color while in Auto mode. Empty uses the theme's neutral color.",
+      "description": "Color while in Auto mode (color_trigger = Mode). Empty uses the theme's neutral color.",
       "label": "Auto color"
     },
     "bar_display": {
@@ -56,12 +56,29 @@
         "temp": "Temperature"
       }
     },
-    "colorize_by_status": {
-      "description": "Tint the widget when the fan is at full speed or a manual level",
-      "label": "Colorize by status"
+    "bar_show_units": {
+      "description": "Show \"RPM\"/\"°C\" next to the number in the bar",
+      "label": "Show units in bar"
+    },
+    "color_trigger": {
+      "description": "What decides the icon/text color",
+      "label": "Color by",
+      "options": {
+        "mode": "Mode (Auto/Manual/Full)",
+        "rpm": "Fan speed threshold",
+        "temp": "Temperature threshold"
+      }
+    },
+    "colorize_icon": {
+      "description": "Tint the bar icon according to \"Color by\" below",
+      "label": "Colorize icon"
+    },
+    "colorize_text": {
+      "description": "Tint the bar text according to \"Color by\" below",
+      "label": "Colorize text"
     },
     "full_color": {
-      "description": "Icon/text color while at Full speed. Empty uses the theme's error/warning color.",
+      "description": "Color while at Full speed (color_trigger = Mode). Empty uses the theme's error/warning color.",
       "label": "Full-speed color"
     },
     "hwmon_name": {
@@ -69,12 +86,52 @@
       "label": "Extra hwmon chip name"
     },
     "manual_color": {
-      "description": "Icon/text color while at a manual speed. Empty uses the theme's accent color.",
+      "description": "Color while at a manual speed (color_trigger = Mode). Empty uses the theme's accent color.",
       "label": "Manual color"
     },
     "percent_step": {
       "description": "Granularity of manual speed changes: the slider's step size, and how much the increase/decrease actions change it by",
       "label": "Speed step (%)"
+    },
+    "rpm_high_color": {
+      "description": "Color at or above the high fan-speed threshold (color_trigger = Fan speed). Empty uses the theme's error/warning color.",
+      "label": "High-speed color"
+    },
+    "rpm_low_color": {
+      "description": "Color below the low fan-speed threshold (color_trigger = Fan speed). Empty uses the theme's neutral color.",
+      "label": "Low-speed color"
+    },
+    "rpm_mid_color": {
+      "description": "Color between the two fan-speed thresholds (color_trigger = Fan speed). Empty uses the theme's accent color.",
+      "label": "Mid-speed color"
+    },
+    "rpm_threshold_high": {
+      "description": "Fan speed (RPM) at or above which the high-speed color applies",
+      "label": "High fan-speed threshold (RPM)"
+    },
+    "rpm_threshold_low": {
+      "description": "Fan speed (RPM) below which the low-speed color applies",
+      "label": "Low fan-speed threshold (RPM)"
+    },
+    "temp_high_color": {
+      "description": "Color at or above the high temperature threshold (color_trigger = Temperature). Empty uses the theme's error/warning color.",
+      "label": "High-temperature color"
+    },
+    "temp_low_color": {
+      "description": "Color below the low temperature threshold (color_trigger = Temperature). Empty uses the theme's neutral color.",
+      "label": "Low-temperature color"
+    },
+    "temp_mid_color": {
+      "description": "Color between the two temperature thresholds (color_trigger = Temperature). Empty uses the theme's accent color.",
+      "label": "Mid-temperature color"
+    },
+    "temp_threshold_high": {
+      "description": "Temperature (°C) at or above which the high-temperature color applies",
+      "label": "High temperature threshold (°C)"
+    },
+    "temp_threshold_low": {
+      "description": "Temperature (°C) below which the low-temperature color applies",
+      "label": "Low temperature threshold (°C)"
     },
     "thermal_zone": {
       "description": "sysfs thermal zone used for the temperature, e.g. thermal_zone0",

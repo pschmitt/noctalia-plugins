@@ -1,6 +1,6 @@
 id          = "pschmitt/fan-control"
 name        = "Fan Control"
-version     = "1.2.1"
+version     = "1.3.0"
 plugin_api  = 3
 author      = "pschmitt (fork of piero-93/thinkpad-fan)"
 license     = "GPL-3.0"
@@ -8,13 +8,6 @@ icon        = "car-fan"
 description = "Fan speed monitor and manual control for thinkpad_acpi (ThinkPad) and generic hwmon PWM fans (Dell dell-smm-hwmon, GPD gpdfan, etc.) — no root at runtime."
 tags        = ["bar", "panel", "system", "hardware", "indicator", "utility"]
 dependencies = ["sh", "cat"]
-
-[[setting]]
-key            = "colorize_by_status"
-type           = "bool"
-label_key      = "settings.colorize_by_status.label"
-description_key = "settings.colorize_by_status.description"
-default        = true
 
 [[setting]]
 key            = "bar_display"
@@ -29,6 +22,13 @@ options = [
 ]
 
 [[setting]]
+key            = "bar_show_units"
+type           = "bool"
+label_key      = "settings.bar_show_units.label"
+description_key = "settings.bar_show_units.description"
+default        = true
+
+[[setting]]
 key            = "percent_step"
 type           = "int"
 label_key      = "settings.percent_step.label"
@@ -38,8 +38,38 @@ min            = 1
 max            = 50
 
 # ── Colors ───────────────────────────────────────────────────────────────────
-# Empty (the default) keeps the theme-relative token named in each
-# description; set a color to override just that one state.
+# Whether the icon and/or the bar text get tinted at all, what decides the
+# tint (color_trigger), and the colors for each trigger. Every *_color
+# setting defaults to empty, which keeps the theme-relative token named in
+# its description; set one to override just that state/tier.
+
+[[setting]]
+key            = "colorize_icon"
+type           = "bool"
+label_key      = "settings.colorize_icon.label"
+description_key = "settings.colorize_icon.description"
+default        = true
+
+[[setting]]
+key            = "colorize_text"
+type           = "bool"
+label_key      = "settings.colorize_text.label"
+description_key = "settings.colorize_text.description"
+default        = true
+
+[[setting]]
+key            = "color_trigger"
+type           = "select"
+label_key      = "settings.color_trigger.label"
+description_key = "settings.color_trigger.description"
+default        = "mode"
+options = [
+  { value = "mode", label_key = "settings.color_trigger.options.mode" },
+  { value = "temp", label_key = "settings.color_trigger.options.temp" },
+  { value = "rpm", label_key = "settings.color_trigger.options.rpm" },
+]
+
+# color_trigger = "mode": one color per Auto/Manual/Full state.
 
 [[setting]]
 key            = "auto_color"
@@ -60,6 +90,90 @@ key            = "full_color"
 type           = "color"
 label_key      = "settings.full_color.label"
 description_key = "settings.full_color.description"
+default        = ""
+
+# color_trigger = "temp": below temp_threshold_low / between / at-or-above
+# temp_threshold_high.
+
+[[setting]]
+key            = "temp_threshold_low"
+type           = "int"
+label_key      = "settings.temp_threshold_low.label"
+description_key = "settings.temp_threshold_low.description"
+default        = 60
+min            = 0
+max            = 120
+
+[[setting]]
+key            = "temp_threshold_high"
+type           = "int"
+label_key      = "settings.temp_threshold_high.label"
+description_key = "settings.temp_threshold_high.description"
+default        = 80
+min            = 0
+max            = 120
+
+[[setting]]
+key            = "temp_low_color"
+type           = "color"
+label_key      = "settings.temp_low_color.label"
+description_key = "settings.temp_low_color.description"
+default        = ""
+
+[[setting]]
+key            = "temp_mid_color"
+type           = "color"
+label_key      = "settings.temp_mid_color.label"
+description_key = "settings.temp_mid_color.description"
+default        = ""
+
+[[setting]]
+key            = "temp_high_color"
+type           = "color"
+label_key      = "settings.temp_high_color.label"
+description_key = "settings.temp_high_color.description"
+default        = ""
+
+# color_trigger = "rpm": below rpm_threshold_low / between / at-or-above
+# rpm_threshold_high.
+
+[[setting]]
+key            = "rpm_threshold_low"
+type           = "int"
+label_key      = "settings.rpm_threshold_low.label"
+description_key = "settings.rpm_threshold_low.description"
+default        = 2000
+min            = 0
+max            = 10000
+
+[[setting]]
+key            = "rpm_threshold_high"
+type           = "int"
+label_key      = "settings.rpm_threshold_high.label"
+description_key = "settings.rpm_threshold_high.description"
+default        = 4000
+min            = 0
+max            = 10000
+
+[[setting]]
+key            = "rpm_low_color"
+type           = "color"
+label_key      = "settings.rpm_low_color.label"
+description_key = "settings.rpm_low_color.description"
+default        = ""
+
+[[setting]]
+key            = "rpm_mid_color"
+type           = "color"
+label_key      = "settings.rpm_mid_color.label"
+description_key = "settings.rpm_mid_color.description"
+default        = ""
+
+[[setting]]
+key            = "rpm_high_color"
+type           = "color"
+label_key      = "settings.rpm_high_color.label"
+description_key = "settings.rpm_high_color.description"
 default        = ""
 
 [[setting]]

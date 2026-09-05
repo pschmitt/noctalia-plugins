@@ -1,5 +1,7 @@
 --!nonstrict
 
+local colors = require("./lib/colors.luau")
+
 local SNAPSHOT = "fan.snapshot"
 local COMMAND = "fan.command"
 
@@ -39,27 +41,6 @@ local function shownPercent()
   return snap.percent or 0
 end
 
--- Mirrors widget.luau's accent(): same auto_color/manual_color/full_color
--- settings, so the panel header matches the bar icon.
-local function configuredColor(key, fallback)
-  local custom = noctalia.getConfig(key)
-  if type(custom) == "string" and custom ~= "" then
-    return custom
-  end
-  return fallback
-end
-
-local function accent()
-  if noctalia.getConfig("colorize_by_status") == false then
-    return configuredColor("auto_color", "on_surface")
-  end
-  if snap.mode == "full" then
-    return configuredColor("full_color", "error")
-  elseif snap.mode == "manual" then
-    return configuredColor("manual_color", "primary")
-  end
-  return configuredColor("auto_color", "on_surface")
-end
 
 -- ui.graph wants values in [0, 1]. maxValue fixes the scale (e.g. 100 for a
 -- °C reading); omit it to auto-scale against the series' own peak (RPM
@@ -119,7 +100,7 @@ render = function()
   local shown = shownPercent()
   local children = {
     ui.row({ gap = 6, align = "center" }, {
-      ui.glyph({ name = "car-fan", color = accent() }),
+      ui.glyph({ name = "car-fan", color = colors.icon(snap) }),
       ui.label({ text = noctalia.tr("panel.title"), fontWeight = "bold", flexGrow = 1 }),
       ui.label({
         text = (snap.rpm or 0) .. " RPM · " .. (snap.temp or 0) .. " °C",

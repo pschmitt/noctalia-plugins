@@ -142,8 +142,15 @@ noctalia msg plugins enable pschmitt/fan-control
 
 | Setting | Type | Default | Description |
 |---------|------|---------|--------------|
-| Colorize by status | bool | `true` | Tint the widget when at full speed / manual |
-| Left-click opens the control panel | bool | `true` | Open the panel on left-click |
+| Bar display | select | `rpm` | What to show next to the icon: fan speed, temperature, or nothing |
+| Show units in bar | bool | `true` | Show "RPM"/"°C" next to the number in the bar |
+| Speed step (%) | int | `10` | Slider granularity, and the increase/decrease actions' step |
+| Left/Right/Middle click, Scroll up/down | select | see below | Action for each input: open panel, cycle Auto→Full→Manual, increase/decrease speed, or nothing. Defaults: left=panel, right=cycle_mode, scroll up=increase, scroll down=decrease, middle=none |
+| Colorize icon / Colorize text | bool | `true` | Whether the icon/text are tinted at all |
+| Color by | select | `mode` | What decides the tint: Mode (Auto/Manual/Full), Temperature threshold, or Fan-speed threshold |
+| Auto/Manual/Full color | color | (empty → theme default) | Used when Color by = Mode |
+| Low/Mid/High temperature threshold + color | int / color | `60`/`80` °C, (empty → theme default) | Used when Color by = Temperature |
+| Low/Mid/High fan-speed threshold + color | int / color | `2000`/`4000` RPM, (empty → theme default) | Used when Color by = Fan speed |
 | Thermal zone | string | `thermal_zone0` | sysfs thermal zone for the temperature |
 | Extra hwmon chip name | string | (empty) | Additional `/sys/class/hwmon/hwmon*/name` to treat as a controllable fan, alongside the built-in `dell_smm`/`gpdfan` |
 

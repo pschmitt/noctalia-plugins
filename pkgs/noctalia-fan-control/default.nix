@@ -5,7 +5,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-fan-control";
-  version = "1.2.1";
+  version = "1.3.0";
 
   src = lib.fileset.toSource {
     root = ../../plugins/fan-control;
@@ -16,6 +16,7 @@ stdenvNoCC.mkDerivation {
       ../../plugins/fan-control/service.luau
       ../../plugins/fan-control/widget.luau
       ../../plugins/fan-control/panel.luau
+      ../../plugins/fan-control/lib
       ../../plugins/fan-control/scripts
       ../../plugins/fan-control/translations
     ];
@@ -31,7 +32,7 @@ stdenvNoCC.mkDerivation {
     mkdir -p "$dest"
 
     cp plugin.toml README.md LICENSE service.luau widget.luau panel.luau "$dest"/
-    cp -r scripts translations "$dest"/
+    cp -r lib scripts translations "$dest"/
     chmod +x "$dest"/scripts/*.sh
 
     runHook postInstall
