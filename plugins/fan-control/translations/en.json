@@ -10,8 +10,10 @@
   "panel": {
     "auto": "Auto",
     "fan_rpm": "Fan {index}: {rpm} RPM",
+    "fan_speed": "Fan speed",
     "full": "Full",
     "load_graph": "Load average (1 min)",
+    "load_average": "Load average",
     "manual": "Manual",
     "rpm_graph": "Fan speed",
     "temp_graph": "Temperature",

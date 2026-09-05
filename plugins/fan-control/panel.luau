@@ -41,6 +41,20 @@ local function loadColor(value, cpuCount)
   return "on_surface_variant"
 end
 
+local function metricCard(label, value, color)
+  return ui.column({ gap = 2, flexGrow = 1, fill = "surface_variant/0.5", radius = 8, padding = 8 }, {
+    ui.label({ text = label, fontSize = 10, color = "on_surface_variant" }),
+    ui.label({ text = value, fontSize = 15, fontWeight = "bold", color = color }),
+  })
+end
+
+local function loadMetric(label, value, color)
+  return ui.column({ gap = 1, flexGrow = 1, align = "center" }, {
+    ui.label({ text = label, fontSize = 10, color = "on_surface_variant" }),
+    ui.label({ text = string.format("%.2f", value), fontSize = 14, fontWeight = "bold", color = color }),
+  })
+end
+
 local function shownPercent()
   if sliderPreview then
     return sliderPreview
@@ -116,30 +130,20 @@ render = function()
   local children = {
     ui.row({ gap = 6, align = "center" }, {
       ui.glyph({ name = "car-fan", color = colors.icon(snap) }),
-      ui.label({ text = noctalia.tr("panel.title"), fontWeight = "bold", flexGrow = 1 }),
-      ui.label({
-        text = (snap.rpm or 0) .. " RPM · " .. (snap.temp or 0) .. " °C",
-        fontSize = 12,
-        color = "on_surface_variant",
-      }),
+      ui.label({ text = noctalia.tr("panel.title"), fontWeight = "bold" }),
     }),
-    ui.row({ justify = "end", gap = 4 }, {
-      ui.label({
-        text = string.format("%.2f", loadOne),
-        fontSize = 11,
-        color = loadColor(loadOne, cpuCount),
-      }),
-      ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" }),
-      ui.label({
-        text = string.format("%.2f", loadFive),
-        fontSize = 11,
-        color = loadColor(loadFive, cpuCount),
-      }),
-      ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" }),
-      ui.label({
-        text = string.format("%.2f", loadFifteen),
-        fontSize = 11,
-        color = loadColor(loadFifteen, cpuCount),
+    ui.row({ gap = 6 }, {
+      metricCard(noctalia.tr("panel.fan_speed"), (snap.rpm or 0) .. " RPM", "on_surface"),
+      metricCard(noctalia.tr("tooltip.temperature"), (snap.temp or 0) .. " °C", "on_surface"),
+    }),
+    ui.column({ gap = 5, fill = "surface_variant/0.5", radius = 8, padding = 8 }, {
+      ui.label({ text = noctalia.tr("panel.load_average"), fontSize = 10, color = "on_surface_variant" }),
+      ui.row({ gap = 4, align = "center" }, {
+        loadMetric("1m", loadOne, loadColor(loadOne, cpuCount)),
+        ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" }),
+        loadMetric("5m", loadFive, loadColor(loadFive, cpuCount)),
+        ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" }),
+        loadMetric("15m", loadFifteen, loadColor(loadFifteen, cpuCount)),
       }),
     }),
   }
