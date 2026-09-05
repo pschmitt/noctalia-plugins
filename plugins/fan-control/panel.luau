@@ -188,7 +188,7 @@ render = function()
 
   table.insert(children, ui.row({ gap = 6 }, {
     modeButton("auto", noctalia.tr("panel.auto"), "settings-automation"),
-    modeButton("full", noctalia.tr("panel.full"), "fan"),
+    modeButton("full", noctalia.tr("panel.full"), "car-fan"),
     modeButton("manual", noctalia.tr("panel.manual") .. " " .. tostring(shown) .. "%", "adjustments", 12, 1.35),
   }))
 
