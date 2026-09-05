@@ -88,7 +88,7 @@ local function modeButton(mode, glyph, label)
     return ui.row({
       width = 32,
       height = 32,
-      fill = snap.mode == mode and "primary" or nil,
+      fill = snap.mode == mode and "error" or nil,
       radius = 8,
       align = "center",
       justify = "center",
@@ -96,7 +96,11 @@ local function modeButton(mode, glyph, label)
         selectMode(mode)
       end,
     }, {
-      ui.glyph({ name = glyph, size = 18, color = colors.fullColor() }),
+      ui.glyph({
+        name = glyph,
+        size = 18,
+        color = snap.mode == mode and "on_error" or "on_surface",
+      }),
     })
   end
 
@@ -222,19 +226,26 @@ local function loadRow()
   })
 end
 
+local function header()
+  return ui.row({
+    gap = 6,
+    padding = 8,
+    fill = "surface_variant/0.5",
+    radius = 8,
+    align = "center",
+  }, {
+    ui.glyph({ name = "car-fan", size = 18, color = colors.icon(snap) }),
+    ui.label({ text = noctalia.tr("panel.title"), fontWeight = "bold", flexGrow = 1 }),
+    modeButton("auto", "settings-automation", noctalia.tr("panel.auto")),
+    modeButton("full", "car-fan", noctalia.tr("panel.full")),
+    modeButton("manual", "adjustments", noctalia.tr("panel.manual")),
+  })
+end
+
 render = function()
   local shown = shownPercent()
   local multiFan = (snap.fanCount or 0) > 1
-  local children = {
-    ui.row({ gap = 6, align = "center" }, {
-      ui.glyph({ name = "car-fan", color = colors.icon(snap) }),
-      ui.label({ text = noctalia.tr("panel.title"), fontWeight = "bold" }),
-      ui.box({ flexGrow = 1 }),
-      modeButton("auto", "settings-automation", noctalia.tr("panel.auto")),
-      modeButton("full", "car-fan", noctalia.tr("panel.full")),
-      modeButton("manual", "adjustments", noctalia.tr("panel.manual")),
-    }),
-  }
+  local children = { header() }
 
   if not snap.available then
     table.insert(children, ui.label({
@@ -254,7 +265,7 @@ render = function()
     table.insert(children, loadRow())
   end
 
-  panel.render(ui.column({ gap = 10, fill = "surface_variant/0.5", radius = 12, padding = 10 }, children))
+  panel.render(ui.column({ gap = 10, padding = 10 }, children))
 end
 
 function onOpen(_context)
