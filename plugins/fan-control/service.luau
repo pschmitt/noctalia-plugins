@@ -36,6 +36,10 @@ local LOADAVG_PATH = "/proc/loadavg"
 local backend = nil
 local hwmonDir = nil -- hwmon backend only: absolute path to the matched hwmon*/ dir
 local hwmonChannels = {} -- hwmon backend only: array of channel numbers, e.g. {1, 2}
+-- Hardware cannot distinguish Full from Manual at 100%: both are manual PWM
+-- 255 to support dell-smm-hwmon. Keep the last explicit user choice for that
+-- one ambiguous readback; a fresh service starts by reporting it as Full.
+local hwmonMaxMode = nil -- "full" | "manual" | nil
 local detecting = false
 local detected = false
 
@@ -170,10 +174,7 @@ local function hwmonModeAndPercent(channels)
   elseif first.enable == 0 then
     return "full", 100
   elseif first.enable == 1 and first.pwm == 255 then
-    -- Full is written as manual PWM 255 below: dell-smm-hwmon rejects the
-    -- otherwise common `pwm*_enable = 0` form. The readback is intentionally
-    -- treated as Full too, even though manual 100% is indistinguishable.
-    return "full", 100
+    return hwmonMaxMode or "full", 100
   end
   return "manual", math.floor((first.pwm or 0) * 100 / 255 + 0.5)
 end
@@ -286,6 +287,7 @@ local function runDetect(cb)
     backend = out:match("BACKEND:(%a+)") or "none"
     hwmonDir = out:match("HWMONDIR:(%S+)")
     hwmonChannels = {}
+    hwmonMaxMode = nil
     for chan in out:gmatch("CHAN:(%d+)") do
       table.insert(hwmonChannels, tonumber(chan))
     end
@@ -405,10 +407,12 @@ local function applyMode(mode)
   elseif backend == "hwmon" then
     snapshot.mode = mode
     if mode == "auto" then
+      hwmonMaxMode = nil
       snapshot.percent = 0
       publish()
       runWrite(hwmonWriteCmd(2, nil), readNow)
     else
+      hwmonMaxMode = mode
       snapshot.percent = 100
       publish()
       runWrite(hwmonWriteCmd(1, 255), readNow)
@@ -426,6 +430,7 @@ local function applyPercent(percent, selectedIndex)
     snapshot.level = level
     runWrite(thinkpadWriteCmd(level), readNow)
   elseif backend == "hwmon" then
+    hwmonMaxMode = "manual"
     local pwmValue = math.clamp(math.floor(percent * 255 / 100 + 0.5), 0, 255)
     if selectedIndex then
       for i, fan in snapshot.fans do
