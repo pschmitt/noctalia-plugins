@@ -41,7 +41,6 @@ local function shownPercent()
   return snap.percent or 0
 end
 
-
 -- ui.graph wants values in [0, 1]. maxValue fixes the scale (e.g. 100 for a
 -- °C reading); omit it to auto-scale against the series' own peak (RPM
 -- ranges wildly by hardware, from a GPD Pocket's tiny fan to a ThinkPad's).
@@ -117,7 +116,7 @@ render = function()
       color = "on_surface_variant",
       maxLines = 3,
     }))
-    panel.render(ui.column({ gap = 8, padding = 10 }, children))
+    panel.render(ui.column({ gap = 6, padding = 10 }, children))
     return
   end
 
@@ -166,7 +165,7 @@ render = function()
         color = "error",
         lineWidth = 2,
         fillOpacity = 0.2,
-        height = 36,
+        height = 30,
       }),
       ui.row({ align = "center", justify = "space_between" }, {
         ui.label({ text = noctalia.tr("panel.rpm_graph"), fontSize = 11, color = "on_surface_variant" }),
@@ -181,7 +180,7 @@ render = function()
         color = "primary",
         lineWidth = 2,
         fillOpacity = 0.2,
-        height = 36,
+        height = 30,
       }),
     }))
   end
@@ -198,7 +197,7 @@ render = function()
     table.insert(children, ui.column({ gap = 2 }, rows))
   end
 
-  panel.render(ui.column({ gap = 8, padding = 10 }, children))
+  panel.render(ui.column({ gap = 6, padding = 10 }, children))
 end
 
 function onOpen(_context)
