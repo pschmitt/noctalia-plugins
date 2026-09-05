@@ -22,6 +22,7 @@ local render
 -- update the on-screen percentage without spamming the service; the actual
 -- write only fires once, from onDragEnd.
 local sliderPreview = nil
+local fanSliderPreviews = {}
 -- The last percent committed via onDragEnd, held onscreen optimistically
 -- until the service's own snapshot catches up to it — otherwise the display
 -- snaps back to the old percent for the round-trip (a hwmon write + a
@@ -29,6 +30,7 @@ local sliderPreview = nil
 -- Cleared once snap.percent matches, so an external change (another client)
 -- still shows up rather than getting stuck on a stale target forever.
 local optimisticTarget = nil
+local fanOptimisticTargets = {}
 
 local function loadColor(value, cpuCount)
   if cpuCount > 0 and value > cpuCount then
@@ -89,6 +91,23 @@ local function shownPercent()
   return snap.percent or 0
 end
 
+local function fanPercent(fan)
+  return math.floor((fan.pwm or 0) * 100 / 255 + 0.5)
+end
+
+local function shownFanPercent(index, fan)
+  if fanSliderPreviews[index] ~= nil then
+    return fanSliderPreviews[index]
+  end
+  local current = fanPercent(fan)
+  local target = fanOptimisticTargets[index]
+  if target ~= nil and target ~= current then
+    return target
+  end
+  fanOptimisticTargets[index] = nil
+  return current
+end
+
 -- ui.graph wants values in [0, 1]. maxValue fixes the scale (e.g. 100 for a
 -- °C reading); omit it to auto-scale against the series' own peak (RPM
 -- ranges wildly by hardware, from a GPD Pocket's tiny fan to a ThinkPad's).
@@ -138,7 +157,9 @@ local function modeButton(mode, label)
   local active = snap.mode == mode
   return ui.button({ text = label, variant = active and "primary" or "ghost", flexGrow = 1, onClick = function()
     sliderPreview = nil
+    fanSliderPreviews = {}
     optimisticTarget = nil
+    fanOptimisticTargets = {}
     dispatch({ action = "set_mode", mode = mode })
   end })
 end
@@ -168,17 +189,44 @@ render = function()
     return
   end
 
+  local multiFan = (snap.fanCount or 0) > 1
+
   table.insert(children, ui.row({ gap = 6 }, {
     modeButton("auto", noctalia.tr("panel.auto")),
     modeButton("full", noctalia.tr("panel.full")),
+    modeButton("manual", noctalia.tr("panel.manual") .. " " .. tostring(shown) .. "%"),
   }))
 
-  table.insert(children, ui.column({ gap = 6 }, {
-    ui.row({ align = "center", justify = "space_between" }, {
-      ui.label({ text = noctalia.tr("panel.manual"), fontWeight = "medium" }),
-      ui.label({ text = tostring(shown) .. "%", fontWeight = "bold", color = "primary" }),
-    }),
-    ui.slider({
+  local manualControls = {}
+  if multiFan then
+    for i, fan in snap.fans do
+      local fanShown = shownFanPercent(i, fan)
+      table.insert(manualControls, ui.row({ align = "center", justify = "space_between" }, {
+        ui.label({ text = string.format("Fan %d", i), fontWeight = "medium" }),
+        ui.label({ text = tostring(fanShown) .. "%", fontWeight = "bold", color = "primary" }),
+      }))
+      table.insert(manualControls, ui.slider({
+        min = 0,
+        max = 100,
+        step = tonumber(noctalia.getConfig("percent_step")) or 10,
+        value = fanShown,
+        onChange = function(value)
+          fanSliderPreviews[i] = tonumber(value) or fanShown
+          render()
+        end,
+        onDragEnd = function(value)
+          local target = fanSliderPreviews[i] or tonumber(value) or fanShown
+          fanSliderPreviews[i] = nil
+          fanOptimisticTargets[i] = target
+          dispatch({ action = "set_percent", index = i, value = target })
+        end,
+      }))
+    end
+  else
+    table.insert(manualControls, ui.row({ align = "center", justify = "space_between" }, {
+      ui.label({ text = noctalia.tr("panel.fan_speed"), fontWeight = "medium" }),
+    }))
+    table.insert(manualControls, ui.slider({
       min = 0,
       max = 100,
       step = tonumber(noctalia.getConfig("percent_step")) or 10,
@@ -193,8 +241,9 @@ render = function()
         optimisticTarget = target
         dispatch({ action = "set_percent", value = target })
       end,
-    }),
-  }))
+    }))
+  end
+  table.insert(children, ui.column({ gap = 6 }, manualControls))
   table.insert(children, ui.separator({}))
   table.insert(children, telemetrySummary())
   table.insert(children, ui.column({ gap = 5, fill = "surface_variant/0.5", radius = 8, padding = 8 }, {
@@ -265,6 +314,8 @@ end
 function onOpen(_context)
   snap = noctalia.state.get(SNAPSHOT) or snap
   sliderPreview = nil
+  fanSliderPreviews = {}
+  fanOptimisticTargets = {}
   render()
 end
 

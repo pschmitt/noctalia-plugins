@@ -217,12 +217,12 @@ end
 -- enable: 0 (full/no control), 1 (manual), 2 (auto) — the standard hwmon PWM
 -- enable semantics (Documentation/hwmon/sysfs-interface), applied uniformly
 -- to every detected channel.
-local function hwmonWriteCmd(enable, pwmValue)
+local function hwmonWriteCmd(enable, pwmValue, selectedIndex)
   local parts = {}
-  for _, chan in hwmonChannels do
+  for i, chan in hwmonChannels do
     local enablePath = shellQuote(hwmonDir .. "/pwm" .. chan .. "_enable")
     table.insert(parts, "echo " .. enable .. " > " .. enablePath)
-    if pwmValue then
+    if pwmValue and (not selectedIndex or i == selectedIndex) then
       table.insert(parts, "echo " .. pwmValue .. " > " .. shellQuote(hwmonDir .. "/pwm" .. chan))
     end
   end
@@ -374,15 +374,12 @@ local function runWrite(cmd, onDone)
   end, WRITE_TIMEOUT_MS)
 end
 
--- Only "auto"/"full" arrive here: both are safe, absolute writes with no
--- dependency on whatever percent happened to be on screen before. "manual"
--- is never entered through this path — only applyPercent() below sets it,
--- so the fans never jump to a stale or default duty cycle the user didn't
--- just choose (e.g. a leftover 0% from being in "auto" would otherwise stop
--- the fan the instant "Manual" was clicked).
+-- Auto/full are absolute mode writes. Manual preserves the current duty cycle
+-- while switching the fans out of automatic control; the sliders then change
+-- individual channels where the backend exposes more than one.
 local function applyMode(mode)
   if backend == "thinkpad" then
-    local level = (mode == "auto") and "auto" or "disengaged"
+    local level = mode == "auto" and "auto" or (mode == "full" and "disengaged" or thinkpadLevelFromPercent(snapshot.percent))
     snapshot.level = level
     snapshot.mode = mode
     publish()
@@ -390,12 +387,12 @@ local function applyMode(mode)
   elseif backend == "hwmon" then
     snapshot.mode = mode
     publish()
-    local enable = (mode == "auto") and 2 or 0
+    local enable = mode == "auto" and 2 or (mode == "full" and 0 or 1)
     runWrite(hwmonWriteCmd(enable, nil), readNow)
   end
 end
 
-local function applyPercent(percent)
+local function applyPercent(percent, selectedIndex)
   percent = math.clamp(math.floor(tonumber(percent) or 0), 0, 100)
   snapshot.mode = "manual"
   snapshot.percent = percent
@@ -406,7 +403,15 @@ local function applyPercent(percent)
     runWrite(thinkpadWriteCmd(level), readNow)
   elseif backend == "hwmon" then
     local pwmValue = math.clamp(math.floor(percent * 255 / 100 + 0.5), 0, 255)
-    runWrite(hwmonWriteCmd(1, pwmValue), readNow)
+    if selectedIndex then
+      for i, fan in snapshot.fans do
+        if i == selectedIndex then
+          fan.pwm = pwmValue
+        end
+        fan.enable = 1
+      end
+    end
+    runWrite(hwmonWriteCmd(1, pwmValue, selectedIndex), readNow)
   end
 end
 
@@ -414,10 +419,10 @@ noctalia.state.watch(COMMAND, function(cmd)
   if type(cmd) ~= "table" or not detected or backend == "none" then
     return
   end
-  if cmd.action == "set_mode" and (cmd.mode == "auto" or cmd.mode == "full") then
+  if cmd.action == "set_mode" and (cmd.mode == "auto" or cmd.mode == "full" or cmd.mode == "manual") then
     applyMode(cmd.mode)
   elseif cmd.action == "set_percent" then
-    applyPercent(cmd.value)
+    applyPercent(cmd.value, tonumber(cmd.index))
   end
 end)
 
