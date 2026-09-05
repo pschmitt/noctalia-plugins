@@ -13,9 +13,9 @@
 #     2. installs a udev rule giving the fan_ctl group write access to
 #        /proc/acpi/ibm/fan on every module bind.
 #
-#   hwmon PWM (dell-smm-hwmon "dell_smm", gpd_fan "gpd_fan", or any chip name
-#   passed as an extra argument — the same names the plugin's "Extra hwmon
-#   chip name" setting accepts):
+#   hwmon PWM (dell-smm-hwmon's chip name "dell_smm", the gpd_fan module's
+#   chip name "gpdfan", or any chip name passed as an extra argument — the
+#   same names the plugin's "Extra hwmon chip name" setting accepts):
 #     installs a udev rule giving the fan_ctl group write access to that
 #     hwmon device's pwm*/pwm*_enable files on every bind.
 #
@@ -84,7 +84,7 @@ fi
 
 echo "Writing ${HWMON_RULE_FILE}..."
 {
-  for name in dell_smm gpd_fan "${EXTRA_HWMON_NAMES[@]}"; do
+  for name in dell_smm gpdfan "${EXTRA_HWMON_NAMES[@]}"; do
     # $$f (not $f): udev's rule-value parser treats a bare "$name" as one of
     # its own substitutions and rejects anything it doesn't recognize, so the
     # literal '$' the shell needs has to be escaped for udev as '$$'.
@@ -95,7 +95,7 @@ echo "Writing ${HWMON_RULE_FILE}..."
 for d in /sys/class/hwmon/hwmon*; do
   [ -e "${d}/name" ] || continue
   n="$(cat "${d}/name" 2>/dev/null || true)"
-  for name in dell_smm gpd_fan "${EXTRA_HWMON_NAMES[@]}"; do
+  for name in dell_smm gpdfan "${EXTRA_HWMON_NAMES[@]}"; do
     if [ "${n}" = "${name}" ]; then
       shopt -s nullglob
       for f in "${d}"/pwm*; do

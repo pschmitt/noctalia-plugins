@@ -88,15 +88,15 @@ render = function()
   }))
 
   if (snap.fanCount or 0) > 1 then
-    local parts = {}
+    local rows = {}
     for i, fan in snap.fans do
-      table.insert(parts, noctalia.tr("panel.fan_rpm", { index = tostring(i), rpm = tostring(fan.rpm or 0) }))
+      table.insert(rows, ui.label({
+        text = noctalia.tr("panel.fan_rpm", { index = tostring(i), rpm = tostring(fan.rpm or 0) }),
+        fontSize = 11,
+        color = "on_surface_variant",
+      }))
     end
-    table.insert(children, ui.label({
-      text = table.concat(parts, " · "),
-      fontSize = 11,
-      color = "on_surface_variant",
-    }))
+    table.insert(children, ui.column({ gap = 2 }, rows))
   end
 
   panel.render(ui.column({ gap = 8, padding = 10 }, children))

@@ -13,8 +13,8 @@ a slider for manual speed — no root needed at runtime.
 
 - **ThinkPads** using the `thinkpad_acpi` kernel module (`/proc/acpi/ibm/fan`).
 - **Dell** laptops using `dell-smm-hwmon` (hwmon chip name `dell_smm`).
-- **GPD** handhelds (Pocket, Win, etc.) using `gpd_fan` (hwmon chip name
-  `gpd_fan`).
+- **GPD** handhelds (Pocket, Win, etc.) using `gpdfan` (hwmon chip name
+  `gpdfan`).
 - Any other chip exposing the standard hwmon `pwmN`/`pwmN_enable`/`fanN_input`
   attributes, via the "Extra hwmon chip name" setting.
 
@@ -58,7 +58,7 @@ Lua memory is shared between them):
 
 - One of: a ThinkPad exposing `/proc/acpi/ibm/fan` through `thinkpad_acpi`
   (loaded with `fan_control=1`, see Setup), or a machine exposing a supported
-  hwmon PWM chip (`dell_smm`, `gpd_fan`, or one named via the "Extra hwmon
+  hwmon PWM chip (`dell_smm`, `gpdfan`, or one named via the "Extra hwmon
   chip name" setting).
 - The service reads and writes those files through a shell, so `sh` and `cat`
   must be on `PATH`. Both ship with every distro (coreutils and the system
@@ -119,7 +119,7 @@ boot.extraModprobeConfig = ''
 services.udev.extraRules = ''
   ACTION=="add|bind", SUBSYSTEM=="platform", DRIVER=="thinkpad_acpi", RUN+="${pkgs.coreutils}/bin/chgrp fan_ctl /proc/acpi/ibm/fan", RUN+="${pkgs.coreutils}/bin/chmod 0664 /proc/acpi/ibm/fan"
   SUBSYSTEM=="hwmon", ATTR{name}=="dell_smm", RUN+="${pkgs.bash}/bin/sh -c 'for f in /sys/%p/pwm*; do ${pkgs.coreutils}/bin/chgrp fan_ctl \"$$f\"; ${pkgs.coreutils}/bin/chmod 0664 \"$$f\"; done'"
-  SUBSYSTEM=="hwmon", ATTR{name}=="gpd_fan", RUN+="${pkgs.bash}/bin/sh -c 'for f in /sys/%p/pwm*; do ${pkgs.coreutils}/bin/chgrp fan_ctl \"$$f\"; ${pkgs.coreutils}/bin/chmod 0664 \"$$f\"; done'"
+  SUBSYSTEM=="hwmon", ATTR{name}=="gpdfan", RUN+="${pkgs.bash}/bin/sh -c 'for f in /sys/%p/pwm*; do ${pkgs.coreutils}/bin/chgrp fan_ctl \"$$f\"; ${pkgs.coreutils}/bin/chmod 0664 \"$$f\"; done'"
 '';
 ```
 
@@ -145,7 +145,7 @@ noctalia msg plugins enable pschmitt/fan-control
 | Colorize by status | bool | `true` | Tint the widget when at full speed / manual |
 | Left-click opens the control panel | bool | `true` | Open the panel on left-click |
 | Thermal zone | string | `thermal_zone0` | sysfs thermal zone for the temperature |
-| Extra hwmon chip name | string | (empty) | Additional `/sys/class/hwmon/hwmon*/name` to treat as a controllable fan, alongside the built-in `dell_smm`/`gpd_fan` |
+| Extra hwmon chip name | string | (empty) | Additional `/sys/class/hwmon/hwmon*/name` to treat as a controllable fan, alongside the built-in `dell_smm`/`gpdfan` |
 
 ## What it does to your system
 

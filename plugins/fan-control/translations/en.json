@@ -55,7 +55,7 @@
       "label": "Colorize by status"
     },
     "hwmon_name": {
-      "description": "Extra hwmon chip name to also treat as a controllable fan (matches /sys/class/hwmon/hwmon*/name), on top of the built-in dell_smm and gpd_fan. Leave empty unless auto-detection misses your hardware.",
+      "description": "Extra hwmon chip name to also treat as a controllable fan (matches /sys/class/hwmon/hwmon*/name), on top of the built-in dell_smm and gpdfan. Leave empty unless auto-detection misses your hardware.",
       "label": "Extra hwmon chip name"
     },
     "percent_step": {

@@ -4,7 +4,7 @@
 -- Fork of piero-93/thinkpad-fan, generalized past thinkpad_acpi to also drive
 -- any fan exposed through the standard Linux hwmon PWM ABI (pwmN / pwmN_enable
 -- / fanN_input under /sys/class/hwmon/hwmonN) — e.g. dell-smm-hwmon (Dell) or
--- gpd_fan (GPD Pocket). Backend is auto-detected once per load: prefer
+-- gpdfan (GPD Pocket). Backend is auto-detected once per load: prefer
 -- thinkpad_acpi's /proc/acpi/ibm/fan (its 0-7 levels are a distinct, richer
 -- control than plain PWM), otherwise scan hwmon for a known/named chip.
 --
@@ -19,7 +19,7 @@ local HWMON_ROOT = "/sys/class/hwmon"
 -- hwmon chip names known to expose the standard pwmN/pwmN_enable ABI for a
 -- fan we want this plugin to drive. Extend via the hwmon_name setting for
 -- anything else (e.g. nct6775/it87 on a desktop board).
-local KNOWN_HWMON_NAMES = { dell_smm = true, gpd_fan = true }
+local KNOWN_HWMON_NAMES = { dell_smm = true, gpdfan = true }
 local MAX_HWMON_CHANNELS = 8
 
 local POLL_MS = 2500
