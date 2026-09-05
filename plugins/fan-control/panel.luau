@@ -245,9 +245,7 @@ render = function()
     table.insert(children, loadRow())
   end
 
-  panel.render(ui.column({ padding = 10 }, {
-    ui.column({ gap = 10, fill = "surface_variant/0.5", radius = 12, padding = 10 }, children),
-  }))
+  panel.render(ui.column({ gap = 10, fill = "surface_variant/0.5", radius = 12, padding = 10 }, children))
 end
 
 function onOpen(_context)
