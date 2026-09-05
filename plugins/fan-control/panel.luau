@@ -211,6 +211,7 @@ render = function()
     ui.row({ gap = 6, align = "center" }, {
       ui.glyph({ name = "car-fan", color = colors.icon(snap) }),
       ui.label({ text = noctalia.tr("panel.title"), fontWeight = "bold" }),
+      ui.box({ flexGrow = 1 }),
       modeButton("auto", "settings-automation", noctalia.tr("panel.auto")),
       modeButton("full", "car-fan", noctalia.tr("panel.full")),
       modeButton("manual", "adjustments", noctalia.tr("panel.manual")),
@@ -246,6 +247,16 @@ end
 
 noctalia.state.watch(SNAPSHOT, function(value)
   if type(value) == "table" then
+    if value.mode ~= snap.mode or value.percent ~= snap.percent then
+      clearSliderState()
+    else
+      for i, fan in value.fans or {} do
+        local previous = snap.fans[i]
+        if previous and fan.pwm ~= previous.pwm then
+          fanOptimisticTargets[i] = nil
+        end
+      end
+    end
     snap = value
     render()
   end
