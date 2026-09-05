@@ -55,6 +55,29 @@ local function loadMetric(label, value, color)
   })
 end
 
+local function telemetrySummary()
+  local temperature = metricCard(noctalia.tr("tooltip.temperature"), (snap.temp or 0) .. " °C", "on_surface")
+  if (snap.fanCount or 0) <= 1 then
+    return ui.row({ gap = 6 }, {
+      metricCard(noctalia.tr("panel.fan_speed"), (snap.rpm or 0) .. " RPM", "on_surface"),
+      temperature,
+    })
+  end
+
+  local controls = {}
+  for i, fan in snap.fans do
+    table.insert(controls, ui.button({
+      text = string.format("F%d %d RPM", i, fan.rpm or 0),
+      fontSize = 11,
+      variant = "default",
+      flexGrow = 1,
+      tooltip = noctalia.tr("panel.fan_rpm", { index = tostring(i), rpm = tostring(fan.rpm or 0) }),
+    }))
+  end
+  table.insert(controls, temperature)
+  return ui.row({ gap = 6 }, controls)
+end
+
 local function shownPercent()
   if sliderPreview then
     return sliderPreview
@@ -173,10 +196,7 @@ render = function()
     }),
   }))
   table.insert(children, ui.separator({}))
-  table.insert(children, ui.row({ gap = 6 }, {
-    metricCard(noctalia.tr("panel.fan_speed"), (snap.rpm or 0) .. " RPM", "on_surface"),
-    metricCard(noctalia.tr("tooltip.temperature"), (snap.temp or 0) .. " °C", "on_surface"),
-  }))
+  table.insert(children, telemetrySummary())
   table.insert(children, ui.column({ gap = 5, fill = "surface_variant/0.5", radius = 8, padding = 8 }, {
     ui.label({ text = noctalia.tr("panel.load_average"), fontSize = 10, color = "on_surface_variant" }),
     ui.row({ gap = 4, align = "center", justify = "space_between" }, {
@@ -237,18 +257,6 @@ render = function()
         height = 30,
       }),
     }))
-  end
-
-  if (snap.fanCount or 0) > 1 then
-    local rows = {}
-    for i, fan in snap.fans do
-      table.insert(rows, ui.label({
-        text = noctalia.tr("panel.fan_rpm", { index = tostring(i), rpm = tostring(fan.rpm or 0) }),
-        fontSize = 11,
-        color = "on_surface_variant",
-      }))
-    end
-    table.insert(children, ui.column({ gap = 2 }, rows))
   end
 
   panel.render(ui.column({ gap = 6, padding = 10 }, children))
