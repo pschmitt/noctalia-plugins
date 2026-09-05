@@ -128,9 +128,13 @@ local function fanRow(index, fan, multiFan, shown)
 
   if snap.mode ~= "manual" then
     if snap.mode == "auto" then
-      return ui.row({ gap = 6, align = "center" }, { fanLabel, ui.box({ flexGrow = 1 }), rpm })
+      return ui.row({ gap = 6, align = "center", minWidth = 320 }, {
+        fanLabel,
+        ui.box({ flexGrow = 1 }),
+        rpm,
+      })
     end
-    return ui.row({ gap = 6, align = "center" }, {
+    return ui.row({ gap = 6, align = "center", minWidth = 320 }, {
       fanLabel,
       ui.label({
         text = noctalia.tr("panel.full"),
@@ -174,18 +178,7 @@ local function fanRow(index, fan, multiFan, shown)
     end,
   })
 
-  local controls = {
-    ui.row({
-      fill = "primary/0.7",
-      radius = 4,
-      padding = 4,
-      align = "center",
-      justify = "center",
-    }, {
-      ui.label({ text = tostring(value) .. "%", fontSize = 10, color = "on_primary" }),
-    }),
-    slider,
-  }
+  local controls = { slider }
   if snap.backend == "thinkpad" then
     table.insert(controls, ui.label({
       text = "lvl " .. tostring(snap.level or "?") .. "/7",
@@ -194,7 +187,7 @@ local function fanRow(index, fan, multiFan, shown)
     }))
   end
 
-  return ui.row({ gap = 6, align = "center" }, {
+  return ui.row({ gap = 6, align = "center", minWidth = 320 }, {
     fanLabel,
     ui.row({ gap = 4, align = "center", flexGrow = 1 }, controls),
     rpm,
@@ -268,7 +261,7 @@ render = function()
     table.insert(children, loadRow())
   end
 
-  panel.render(ui.column({ gap = 10, padding = 10 }, children))
+  panel.render(ui.column({ gap = 10, padding = 10, align = "stretch" }, children))
 end
 
 function onOpen(_context)
