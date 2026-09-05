@@ -63,6 +63,15 @@ function M.device(device)
   return "check" -- fa-check
 end
 
+-- Connection bucket behind the signal glyph, also the suffix of its
+-- `device.conn-*` translation key.
+function M.connKind(device)
+  if device.paused or not device.connected then
+    return "none"
+  end
+  return SIGNAL_GLYPHS[device.connType] and device.connType or "unknown"
+end
+
 -- Glyph for the signal half of a device row.
 function M.signal(device)
   if not device.connected or device.paused then

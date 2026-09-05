@@ -5,6 +5,11 @@
     "no-url": "The GUI URL could not be resolved from settings or config.xml."
   },
   "device": {
+    "conn-lan": "Direct connection (local network)",
+    "conn-none": "Not connected",
+    "conn-relay": "Relayed connection",
+    "conn-unknown": "Connected",
+    "conn-wan": "Direct connection",
     "connected": "Connected",
     "disconnected": "Disconnected",
     "paused": "Paused"

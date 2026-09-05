@@ -19,9 +19,6 @@ local rowIcons = require("./lib/row_icons.luau")
 -- clipped by the panel edge.
 local PANEL_HEIGHT = 500
 local PANEL_PADDING = 14
--- The panel frame eats a few pixels below the content, so the last footer line
--- would otherwise sit flush against the bottom edge.
-local PANEL_BOTTOM_SLACK = 10
 
 local snapshot = nil
 local isOpen = false
@@ -205,7 +202,14 @@ local function folderRow(folder)
   }, {
     ui.column({ gap = 2, flexGrow = 1 }, {
       ui.label({ text = folder.label, fontWeight = "bold", fontSize = 13, maxLines = 1 }),
-      ui.label({ text = folderStateText(folder), fontSize = 10, color = "on_surface/0.65", maxLines = 1 }),
+      -- The status glyph is a tooltip-carrying button and so has no color of
+      -- its own; the state line carries the state color instead.
+      ui.label({
+        text = folderStateText(folder),
+        fontSize = 10,
+        color = folder.state == "idle" and "on_surface/0.65" or color,
+        maxLines = 1,
+      }),
       ui.progress({
         progress = folder.completion / 100,
         height = 3,
@@ -213,8 +217,17 @@ local function folderRow(folder)
         visible = folder.state == "syncing",
       }),
     }),
-    -- Status indicator on the right, where Syncthing's web GUI puts it.
-    ui.glyph({ name = rowIcons.folder(folder), size = 14, color = color }),
+    -- Status indicator on the right, where Syncthing's web GUI puts it. Only
+    -- ui.button carries a tooltip, so the indicator is a click-less ghost
+    -- button rather than a bare ui.glyph.
+    ui.button({
+      glyph = rowIcons.folder(folder),
+      variant = "ghost",
+      glyphSize = 14,
+      width = 22,
+      height = 22,
+      tooltip = folderStateText(folder),
+    }),
     -- Keeps the status indicators from reading as more action buttons.
     ui.box({ width = 1, height = 18, fill = "on_surface/0.15" }),
     ui.button({
@@ -239,19 +252,26 @@ local function folderRow(folder)
   })
 end
 
+-- Plain-language device state, used both by the row subtitle and as the
+-- hover text on its status glyph.
+local function deviceStateText(device)
+  if device.paused then
+    return tr("device.paused")
+  end
+  return device.connected and tr("device.connected") or tr("device.disconnected")
+end
+
 local function deviceRow(device)
   local color = device.paused and stateColors.get("paused")
     or (device.connected and stateColors.get("idle") or stateColors.get("disconnected"))
-  local subtitle
-  if device.paused then
-    subtitle = tr("device.paused")
-  elseif device.connected then
-    subtitle = device.address ~= "" and device.address or tr("device.connected")
+  local subtitle = deviceStateText(device)
+  if device.connected and not device.paused then
+    if device.address ~= "" then
+      subtitle = device.address
+    end
     if device.version ~= "" then
       subtitle = `{subtitle} · {device.version}`
     end
-  else
-    subtitle = tr("device.disconnected")
   end
   return ui.row({
     key = `device-{device.shortId}`,
@@ -264,16 +284,31 @@ local function deviceRow(device)
   }, {
     ui.column({ gap = 1, flexGrow = 1 }, {
       ui.label({ text = device.name, fontWeight = "bold", fontSize = 13, maxLines = 1 }),
-      ui.label({ text = subtitle, fontSize = 11, color = "on_surface/0.65", maxLines = 1 }),
+      ui.label({
+        text = subtitle,
+        fontSize = 11,
+        color = (device.connected and not device.paused) and "on_surface/0.65" or color,
+        maxLines = 1,
+      }),
     }),
     -- State glyph plus connection-type meter, the same pair (and order) the
     -- web GUI shows at the right edge of a device row.
-    ui.row({ gap = 4, align = "center" }, {
-      ui.glyph({ name = rowIcons.device(device), size = 14, color = color }),
-      ui.glyph({
-        name = rowIcons.signal(device),
-        size = 14,
-        color = (device.connected and not device.paused) and color or "on_surface/0.35",
+    ui.row({ gap = 0, align = "center" }, {
+      ui.button({
+        glyph = rowIcons.device(device),
+        variant = "ghost",
+        glyphSize = 14,
+        width = 22,
+        height = 22,
+        tooltip = deviceStateText(device),
+      }),
+      ui.button({
+        glyph = rowIcons.signal(device),
+        variant = "ghost",
+        glyphSize = 14,
+        width = 22,
+        height = 22,
+        tooltip = tr(`device.conn-{rowIcons.connKind(device)}`),
       }),
     }),
     -- Keeps the status indicators from reading as more action buttons.
@@ -362,7 +397,7 @@ local function render()
   -- height pins the root to the [[panel]] size so the folder list scrolls
   -- instead of growing past the panel background; keep PANEL_HEIGHT and the
   -- manifest's height = … in sync, the root wins over the manifest value.
-  panel.render(ui.column({ gap = 10, padding = PANEL_PADDING, height = PANEL_HEIGHT - PANEL_PADDING * 2 - PANEL_BOTTOM_SLACK }, {
+  panel.render(ui.column({ gap = 10, padding = PANEL_PADDING, height = PANEL_HEIGHT - PANEL_PADDING * 2 }, {
     header(),
     ui.label({
       text = statusSummary(),
