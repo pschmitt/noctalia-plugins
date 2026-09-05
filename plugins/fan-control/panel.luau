@@ -83,6 +83,23 @@ local function graphSeries(history, key, maxValue)
   return series
 end
 
+-- ui.graph has no built-in axis, so the min/max over the visible window is
+-- spelled out as text alongside it instead — the only "axis" a sparkline
+-- this small has room for.
+local function historyRange(history, key)
+  local lo, hi = nil, nil
+  for _, sample in history do
+    local v = sample[key] or 0
+    if not lo or v < lo then
+      lo = v
+    end
+    if not hi or v > hi then
+      hi = v
+    end
+  end
+  return lo or 0, hi or 0
+end
+
 local function dispatch(payload)
   reqId += 1
   payload.requestId = tostring(os.time()) .. "-" .. tostring(reqId)
@@ -152,8 +169,17 @@ render = function()
   }))
 
   if #(snap.history or {}) > 1 then
+    local tempLo, tempHi = historyRange(snap.history, "temp")
+    local rpmLo, rpmHi = historyRange(snap.history, "rpm")
     table.insert(children, ui.column({ gap = 4 }, {
-      ui.label({ text = noctalia.tr("panel.temp_graph"), fontSize = 11, color = "on_surface_variant" }),
+      ui.row({ align = "center", justify = "space_between" }, {
+        ui.label({ text = noctalia.tr("panel.temp_graph"), fontSize = 11, color = "on_surface_variant" }),
+        ui.label({
+          text = tostring(tempLo) .. "–" .. tostring(tempHi) .. " °C",
+          fontSize = 11,
+          color = "on_surface_variant",
+        }),
+      }),
       ui.graph({
         values = graphSeries(snap.history, "temp", 100),
         color = "error",
@@ -161,7 +187,14 @@ render = function()
         fillOpacity = 0.2,
         height = 36,
       }),
-      ui.label({ text = noctalia.tr("panel.rpm_graph"), fontSize = 11, color = "on_surface_variant" }),
+      ui.row({ align = "center", justify = "space_between" }, {
+        ui.label({ text = noctalia.tr("panel.rpm_graph"), fontSize = 11, color = "on_surface_variant" }),
+        ui.label({
+          text = tostring(rpmLo) .. "–" .. tostring(rpmHi) .. " RPM",
+          fontSize = 11,
+          color = "on_surface_variant",
+        }),
+      }),
       ui.graph({
         values = graphSeries(snap.history, "rpm"),
         color = "primary",
