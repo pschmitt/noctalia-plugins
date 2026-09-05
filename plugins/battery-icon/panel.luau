@@ -1,8 +1,8 @@
 --!nonstrict
 
 -- Compact power-control surface for the battery widget. Battery details and
--- power-profile writes live in this plugin; fan data/commands are reused from
--- pschmitt/fan-control so there is one source of truth for the controller.
+-- power-profile and fan data/commands live in this plugin so its panel can
+-- operate independently of the dedicated Fan Control widget.
 
 local DETAILS = "battery_icon.details"
 local BATTERY_COMMAND = "battery_icon.command"
@@ -15,6 +15,7 @@ local details = noctalia.state.get(DETAILS) or {
   chargeLimit = 100,
   devices = {},
 }
+local batteryIcon = noctalia.state.get("battery_icon") or {}
 local fan = noctalia.state.get(FAN_STATE) or {
   available = false,
   mode = "auto",
@@ -50,11 +51,12 @@ local function profileButton(spec)
   })
 end
 
-local function metricRow(glyph, label, value, unit)
+local function metricRow(glyph, label, value, unit, isError)
+  local color = isError and "error" or "on_surface_variant"
   return ui.row({ gap = 8, align = "center" }, {
-    ui.glyph({ name = glyph, size = 14, color = "on_surface_variant" }),
+    ui.glyph({ name = glyph, size = 14, color = color }),
     ui.label({ text = label, fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
-    ui.label({ text = value, fontSize = 14, fontWeight = "bold" }),
+    ui.label({ text = value, fontSize = 14, fontWeight = "bold", color = isError and "error" or nil }),
     unit and ui.label({ text = unit, fontSize = 10, color = "on_surface_variant" }) or ui.box({ width = 0 }),
   })
 end
@@ -65,7 +67,9 @@ local function header()
     subtitle = subtitle .. " · " .. noctalia.tr("panel.charging")
   end
   local children = {
-    ui.glyph({ name = "battery-2", size = 28, color = "on_surface" }),
+    batteryIcon.path
+        and ui.image({ path = batteryIcon.path, width = 44, height = 24, fit = "contain" })
+      or ui.glyph({ name = "battery-2", size = 28, color = "on_surface" }),
     ui.column({ gap = 2, flexGrow = 1 }, {
       ui.label({ text = noctalia.tr("panel.title"), fontSize = 16, fontWeight = "bold" }),
       ui.label({ text = subtitle, fontSize = 12, color = "on_surface_variant" }),
@@ -95,9 +99,10 @@ local function batteryRows()
       threshold = tostring(details.thresholdEnd or details.chargeLimit) .. ""
     end
     if details.thresholdGuessed then
-      threshold = threshold .. "*"
+      table.insert(rows, metricRow("battery-2", noctalia.tr("panel.charging_threshold") .. "*", threshold, "%"))
+    else
+      table.insert(rows, metricRow("battery-2", noctalia.tr("panel.charging_threshold"), threshold, "%"))
     end
-    table.insert(rows, metricRow("battery-2", noctalia.tr("panel.charging_threshold"), threshold, "%"))
   end
   return rows
 end
@@ -119,9 +124,42 @@ local function systemRows()
     return nil
   end
   local load = fan.loadAvg or {}
+  local temperature = fan.temp or 0
+  local temperatureThreshold = tonumber(noctalia.getConfig("temperature_threshold")) or 85
+  local loadThreshold = tonumber(noctalia.getConfig("load_average_threshold")) or 8
+  local one, five, fifteen = load.one or 0, load.five or 0, load.fifteen or 0
+  local loadError = one >= loadThreshold or five >= loadThreshold or fifteen >= loadThreshold
   return ui.column({ gap = 6 }, {
-    metricRow("temperature", noctalia.tr("panel.temperature"), tostring(fan.temp or 0), "°C"),
-    metricRow("activity", noctalia.tr("panel.load_average"), string.format("%.2f", load.one or 0), nil),
+    metricRow("temperature", noctalia.tr("panel.temperature"), tostring(temperature), "°C", temperature >= temperatureThreshold),
+    metricRow(
+      "activity",
+      noctalia.tr("panel.load_average"),
+      string.format("%.2f / %.2f / %.2f", one, five, fifteen),
+      nil,
+      loadError
+    ),
+  })
+end
+
+local function caffeineControl()
+  local enabled = details.caffeineEnabled == true
+  return ui.row({ gap = 8, align = "center" }, {
+    ui.glyph({ name = "coffee", size = 14, color = enabled and "primary" or "on_surface_variant" }),
+    ui.label({ text = noctalia.tr("panel.caffeine"), fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
+    ui.label({
+      text = noctalia.tr(enabled and "panel.caffeine_enabled" or "panel.caffeine_disabled"),
+      fontSize = 12,
+      color = enabled and "primary" or "on_surface_variant",
+    }),
+    ui.button({
+      glyph = "coffee",
+      variant = enabled and "primary" or "ghost",
+      controlSize = "sm",
+      tooltip = noctalia.tr(enabled and "panel.disable_caffeine" or "panel.enable_caffeine"),
+      onClick = function()
+        batteryCommand({ action = "set_caffeine", enabled = not enabled })
+      end,
+    }),
   })
 end
 
@@ -158,7 +196,8 @@ local function fanControls()
   end
   local children = {
     ui.row({ gap = 8, align = "center" }, {
-      ui.label({ text = noctalia.tr("panel.power"), fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
+      ui.glyph({ name = "car-fan", size = 14, color = "on_surface_variant" }),
+      ui.label({ text = noctalia.tr("panel.fan"), fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
       fanModeButton("auto", "settings-automation", noctalia.tr("panel.auto")),
       fanModeButton("full", "car-fan", noctalia.tr("panel.full_blast")),
       fanModeButton("manual", "adjustments", noctalia.tr("panel.manual")),
@@ -192,6 +231,8 @@ render = function()
     table.insert(children, ui.separator({}))
     table.insert(children, system)
   end
+  table.insert(children, ui.separator({}))
+  table.insert(children, caffeineControl())
   local controls = fanControls()
   if controls then
     table.insert(children, ui.separator({}))
@@ -203,12 +244,20 @@ end
 function onOpen(_context)
   details = noctalia.state.get(DETAILS) or details
   fan = noctalia.state.get(FAN_STATE) or fan
+  batteryIcon = noctalia.state.get("battery_icon") or batteryIcon
   render()
 end
 
 noctalia.state.watch(DETAILS, function(value)
   if type(value) == "table" then
     details = value
+    render()
+  end
+end)
+
+noctalia.state.watch("battery_icon", function(value)
+  if type(value) == "table" then
+    batteryIcon = value
     render()
   end
 end)

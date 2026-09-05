@@ -45,8 +45,6 @@ local POWER_PROFILES = {
   performance = true,
 }
 
-local FAN_SEP = "__BATTERY_FAN_SEP__"
-local FAN_LOAD_SEP = "__BATTERY_FAN_LOAD_SEP__"
 local fanBackend = "none"
 local fanDir = nil
 local fanChannels = {}
@@ -163,7 +161,7 @@ local function parseDetails(output)
   return details
 end
 
-local function publishDetails(percent, charging, status, profile, limit, thresholdGuessed, output)
+local function publishDetails(percent, charging, status, profile, limit, thresholdGuessed, caffeineEnabled, output)
   local details = parseDetails(output)
   noctalia.state.set(DETAILS, {
     percent = percent,
@@ -172,11 +170,31 @@ local function publishDetails(percent, charging, status, profile, limit, thresho
     powerProfile = POWER_PROFILES[profile] and profile or "",
     chargeLimit = limit,
     thresholdGuessed = thresholdGuessed,
+    caffeineEnabled = caffeineEnabled,
     health = details.health,
     thresholdStart = details.thresholdStart,
     thresholdEnd = details.thresholdEnd,
     devices = details.devices,
   })
+end
+
+local CAFFEINE_FALLBACK_UNIT = "noctalia-battery-caffeine"
+
+-- Noctalia 5.0.1 exposes the caffeine CLI commands but its running daemon
+-- does not implement them yet. Prefer that native API when it accepts the
+-- command, and otherwise hold the equivalent logind idle inhibitor in a
+-- transient user service. The fallback is deliberately named and collected
+-- so it goes away with the user session and remains easy to identify.
+local function caffeineStatusCommand()
+  return "@systemctl@ --user is-active --quiet "
+    .. CAFFEINE_FALLBACK_UNIT
+    .. " && echo fallback || @systemd_inhibit@ --list 2>/dev/null | @sed@ -n '/^[[:space:]]*noctalia[[:space:]].*[[:space:]]Caffeine[[:space:]]/p'"
+end
+
+local function readCaffeine(callback)
+  noctalia.runAsync(caffeineStatusCommand(), function(result)
+    callback(trim(result.stdout) ~= "")
+  end, 5000)
 end
 
 local function publishFan()
@@ -219,10 +237,9 @@ else
   done
 fi
 echo BACKEND_END
-echo ]] .. FAN_SEP .. [[
-cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null
-echo ]] .. FAN_LOAD_SEP .. [[
-cat /proc/loadavg 2>/dev/null
+printf 'TEMP:%s\n' "$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)"
+read -r one five fifteen _ < /proc/loadavg 2>/dev/null
+printf 'LOAD:%s %s %s\n' "$one" "$five" "$fifteen"
 ]]
 end
 
@@ -234,9 +251,7 @@ local function readFan()
   noctalia.runAsync(fanReadCommand(), function(result)
     readingFan = false
     local out = result.stdout or ""
-    local body, rest = out:match("^(.-)" .. FAN_SEP .. "\n?(.*)$")
-    body = body or out
-    local tempOut, loadOut = (rest or ""):match("^(.-)" .. FAN_LOAD_SEP .. "\n?(.*)$")
+    local body = out
 
     fanBackend = body:match("BACKEND:(%a+)") or "none"
     fanDir = body:match("HWMONDIR:(%S+)")
@@ -291,11 +306,11 @@ local function readFan()
       end
     end
 
-    local rawTemp = tonumber(trim(tempOut or ""))
+    local rawTemp = tonumber(out:match("TEMP:(%d+)"))
     if rawTemp then
       fanSnapshot.temp = math.floor(rawTemp / 1000 + 0.5)
     end
-    local one, five, fifteen = (loadOut or ""):match("^%s*(%S+)%s+(%S+)%s+(%S+)")
+    local one, five, fifteen = out:match("LOAD:(%S+)%s+(%S+)%s+(%S+)")
     if one then
       fanSnapshot.loadAvg = {
         one = tonumber(one) or 0,
@@ -773,48 +788,51 @@ local function poll()
           end
           lastCharging = charging
 
-          noctalia.runAsync(detailsCommand(cfg.device), function(detailsResult)
-            -- Always publish panel data, even when the rendered icon is
-            -- unchanged (for example, a wireless mouse can change charge
-            -- while the laptop battery stays at 80%).
-            publishDetails(
-              percent,
-              charging,
-              status,
-              profile ~= "" and profile or (lastProfile or ""),
-              cfg.fullAt,
-              limitSource == "learned",
-              detailsResult.stdout
-            )
+          readCaffeine(function(caffeineEnabled)
+            noctalia.runAsync(detailsCommand(cfg.device), function(detailsResult)
+              -- Always publish panel data, even when the rendered icon is
+              -- unchanged (for example, a wireless mouse can change charge
+              -- while the laptop battery stays at 80%).
+              publishDetails(
+                percent,
+                charging,
+                status,
+                profile ~= "" and profile or (lastProfile or ""),
+                cfg.fullAt,
+                limitSource == "learned",
+                caffeineEnabled,
+                detailsResult.stdout
+              )
 
-            local key = tostring(percent)
-              .. (charging and "c" or "d")
-              .. (powerSaver and "s" or "n")
-              .. tostring(cfg.fullAt)
-              .. cfg.lowColor
-              .. cfg.mediumColor
-              .. cfg.highColor
-              .. cfg.chargingColor
-              .. cfg.chargingBoltColor
-              .. cfg.textColor
-              .. cfg.emptyColor
+              local key = tostring(percent)
+                .. (charging and "c" or "d")
+                .. (powerSaver and "s" or "n")
+                .. tostring(cfg.fullAt)
+                .. cfg.lowColor
+                .. cfg.mediumColor
+                .. cfg.highColor
+                .. cfg.chargingColor
+                .. cfg.chargingBoltColor
+                .. cfg.textColor
+                .. cfg.emptyColor
 
-            if key == lastKey then
-              return
-            end
-            lastKey = key
+              if key == lastKey then
+                return
+              end
+              lastKey = key
 
-            local dataDir = noctalia.pluginDataDir()
-            if dataDir == nil then
-              return
-            end
+              local dataDir = noctalia.pluginDataDir()
+              if dataDir == nil then
+                return
+              end
 
-            if edge then
-              startPulse(cfg, percent, charging, powerSaver, dataDir)
-            else
-              regenerate(cfg, percent, charging, powerSaver, dataDir)
-            end
-          end, 5000)
+              if edge then
+                startPulse(cfg, percent, charging, powerSaver, dataDir)
+              else
+                regenerate(cfg, percent, charging, powerSaver, dataDir)
+              end
+            end, 5000)
+          end)
         end, 5000)
       end, 5000)
     end, 5000)
@@ -832,6 +850,36 @@ local function setFan(mode, percent)
       noctalia.log("battery-icon: fan change failed: " .. trim(result.stderr))
     end
     readFan()
+  end, 5000)
+end
+
+local function setCaffeine(enabled)
+  local nativeCommand = "noctalia msg caffeine-" .. (enabled and "enable" or "disable")
+  noctalia.runAsync(nativeCommand, function(nativeResult)
+    if nativeResult.exitCode == 0 then
+      -- If this was previously using the compatibility service, native
+      -- Caffeine is now authoritative and should be the sole inhibitor.
+      noctalia.runAsync("@systemctl@ --user stop " .. CAFFEINE_FALLBACK_UNIT, function(_result)
+        poll()
+      end, 5000)
+      return
+    end
+
+    local fallbackCommand
+    if enabled then
+      fallbackCommand = "@systemd_run@ --user --unit="
+        .. CAFFEINE_FALLBACK_UNIT
+        .. " --collect @systemd_inhibit@ --what=idle --mode=block --who=battery-icon --why=Caffeine @sleep@ infinity"
+    else
+      fallbackCommand = "@systemctl@ --user stop " .. CAFFEINE_FALLBACK_UNIT
+    end
+    noctalia.runAsync(fallbackCommand, function(fallbackResult)
+      if fallbackResult.exitCode ~= 0 then
+        noctalia.notifyError(noctalia.tr("notify.caffeine_error_title"), noctalia.tr("notify.caffeine_error_body"))
+        noctalia.log("battery-icon: caffeine change failed: " .. trim(fallbackResult.stderr))
+      end
+      poll()
+    end, 5000)
   end, 5000)
 end
 
@@ -854,6 +902,8 @@ noctalia.state.watch(COMMAND, function(cmd)
     setFan(cmd.mode, cmd.mode == "manual" and 50 or nil)
   elseif cmd.action == "set_fan_percent" then
     setFan("manual", math.clamp(math.floor(tonumber(cmd.value) or 50), 0, 100))
+  elseif cmd.action == "set_caffeine" and type(cmd.enabled) == "boolean" then
+    setCaffeine(cmd.enabled)
   end
 end)
 

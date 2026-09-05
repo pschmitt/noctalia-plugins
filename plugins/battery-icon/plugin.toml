@@ -1,6 +1,6 @@
 id = "pschmitt/battery-icon"
 name = "Battery Icon"
-version = "0.4.5"
+version = "0.5.2"
 plugin_api = 26 # noctalia.getSetting(), needed to resolve palette-role color values
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -12,8 +12,8 @@ description = "Material 3 Expressive battery indicator with a compact power-cont
 # "external power connected?" bit — see AC_ONLINE_CMD in service.luau) and,
 # via `busctl wait`, streams changes to it for instant plug/unplug detection;
 # stdbuf keeps that stream unbuffered. udevadm is the same edge without
-# upower.
-dependencies = ["magick", "powerprofilesctl", "udevadm", "busctl", "stdbuf"]
+# upower. noctalia controls Caffeine from the power panel.
+dependencies = ["magick", "powerprofilesctl", "udevadm", "busctl", "stdbuf", "noctalia"]
 
 # ── Plugin-level settings (shared by every entry, edited in Settings -> Plugins) ──
 
@@ -150,6 +150,24 @@ type = "bool"
 label_key = "settings.show_fan_controls.label"
 description_key = "settings.show_fan_controls.description"
 default = true
+
+[[setting]]
+key = "temperature_threshold"
+type = "int"
+label_key = "settings.temperature_threshold.label"
+description_key = "settings.temperature_threshold.description"
+default = 85
+min = 40
+max = 110
+
+[[setting]]
+key = "load_average_threshold"
+type = "int"
+label_key = "settings.load_average_threshold.label"
+description_key = "settings.load_average_threshold.description"
+default = 8
+min = 1
+max = 64
 
 [[service]]
 id = "poller"

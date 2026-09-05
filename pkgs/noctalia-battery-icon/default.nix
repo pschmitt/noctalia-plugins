@@ -13,7 +13,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-battery-icon";
-  version = "0.5.1";
+  version = "0.5.2";
 
   src = lib.fileset.toSource {
     root = ../../plugins/battery-icon;
@@ -47,6 +47,10 @@ stdenvNoCC.mkDerivation {
       --subst-var-by powerprofilesctl ${power-profiles-daemon}/bin/powerprofilesctl \
       --subst-var-by udevadm ${systemd}/bin/udevadm \
       --subst-var-by busctl ${systemd}/bin/busctl \
+      --subst-var-by systemctl ${systemd}/bin/systemctl \
+      --subst-var-by systemd_inhibit ${systemd}/bin/systemd-inhibit \
+      --subst-var-by systemd_run ${systemd}/bin/systemd-run \
+      --subst-var-by sleep ${coreutils}/bin/sleep \
       --subst-var-by stdbuf ${coreutils}/bin/stdbuf \
       --subst-var-by sed ${gnused}/bin/sed \
       --subst-var-by upower ${upower}/bin/upower

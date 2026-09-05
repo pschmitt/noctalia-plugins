@@ -1,5 +1,7 @@
 {
   "notify": {
+    "caffeine_error_body": "Could not update Caffeine. Check that the user systemd manager is running.",
+    "caffeine_error_title": "Caffeine",
     "fan_error_body": "Could not set the fan mode/speed. Check the Noctalia service log for the driver error.",
     "fan_error_title": "Fan control",
     "power_profile_error_body": "Could not change the power profile. Check that power-profiles-daemon is running.",
@@ -10,15 +12,20 @@
     "balanced": "Balanced",
     "battery": "Battery",
     "battery_health": "Battery health",
+    "caffeine": "Caffeine",
+    "caffeine_disabled": "Off",
+    "caffeine_enabled": "On",
     "charging": "Charging",
     "charging_threshold": "Charging threshold",
+    "disable_caffeine": "Allow idle and sleep",
+    "enable_caffeine": "Prevent idle and sleep",
     "full_blast": "Full blast",
     "load_average": "Load average",
     "manual": "Manual",
     "not_available": "Not available",
     "other_devices": "Other devices",
     "performance": "Performance",
-    "power": "Power",
+    "fan": "Fan",
     "power_saver": "Power saver",
     "temperature": "Temperature",
     "title": "Power control"
@@ -83,6 +90,14 @@
     "show_fan_controls": {
       "label": "Show fan controls",
       "description": "Show fan Auto, Full blast, and Manual controls in the power panel when the Fan Control plugin is available."
+    },
+    "temperature_threshold": {
+      "label": "Temperature alert threshold (°C)",
+      "description": "Color the temperature icon and value with the error color at or above this temperature."
+    },
+    "load_average_threshold": {
+      "label": "Load average alert threshold",
+      "description": "Color the load-average icon and values with the error color when any of the 1, 5, or 15 minute values reaches this level."
     },
     "icon_width": {
       "label": "Icon width",
