@@ -80,16 +80,6 @@ local function historyRange(history, key)
   return lo or 0, hi or 0
 end
 
-local function loadAverageText()
-  local load = snap.loadAvg or {}
-  return string.format(
-    "%.2f · %.2f · %.2f",
-    load.one or 0,
-    load.five or 0,
-    load.fifteen or 0
-  )
-end
-
 local function dispatch(payload)
   reqId += 1
   payload.requestId = tostring(os.time()) .. "-" .. tostring(reqId)
@@ -116,6 +106,16 @@ render = function()
         fontSize = 12,
         color = "on_surface_variant",
       }),
+    }),
+    ui.label({
+      text = string.format(
+        "load: %.2f %.2f %.2f",
+        (snap.loadAvg or {}).one or 0,
+        (snap.loadAvg or {}).five or 0,
+        (snap.loadAvg or {}).fifteen or 0
+      ),
+      fontSize = 11,
+      color = "on_surface_variant",
     }),
   }
 
@@ -222,10 +222,6 @@ render = function()
     end
     table.insert(children, ui.column({ gap = 2 }, rows))
   end
-
-  table.insert(children, ui.row({ justify = "end" }, {
-    ui.label({ text = loadAverageText(), fontSize = 11, color = "on_surface_variant" }),
-  }))
 
   panel.render(ui.column({ gap = 6, padding = 10 }, children))
 end

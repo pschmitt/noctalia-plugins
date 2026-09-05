@@ -1,6 +1,6 @@
 id          = "pschmitt/fan-control"
 name        = "Fan Control"
-version     = "1.5.1"
+version     = "1.5.2"
 plugin_api  = 3
 author      = "pschmitt (fork of piero-93/thinkpad-fan)"
 license     = "GPL-3.0"
