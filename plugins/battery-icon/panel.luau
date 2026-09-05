@@ -84,7 +84,7 @@ end
 local function batteryRows()
   local rows = {
     metricRow(
-      "battery-2",
+      "heart-pulse",
       noctalia.tr("panel.battery_health"),
       details.health and tostring(details.health) or noctalia.tr("panel.not_available"),
       details.health and "%" or nil
@@ -98,9 +98,9 @@ local function batteryRows()
       threshold = tostring(details.thresholdEnd or details.chargeLimit) .. ""
     end
     if details.thresholdGuessed then
-      table.insert(rows, metricRow("battery-2", noctalia.tr("panel.charging_threshold") .. "*", threshold, "%"))
+      table.insert(rows, metricRow("battery-charging", noctalia.tr("panel.charging_threshold") .. "*", threshold, "%"))
     else
-      table.insert(rows, metricRow("battery-2", noctalia.tr("panel.charging_threshold"), threshold, "%"))
+      table.insert(rows, metricRow("battery-charging", noctalia.tr("panel.charging_threshold"), threshold, "%"))
     end
   end
   return rows
