@@ -22,6 +22,11 @@ local reqId = 0
 local function displayText()
   local mode = noctalia.getConfig("bar_display")
   local showUnits = noctalia.getConfig("bar_show_units") ~= false
+  -- Full blast is an explicit override, so always expose the live speed even
+  -- when the regular bar display is intentionally icon-only.
+  if snap.mode == "full" then
+    return (snap.rpm or 0) .. (showUnits and " RPM" or "")
+  end
   if mode == "temp" then
     return (snap.temp or 0) .. (showUnits and "°C" or "")
   elseif mode == "none" then
