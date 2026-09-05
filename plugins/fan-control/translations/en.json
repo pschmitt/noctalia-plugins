@@ -81,7 +81,7 @@
       "label": "Colorize text"
     },
     "full_color": {
-      "description": "Color while at Full blast. Empty uses the theme's on-error color.",
+      "description": "Color while at Full blast. Empty uses the theme's error color.",
       "label": "Full-blast color"
     },
     "load_high_color": {

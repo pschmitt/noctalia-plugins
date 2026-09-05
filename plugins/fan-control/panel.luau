@@ -78,15 +78,35 @@ local function clearSliderState()
   fanOptimisticTargets = {}
 end
 
+local function selectMode(mode)
+  clearSliderState()
+  dispatch({ action = "set_mode", mode = mode })
+end
+
 local function modeButton(mode, glyph, label)
+  if mode == "full" then
+    return ui.row({
+      width = 32,
+      height = 32,
+      fill = snap.mode == mode and "primary" or nil,
+      radius = 8,
+      align = "center",
+      justify = "center",
+      onClick = function()
+        selectMode(mode)
+      end,
+    }, {
+      ui.glyph({ name = glyph, size = 18, color = colors.fullColor() }),
+    })
+  end
+
   return ui.button({
     glyph = glyph,
     variant = snap.mode == mode and "primary" or "ghost",
     controlSize = "sm",
     tooltip = label,
     onClick = function()
-      clearSliderState()
-      dispatch({ action = "set_mode", mode = mode })
+      selectMode(mode)
     end,
   })
 end
@@ -108,7 +128,7 @@ local function fanRow(index, fan, multiFan, shown)
       ui.label({
         text = noctalia.tr("panel.full"),
         fontSize = 10,
-        color = "on_error",
+        color = colors.fullColor(),
         flexGrow = 1,
         maxLines = 1,
       }),

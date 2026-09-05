@@ -22,6 +22,10 @@ local function tierColor(value, lo, hi, lowColor, midColor, highColor)
   return lowColor
 end
 
+function M.fullColor()
+  return configuredColor("full_color", "error")
+end
+
 -- The color color_trigger currently resolves to, independent of whether the
 -- icon/text actually get tinted with it — that's colorize_icon/
 -- colorize_text, applied by the caller (M.icon/M.text below).
@@ -29,7 +33,7 @@ function M.ruleColor(snap)
   -- Full blast is always an explicit thermal override. Make it visually
   -- unambiguous even when the normal color trigger is temperature or RPM.
   if snap.mode == "full" then
-    return configuredColor("full_color", "on_error")
+    return M.fullColor()
   end
 
   local trigger = noctalia.getConfig("color_trigger")
