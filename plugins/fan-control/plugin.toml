@@ -1,0 +1,55 @@
+id          = "pschmitt/fan-control"
+name        = "Fan Control"
+version     = "1.0.0"
+plugin_api  = 3
+author      = "pschmitt (fork of piero-93/thinkpad-fan)"
+license     = "GPL-3.0"
+icon        = "car-fan"
+description = "Fan speed monitor and manual control for thinkpad_acpi (ThinkPad) and generic hwmon PWM fans (Dell dell-smm-hwmon, GPD gpd_fan, etc.) — no root at runtime."
+tags        = ["bar", "panel", "system", "hardware", "indicator", "utility"]
+dependencies = ["sh", "cat"]
+
+[[setting]]
+key            = "colorize_by_status"
+type           = "bool"
+label_key      = "settings.colorize_by_status.label"
+description_key = "settings.colorize_by_status.description"
+default        = true
+
+[[setting]]
+key            = "allow_popup"
+type           = "bool"
+label_key      = "settings.allow_popup.label"
+description_key = "settings.allow_popup.description"
+default        = true
+
+[[setting]]
+key            = "thermal_zone"
+type           = "string"
+label_key      = "settings.thermal_zone.label"
+description_key = "settings.thermal_zone.description"
+default        = "thermal_zone0"
+
+[[setting]]
+key            = "hwmon_name"
+type           = "string"
+label_key      = "settings.hwmon_name.label"
+description_key = "settings.hwmon_name.description"
+default        = ""
+
+[[widget]]
+id    = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 300
+height          = 260
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+
+[[service]]
+id    = "service"
+entry = "service.luau"
