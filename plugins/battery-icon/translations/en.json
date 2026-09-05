@@ -31,6 +31,8 @@
     "power_saver": "Power saver",
     "rpm": "RPM",
     "temperature": "Temperature",
+    "time_remaining": "Time remaining",
+    "time_to_full": "Time to full",
     "title": "Power control"
   },
   "settings": {

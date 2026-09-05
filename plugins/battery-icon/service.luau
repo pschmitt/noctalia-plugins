@@ -137,15 +137,28 @@ local function detailsCommand(device)
     .. "/charge_control_end_threshold 2>/dev/null); rate=$(cat " .. root
     .. "/power_now 2>/dev/null); if [ -z \"$rate\" ]; then current=$(cat " .. root
     .. "/current_now 2>/dev/null); voltage=$(cat " .. root
-    .. "/voltage_now 2>/dev/null); [ -n \"$current\" ] && [ -n \"$voltage\" ] && rate=$((current * voltage / 1000000)); fi; printf 'BATTERY\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \"$full\" \"$design\" \"$start\" \"$finish\" \"$rate\"; "
+    .. "/voltage_now 2>/dev/null); [ -n \"$current\" ] && [ -n \"$voltage\" ] && rate=$((current * voltage / 1000000)); fi; tofull=$(@busctl@ --system get-property org.freedesktop.UPower "
+    .. mainPath
+    .. " org.freedesktop.UPower.Device TimeToFull 2>/dev/null); toempty=$(@busctl@ --system get-property org.freedesktop.UPower "
+    .. mainPath
+    .. " org.freedesktop.UPower.Device TimeToEmpty 2>/dev/null); printf 'BATTERY\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \"$full\" \"$design\" \"$start\" \"$finish\" \"$rate\" \"$tofull\" \"$toempty\"; "
     .. "@upower@ -e 2>/dev/null | while IFS= read -r d; do [ \"$d\" = "
     .. "'" .. mainPath .. "' ] && continue; [ \"$d\" = '/org/freedesktop/UPower/devices/DisplayDevice' ] && continue; info=$(@upower@ -i \"$d\" 2>/dev/null); percent=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*percentage:[[:space:]]*\\([0-9][0-9]*\\)%.*/\\1/p'); [ -z \"$percent\" ] && continue; label=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*model:[[:space:]]*//p'); [ -z \"$label\" ] && label=${d##*/}; kind=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*type:[[:space:]]*//p'); printf 'DEVICE\\t%s\\t%s\\t%s\\n' \"$label\" \"$percent\" \"$kind\"; done"
 end
 
 local function parseDetails(output)
-  local details = { health = nil, thresholdStart = nil, thresholdEnd = nil, rateWatts = nil, devices = {} }
+  local details = {
+    health = nil,
+    thresholdStart = nil,
+    thresholdEnd = nil,
+    rateWatts = nil,
+    timeToFull = nil,
+    timeToEmpty = nil,
+    devices = {},
+  }
   for line in (output or ""):gmatch("[^\n]+") do
-    local full, design, start, finish, rate = line:match("^BATTERY\t([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)$")
+    local full, design, start, finish, rate, toFull, toEmpty =
+      line:match("^BATTERY\t([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)$")
     if full then
       local fullValue = tonumber(full)
       local designValue = tonumber(design)
@@ -158,6 +171,8 @@ local function parseDetails(output)
       if rateMicrowatts then
         details.rateWatts = rateMicrowatts / 1000000
       end
+      details.timeToFull = parseNumber(toFull)
+      details.timeToEmpty = parseNumber(toEmpty)
     else
       local label, percent, kind = line:match("^DEVICE\t(.-)\t(%d+)\t(.-)$")
       if label and percent then
@@ -183,6 +198,8 @@ local function publishDetails(percent, charging, status, profile, limit, thresho
     thresholdStart = details.thresholdStart,
     thresholdEnd = details.thresholdEnd,
     rateWatts = details.rateWatts,
+    timeToFull = details.timeToFull,
+    timeToEmpty = details.timeToEmpty,
     devices = details.devices,
   })
 end

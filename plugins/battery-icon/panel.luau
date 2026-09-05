@@ -97,6 +97,15 @@ local function batteryRows()
     local prefix = details.charging and "+" or (details.status == "Discharging" and "−" or "")
     table.insert(rows, metricRow("bolt", noctalia.tr("panel.charge_rate"), prefix .. string.format("%.1f", details.rateWatts), "W"))
   end
+  local eta = details.charging and details.timeToFull
+    or (details.status == "Discharging" and details.timeToEmpty or nil)
+  if eta and eta > 0 then
+    local hours = math.floor(eta / 3600)
+    local minutes = math.floor((eta % 3600) / 60)
+    local etaText = hours > 0 and string.format("%dh %02dm", hours, minutes) or string.format("%dm", minutes)
+    local etaLabel = details.charging and noctalia.tr("panel.time_to_full") or noctalia.tr("panel.time_remaining")
+    table.insert(rows, metricRow("clock", etaLabel, etaText, nil))
+  end
   if details.thresholdStart or details.thresholdEnd or (details.chargeLimit or 100) < 100 then
     local threshold
     if details.thresholdStart and details.thresholdEnd then
