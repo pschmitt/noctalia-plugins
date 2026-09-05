@@ -11,6 +11,7 @@ local FAN_STATE = "battery_icon.fan"
 local details = noctalia.state.get(DETAILS) or {
   percent = 0,
   charging = false,
+  plugged = false,
   powerProfile = "",
   chargeLimit = 100,
   devices = {},
@@ -65,6 +66,8 @@ local function header()
   local subtitle = tostring(details.percent or 0) .. "%"
   if details.charging then
     subtitle = subtitle .. " · " .. noctalia.tr("panel.charging")
+  elseif details.plugged then
+    subtitle = subtitle .. " · " .. noctalia.tr("panel.plugged")
   end
   local children = {
     batteryIcon.path
@@ -90,6 +93,10 @@ local function batteryRows()
       details.health and "%" or nil
     ),
   }
+  if details.rateWatts ~= nil then
+    local prefix = details.charging and "+" or (details.status == "Discharging" and "−" or "")
+    table.insert(rows, metricRow("bolt", noctalia.tr("panel.charge_rate"), prefix .. string.format("%.1f", details.rateWatts), "W"))
+  end
   if details.thresholdStart or details.thresholdEnd or (details.chargeLimit or 100) < 100 then
     local threshold
     if details.thresholdStart and details.thresholdEnd then
@@ -111,9 +118,24 @@ local function otherDevices()
   if #devices == 0 then
     return nil
   end
+  local function deviceGlyph(device)
+    local kind = tostring(device.kind or ""):lower()
+    if kind == "mouse" or kind == "touchpad" then
+      return "mouse"
+    elseif kind == "keyboard" then
+      return "keyboard"
+    elseif kind == "headset" or kind == "headphones" then
+      return "headphones"
+    elseif kind == "phone" then
+      return "device-mobile"
+    elseif kind == "tablet" then
+      return "tablet"
+    end
+    return "battery-2"
+  end
   local rows = { ui.label({ text = noctalia.tr("panel.other_devices"), fontSize = 11, color = "on_surface_variant" }) }
   for _, device in devices do
-    table.insert(rows, metricRow("battery-2", device.label, tostring(device.percent or 0), "%"))
+    table.insert(rows, metricRow(deviceGlyph(device), device.label, tostring(device.percent or 0), "%"))
   end
   return ui.column({ gap = 6 }, rows)
 end

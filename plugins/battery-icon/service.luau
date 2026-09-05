@@ -134,15 +134,18 @@ local function detailsCommand(device)
     .. "/energy_full_design 2>/dev/null || cat " .. root
     .. "/charge_full_design 2>/dev/null); start=$(cat " .. root
     .. "/charge_control_start_threshold 2>/dev/null); finish=$(cat " .. root
-    .. "/charge_control_end_threshold 2>/dev/null); printf 'BATTERY\\t%s\\t%s\\t%s\\t%s\\n' \"$full\" \"$design\" \"$start\" \"$finish\"; "
+    .. "/charge_control_end_threshold 2>/dev/null); rate=$(cat " .. root
+    .. "/power_now 2>/dev/null); if [ -z \"$rate\" ]; then current=$(cat " .. root
+    .. "/current_now 2>/dev/null); voltage=$(cat " .. root
+    .. "/voltage_now 2>/dev/null); [ -n \"$current\" ] && [ -n \"$voltage\" ] && rate=$((current * voltage / 1000000)); fi; printf 'BATTERY\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \"$full\" \"$design\" \"$start\" \"$finish\" \"$rate\"; "
     .. "@upower@ -e 2>/dev/null | while IFS= read -r d; do [ \"$d\" = "
-    .. "'" .. mainPath .. "' ] && continue; [ \"$d\" = '/org/freedesktop/UPower/devices/DisplayDevice' ] && continue; info=$(@upower@ -i \"$d\" 2>/dev/null); percent=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*percentage:[[:space:]]*\\([0-9][0-9]*\\)%.*/\\1/p'); [ -z \"$percent\" ] && continue; label=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*model:[[:space:]]*//p'); [ -z \"$label\" ] && label=${d##*/}; printf 'DEVICE\\t%s\\t%s\\n' \"$label\" \"$percent\"; done"
+    .. "'" .. mainPath .. "' ] && continue; [ \"$d\" = '/org/freedesktop/UPower/devices/DisplayDevice' ] && continue; info=$(@upower@ -i \"$d\" 2>/dev/null); percent=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*percentage:[[:space:]]*\\([0-9][0-9]*\\)%.*/\\1/p'); [ -z \"$percent\" ] && continue; label=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*model:[[:space:]]*//p'); [ -z \"$label\" ] && label=${d##*/}; kind=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*type:[[:space:]]*//p'); printf 'DEVICE\\t%s\\t%s\\t%s\\n' \"$label\" \"$percent\" \"$kind\"; done"
 end
 
 local function parseDetails(output)
-  local details = { health = nil, thresholdStart = nil, thresholdEnd = nil, devices = {} }
+  local details = { health = nil, thresholdStart = nil, thresholdEnd = nil, rateWatts = nil, devices = {} }
   for line in (output or ""):gmatch("[^\n]+") do
-    local full, design, start, finish = line:match("^BATTERY\t([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)$")
+    local full, design, start, finish, rate = line:match("^BATTERY\t([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)$")
     if full then
       local fullValue = tonumber(full)
       local designValue = tonumber(design)
@@ -151,10 +154,14 @@ local function parseDetails(output)
       end
       details.thresholdStart = tonumber(start)
       details.thresholdEnd = tonumber(finish)
+      local rateMicrowatts = tonumber(rate)
+      if rateMicrowatts then
+        details.rateWatts = rateMicrowatts / 1000000
+      end
     else
-      local label, percent = line:match("^DEVICE\t(.-)\t(%d+)$")
+      local label, percent, kind = line:match("^DEVICE\t(.-)\t(%d+)\t(.-)$")
       if label and percent then
-        table.insert(details.devices, { label = label, percent = tonumber(percent) })
+        table.insert(details.devices, { label = label, percent = tonumber(percent), kind = kind })
       end
     end
   end
@@ -165,7 +172,8 @@ local function publishDetails(percent, charging, status, profile, limit, thresho
   local details = parseDetails(output)
   noctalia.state.set(DETAILS, {
     percent = percent,
-    charging = charging,
+    charging = status == "Charging",
+    plugged = charging,
     status = status,
     powerProfile = POWER_PROFILES[profile] and profile or "",
     chargeLimit = limit,
@@ -174,6 +182,7 @@ local function publishDetails(percent, charging, status, profile, limit, thresho
     health = details.health,
     thresholdStart = details.thresholdStart,
     thresholdEnd = details.thresholdEnd,
+    rateWatts = details.rateWatts,
     devices = details.devices,
   })
 end
