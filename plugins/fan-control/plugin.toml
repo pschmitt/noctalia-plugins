@@ -1,13 +1,13 @@
 id          = "pschmitt/fan-control"
 name        = "Fan Control"
-version     = "1.1.0"
+version     = "1.1.1"
 plugin_api  = 3
 author      = "pschmitt (fork of piero-93/thinkpad-fan)"
 license     = "GPL-3.0"
 icon        = "car-fan"
 description = "Fan speed monitor and manual control for thinkpad_acpi (ThinkPad) and generic hwmon PWM fans (Dell dell-smm-hwmon, GPD gpdfan, etc.) — no root at runtime."
 tags        = ["bar", "panel", "system", "hardware", "indicator", "utility"]
-dependencies = ["sh", "cat", "sg"]
+dependencies = ["sh", "cat"]
 
 [[setting]]
 key            = "colorize_by_status"

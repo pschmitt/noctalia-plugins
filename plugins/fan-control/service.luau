@@ -308,15 +308,15 @@ end
 
 -- ── Commands from UI entries ─────────────────────────────────────────────────
 
--- Group membership (fan_ctl, from the setup script/NixOS module) is only
--- picked up by processes started *after* the group existed — which noctalia
--- itself, already running by the time this plugin is ever enabled, never
--- is. `sg`/`newgrp` are setuid-root specifically so a process can still gain
--- a group it was only just added to without a fresh login; re-deriving via
--- `sg` here means the write works immediately instead of needing a logout.
+-- Relies on plain group-file permissions (fan_ctl, from the setup script/
+-- NixOS module): noctalia's own process needs to have been started *after*
+-- that group existed to have it. True on any normal boot (the group/udev
+-- rule are already there before login), so this is not wrapped in `sg`/
+-- `newgrp` — that only matters right after *adding* the group to an
+-- already-running session, and re-logging in (or rebooting) once at setup
+-- time is a one-off, not a steady-state runtime dependency.
 local function runWrite(cmd, onDone)
-  local wrapped = "sg fan_ctl -c " .. shellQuote(cmd)
-  noctalia.runAsync(wrapped, function(res)
+  noctalia.runAsync(cmd, function(res)
     if res.exitCode ~= 0 then
       noctalia.notifyError(noctalia.tr("notify.fan_error_title"), noctalia.tr("notify.fan_error_body"))
       noctalia.log("fan control write failed: " .. (res.stderr or ""))
