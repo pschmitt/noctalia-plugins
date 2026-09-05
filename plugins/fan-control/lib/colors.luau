@@ -26,6 +26,15 @@ function M.fullColor()
   return configuredColor("full_color", "error")
 end
 
+function M.modeColor(snap)
+  if snap.mode == "full" then
+    return M.fullColor()
+  elseif snap.mode == "manual" then
+    return configuredColor("manual_color", "primary")
+  end
+  return configuredColor("auto_color", "on_surface")
+end
+
 -- The color color_trigger currently resolves to, independent of whether the
 -- icon/text actually get tinted with it — that's colorize_icon/
 -- colorize_text, applied by the caller (M.icon/M.text below). Full blast is
@@ -51,11 +60,7 @@ function M.ruleColor(snap)
       configuredColor("rpm_high_color", "error")
     )
   end
-  -- trigger == "mode" (default)
-  if snap.mode == "manual" then
-    return configuredColor("manual_color", "primary")
-  end
-  return configuredColor("auto_color", "on_surface")
+  return M.modeColor(snap)
 end
 
 function M.icon(snap)
@@ -68,6 +73,19 @@ end
 function M.text(snap)
   if noctalia.getConfig("colorize_text") == false then
     return "on_surface"
+  end
+  return M.ruleColor(snap)
+end
+
+-- The bar's "Color by: Fan mode" reflects the selected fan mode, including
+-- Full blast. Panel thermal indicators deliberately keep M.ruleColor() so a
+-- manual override never masks the configured temperature/RPM thresholds.
+function M.barColor(snap, colorizeSetting)
+  if noctalia.getConfig(colorizeSetting) == false then
+    return "on_surface"
+  end
+  if noctalia.getConfig("color_trigger") == "mode" then
+    return M.modeColor(snap)
   end
   return M.ruleColor(snap)
 end

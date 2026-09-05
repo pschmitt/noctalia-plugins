@@ -62,11 +62,17 @@ local function render()
   -- Match Noctalia's documented compact bar-widget glyph size. The explicit
   -- size keeps this icon aligned with neighbouring built-in widgets when the
   -- RPM label is hidden.
-  local children = { ui.glyph({ name = "car-fan", size = 14, color = colors.icon(snap) }) }
+  local children = {
+    ui.glyph({ name = "car-fan", size = 14, color = colors.barColor(snap, "colorize_icon") }),
+  }
 
   local text = (not isVertical) and displayText() or nil
   if text then
-    table.insert(children, ui.label({ text = text, fontWeight = "bold", color = colors.text(snap) }))
+    table.insert(children, ui.label({
+      text = text,
+      fontWeight = "bold",
+      color = colors.barColor(snap, "colorize_text"),
+    }))
   end
 
   local container = isVertical and ui.column or ui.row
