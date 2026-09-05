@@ -70,7 +70,7 @@ local function telemetrySummary()
   for i, fan in snap.fans do
     table.insert(controls, ui.button({
       text = string.format("F%d %d RPM", i, fan.rpm or 0),
-      fontSize = 11,
+      fontSize = 10,
       variant = "default",
       flexGrow = 1,
       tooltip = noctalia.tr("panel.fan_rpm", { index = tostring(i), rpm = tostring(fan.rpm or 0) }),
@@ -153,15 +153,21 @@ local function dispatch(payload)
   noctalia.state.set(COMMAND, payload)
 end
 
-local function modeButton(mode, label)
+local function modeButton(mode, label, fontSize, flexGrow)
   local active = snap.mode == mode
-  return ui.button({ text = label, variant = active and "primary" or "ghost", flexGrow = 1, onClick = function()
+  return ui.button({
+    text = label,
+    fontSize = fontSize,
+    variant = active and "primary" or "ghost",
+    flexGrow = flexGrow or 1,
+    onClick = function()
     sliderPreview = nil
     fanSliderPreviews = {}
     optimisticTarget = nil
     fanOptimisticTargets = {}
     dispatch({ action = "set_mode", mode = mode })
-  end })
+    end,
+  })
 end
 
 render = function()
@@ -194,7 +200,7 @@ render = function()
   table.insert(children, ui.row({ gap = 6 }, {
     modeButton("auto", noctalia.tr("panel.auto")),
     modeButton("full", noctalia.tr("panel.full")),
-    modeButton("manual", noctalia.tr("panel.manual") .. " " .. tostring(shown) .. "%"),
+    modeButton("manual", noctalia.tr("panel.manual") .. " " .. tostring(shown) .. "%", 12, 1.35),
   }))
 
   local manualControls = {}
