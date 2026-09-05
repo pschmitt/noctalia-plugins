@@ -10,25 +10,19 @@ local snap = noctalia.state.get(SNAPSHOT) or {
   available = false,
   temp = 0,
   mode = "auto",
+  level = "auto",
   percent = 0,
   rpm = 0,
   fanCount = 0,
   fans = {},
+  loadAvg = { one = 0, five = 0, fifteen = 0 },
+  cpuCount = 0,
 }
 local reqId = 0
 local render
 
--- Live-preview value while the slider is being dragged, so onChange can
--- update the on-screen percentage without spamming the service; the actual
--- write only fires once, from onDragEnd.
 local sliderPreview = nil
 local fanSliderPreviews = {}
--- The last percent committed via onDragEnd, held onscreen optimistically
--- until the service's own snapshot catches up to it — otherwise the display
--- snaps back to the old percent for the round-trip (a hwmon write + a
--- confirming read) before jumping to the new one, which reads as lag.
--- Cleared once snap.percent matches, so an external change (another client)
--- still shows up rather than getting stuck on a stale target forever.
 local optimisticTarget = nil
 local fanOptimisticTargets = {}
 
@@ -43,29 +37,10 @@ local function loadColor(value, cpuCount)
   return "on_surface_variant"
 end
 
-local function metricCard(label, value, color)
-  return ui.column({ gap = 2, flexGrow = 1, fill = "surface_variant/0.5", radius = 8, padding = 8 }, {
-    ui.label({ text = label, fontSize = 10, color = "on_surface_variant" }),
-    ui.label({ text = value, fontSize = 15, fontWeight = "bold", color = color }),
-  })
-end
-
-local function loadMetric(label, value, color)
-  return ui.column({ gap = 1, flexGrow = 1, align = "center" }, {
-    ui.label({ text = label, fontSize = 10, color = "on_surface_variant" }),
-    ui.label({ text = string.format("%.2f", value), fontSize = 14, fontWeight = "bold", color = color }),
-  })
-end
-
-local function telemetrySummary()
-  local temperature = metricCard(noctalia.tr("tooltip.temperature"), (snap.temp or 0) .. " °C", "on_surface")
-  if (snap.fanCount or 0) <= 1 then
-    return ui.row({ gap = 6 }, {
-      metricCard(noctalia.tr("panel.fan_speed"), (snap.rpm or 0) .. " RPM", "on_surface"),
-      temperature,
-    })
-  end
-  return temperature
+local function dispatch(payload)
+  reqId += 1
+  payload.requestId = tostring(os.time()) .. "-" .. tostring(reqId)
+  noctalia.state.set(COMMAND, payload)
 end
 
 local function shownPercent()
@@ -96,80 +71,159 @@ local function shownFanPercent(index, fan)
   return current
 end
 
--- ui.graph wants values in [0, 1]. maxValue fixes the scale (e.g. 100 for a
--- °C reading); omit it to auto-scale against the series' own peak (RPM
--- ranges wildly by hardware, from a GPD Pocket's tiny fan to a ThinkPad's).
--- A small floor keeps a flat/near-zero series visible as a line instead of
--- collapsing to nothing.
-local function graphSeries(history, key, maxValue)
-  local peak = maxValue or 1
-  if not maxValue then
-    for _, sample in history do
-      local v = sample[key] or 0
-      if v > peak then
-        peak = v
-      end
-    end
-  end
-  local series = {}
-  for _, sample in history do
-    table.insert(series, math.max(0.02, math.min(1, (sample[key] or 0) / peak)))
-  end
-  return series
+local function clearSliderState()
+  sliderPreview = nil
+  fanSliderPreviews = {}
+  optimisticTarget = nil
+  fanOptimisticTargets = {}
 end
 
--- ui.graph has no built-in axis, so the min/max over the visible window is
--- spelled out as text alongside it instead — the only "axis" a sparkline
--- this small has room for.
-local function historyRange(history, key)
-  local lo, hi = nil, nil
-  for _, sample in history do
-    local v = sample[key] or 0
-    if not lo or v < lo then
-      lo = v
-    end
-    if not hi or v > hi then
-      hi = v
-    end
-  end
-  return lo or 0, hi or 0
-end
-
-local function dispatch(payload)
-  reqId += 1
-  payload.requestId = tostring(os.time()) .. "-" .. tostring(reqId)
-  noctalia.state.set(COMMAND, payload)
-end
-
-local function modeButton(mode, label, glyph, fontSize, flexGrow)
-  local active = snap.mode == mode
+local function modeButton(mode, glyph, label)
   return ui.button({
-    text = label,
     glyph = glyph,
-    fontSize = fontSize,
-    variant = active and "primary" or "ghost",
-    flexGrow = flexGrow or 1,
+    variant = snap.mode == mode and "primary" or "ghost",
+    controlSize = "sm",
+    tooltip = label,
     onClick = function()
-    sliderPreview = nil
-    fanSliderPreviews = {}
-    optimisticTarget = nil
-    fanOptimisticTargets = {}
-    dispatch({ action = "set_mode", mode = mode })
+      clearSliderState()
+      dispatch({ action = "set_mode", mode = mode })
     end,
+  })
+end
+
+local function modeLabel()
+  if snap.mode == "full" then
+    return noctalia.tr("mode.full")
+  elseif snap.mode == "manual" then
+    return noctalia.tr("panel.manual")
+  end
+  return noctalia.tr("mode.auto")
+end
+
+local function stateChip(text, fill, color)
+  return ui.label({
+    text = text,
+    fontSize = 10,
+    color = color,
+    fill = fill,
+    radius = 4,
+    padding = 4,
+    flexGrow = 1,
+    maxLines = 1,
+  })
+end
+
+local function fanRow(index, fan, multiFan, shown)
+  local rpm = ui.label({
+    text = tostring(fan.rpm or 0) .. " RPM",
+    fontSize = 11,
+    fontWeight = "bold",
+  })
+  local fanLabel = ui.label({ text = string.format("Fan %d", index), fontSize = 10, width = 42 })
+
+  if snap.mode ~= "manual" then
+    local state = snap.mode == "full" and "uncapped" or "firmware"
+    local fill = snap.mode == "full" and "error/0.35" or "surface_variant/0.5"
+    local color = snap.mode == "full" and "on_error" or "on_surface_variant"
+    return ui.row({ gap = 6, align = "center" }, { fanLabel, stateChip(state, fill, color), rpm })
+  end
+
+  local value = multiFan and shownFanPercent(index, fan) or shown
+  local slider = ui.slider({
+    min = 0,
+    max = 100,
+    step = tonumber(noctalia.getConfig("percent_step")) or 10,
+    value = value,
+    flexGrow = 1,
+    onChange = function(nextValue)
+      if multiFan then
+        fanSliderPreviews[index] = tonumber(nextValue) or value
+      else
+        sliderPreview = tonumber(nextValue) or value
+      end
+      render()
+    end,
+    onDragEnd = function(nextValue)
+      local target
+      if multiFan then
+        target = fanSliderPreviews[index] or tonumber(nextValue) or value
+        fanSliderPreviews[index] = nil
+        fanOptimisticTargets[index] = target
+        dispatch({ action = "set_percent", index = index, value = target })
+      else
+        target = sliderPreview or tonumber(nextValue) or value
+        sliderPreview = nil
+        optimisticTarget = target
+        dispatch({ action = "set_percent", value = target })
+      end
+    end,
+  })
+
+  local controls = {
+    ui.label({
+      text = tostring(value) .. "%",
+      fontSize = 10,
+      color = "on_primary",
+      fill = "primary/0.7",
+      radius = 4,
+      padding = 4,
+    }),
+    slider,
+  }
+  if snap.backend == "thinkpad" then
+    table.insert(controls, ui.label({
+      text = "lvl " .. tostring(snap.level or "?") .. "/7",
+      fontSize = 10,
+      color = "on_surface_variant",
+    }))
+  end
+
+  return ui.row({ gap = 6, align = "center" }, {
+    fanLabel,
+    ui.row({ gap = 4, align = "center", flexGrow = 1 }, controls),
+    rpm,
+  })
+end
+
+local function temperatureRow()
+  local color = colors.icon(snap)
+  return ui.row({ gap = 8, align = "center" }, {
+    ui.glyph({ name = "temperature", size = 14, color = color }),
+    ui.label({ text = noctalia.tr("tooltip.temperature"), fontSize = 10, color = "on_surface_variant", flexGrow = 1 }),
+    ui.label({ text = tostring(snap.temp or 0), fontSize = 16, fontWeight = "bold", color = color }),
+    ui.label({ text = "°C", fontSize = 10, color = "on_surface_variant" }),
+  })
+end
+
+local function loadValue(value, color)
+  return ui.label({ text = string.format("%.2f", value), fontSize = 12, fontWeight = "bold", color = color })
+end
+
+local function loadRow()
+  local loadAvg = snap.loadAvg or {}
+  local cpuCount = snap.cpuCount or 0
+  return ui.row({ gap = 8, align = "center" }, {
+    ui.glyph({ name = "activity", size = 14, color = "on_surface_variant" }),
+    ui.label({ text = "Load avg", fontSize = 10, color = "on_surface_variant", flexGrow = 1 }),
+    loadValue(loadAvg.one or 0, loadColor(loadAvg.one or 0, cpuCount)),
+    ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" }),
+    loadValue(loadAvg.five or 0, loadColor(loadAvg.five or 0, cpuCount)),
+    ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" }),
+    loadValue(loadAvg.fifteen or 0, loadColor(loadAvg.fifteen or 0, cpuCount)),
   })
 end
 
 render = function()
   local shown = shownPercent()
-  local loadAvg = snap.loadAvg or {}
-  local loadOne = loadAvg.one or 0
-  local loadFive = loadAvg.five or 0
-  local loadFifteen = loadAvg.fifteen or 0
-  local cpuCount = snap.cpuCount or 0
+  local multiFan = (snap.fanCount or 0) > 1
   local children = {
     ui.row({ gap = 6, align = "center" }, {
       ui.glyph({ name = "car-fan", color = colors.icon(snap) }),
       ui.label({ text = noctalia.tr("panel.title"), fontWeight = "bold" }),
+      ui.label({ text = modeLabel(), fontSize = 10, color = colors.icon(snap), flexGrow = 1 }),
+      modeButton("auto", "settings-automation", noctalia.tr("panel.auto")),
+      modeButton("full", "car-fan", noctalia.tr("panel.full")),
+      modeButton("manual", "adjustments", noctalia.tr("panel.manual")),
     }),
   }
 
@@ -180,141 +234,25 @@ render = function()
       color = "on_surface_variant",
       maxLines = 3,
     }))
-    panel.render(ui.column({ gap = 6, padding = 10 }, children))
-    return
-  end
-
-  local multiFan = (snap.fanCount or 0) > 1
-
-  table.insert(children, ui.row({ gap = 6 }, {
-    modeButton("auto", noctalia.tr("panel.auto"), "settings-automation"),
-    modeButton("full", noctalia.tr("panel.full"), "car-fan"),
-    modeButton("manual", noctalia.tr("panel.manual") .. " " .. tostring(shown) .. "%", "adjustments", 12, 1.35),
-  }))
-
-  local manualControls = {}
-  if multiFan then
-    for i, fan in snap.fans do
-      local fanShown = shownFanPercent(i, fan)
-      table.insert(manualControls, ui.row({ align = "center", justify = "space_between" }, {
-        ui.label({ text = string.format("Fan %d", i), fontWeight = "medium" }),
-        ui.label({
-          text = string.format("%d RPM  %d%%", fan.rpm or 0, fanShown),
-          fontWeight = "bold",
-          color = "primary",
-        }),
-      }))
-      table.insert(manualControls, ui.slider({
-        min = 0,
-        max = 100,
-        step = tonumber(noctalia.getConfig("percent_step")) or 10,
-        value = fanShown,
-        onChange = function(value)
-          fanSliderPreviews[i] = tonumber(value) or fanShown
-          render()
-        end,
-        onDragEnd = function(value)
-          local target = fanSliderPreviews[i] or tonumber(value) or fanShown
-          fanSliderPreviews[i] = nil
-          fanOptimisticTargets[i] = target
-          dispatch({ action = "set_percent", index = i, value = target })
-        end,
-      }))
-    end
   else
-    table.insert(manualControls, ui.row({ align = "center", justify = "space_between" }, {
-      ui.label({ text = noctalia.tr("panel.fan_speed"), fontWeight = "medium" }),
-    }))
-    table.insert(manualControls, ui.slider({
-      min = 0,
-      max = 100,
-      step = tonumber(noctalia.getConfig("percent_step")) or 10,
-      value = shown,
-      onChange = function(value)
-        sliderPreview = tonumber(value) or shown
-        render()
-      end,
-      onDragEnd = function(value)
-        local target = sliderPreview or tonumber(value) or shown
-        sliderPreview = nil
-        optimisticTarget = target
-        dispatch({ action = "set_percent", value = target })
-      end,
-    }))
+    local fans = {}
+    for i, fan in snap.fans do
+      table.insert(fans, fanRow(i, fan, multiFan, shown))
+    end
+    table.insert(children, ui.column({ gap = 8 }, fans))
+    table.insert(children, ui.separator({}))
+    table.insert(children, temperatureRow())
+    table.insert(children, loadRow())
   end
-  table.insert(children, ui.column({ gap = 6 }, manualControls))
-  table.insert(children, ui.separator({}))
-  table.insert(children, telemetrySummary())
-  table.insert(children, ui.column({ gap = 5, fill = "surface_variant/0.5", radius = 8, padding = 8 }, {
-    ui.label({ text = noctalia.tr("panel.load_average"), fontSize = 10, color = "on_surface_variant" }),
-    ui.row({ gap = 4, align = "center", justify = "space_between" }, {
-      loadMetric("1m", loadOne, loadColor(loadOne, cpuCount)),
-      loadMetric("5m", loadFive, loadColor(loadFive, cpuCount)),
-      loadMetric("15m", loadFifteen, loadColor(loadFifteen, cpuCount)),
-    }),
+
+  panel.render(ui.column({ padding = 10 }, {
+    ui.column({ gap = 10, fill = "surface_variant/0.5", radius = 12, padding = 10 }, children),
   }))
-
-  if #(snap.history or {}) > 1 then
-    local tempLo, tempHi = historyRange(snap.history, "temp")
-    local rpmLo, rpmHi = historyRange(snap.history, "rpm")
-    local loadLo, loadHi = historyRange(snap.history, "load")
-    table.insert(children, ui.column({ gap = 4 }, {
-      ui.row({ align = "center", justify = "space_between" }, {
-        ui.label({ text = noctalia.tr("panel.temp_graph"), fontSize = 11, color = "on_surface_variant" }),
-        ui.label({
-          text = tostring(tempLo) .. "–" .. tostring(tempHi) .. " °C",
-          fontSize = 11,
-          color = "on_surface_variant",
-        }),
-      }),
-      ui.graph({
-        values = graphSeries(snap.history, "temp", 100),
-        color = "error",
-        lineWidth = 2,
-        fillOpacity = 0.2,
-        height = 30,
-      }),
-      ui.row({ align = "center", justify = "space_between" }, {
-        ui.label({ text = noctalia.tr("panel.rpm_graph"), fontSize = 11, color = "on_surface_variant" }),
-        ui.label({
-          text = tostring(rpmLo) .. "–" .. tostring(rpmHi) .. " RPM",
-          fontSize = 11,
-          color = "on_surface_variant",
-        }),
-      }),
-      ui.graph({
-        values = graphSeries(snap.history, "rpm"),
-        color = "primary",
-        lineWidth = 2,
-        fillOpacity = 0.2,
-        height = 30,
-      }),
-      ui.row({ align = "center", justify = "space_between" }, {
-        ui.label({ text = noctalia.tr("panel.load_graph"), fontSize = 11, color = "on_surface_variant" }),
-        ui.label({
-          text = string.format("%.2f–%.2f", loadLo, loadHi),
-          fontSize = 11,
-          color = "on_surface_variant",
-        }),
-      }),
-      ui.graph({
-        values = graphSeries(snap.history, "load"),
-        color = "secondary",
-        lineWidth = 2,
-        fillOpacity = 0.2,
-        height = 30,
-      }),
-    }))
-  end
-
-  panel.render(ui.column({ gap = 6, padding = 10 }, children))
 end
 
 function onOpen(_context)
   snap = noctalia.state.get(SNAPSHOT) or snap
-  sliderPreview = nil
-  fanSliderPreviews = {}
-  fanOptimisticTargets = {}
+  clearSliderState()
   render()
 end
 

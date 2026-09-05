@@ -98,6 +98,7 @@ local function publish()
     fanCount = snapshot.fanCount,
     fans = snapshot.fans,
     loadAvg = snapshot.loadAvg,
+    cpuCount = snapshot.cpuCount,
     history = history,
   })
 end
