@@ -118,12 +118,6 @@ local function modeButton(mode, glyph, label)
 end
 
 local function fanRow(index, fan, multiFan, shown)
-  local rpm = ui.label({
-    text = tostring(fan.rpm or 0) .. " RPM",
-    fontSize = 11,
-    fontWeight = "bold",
-    color = "on_surface",
-  })
   local fanLabel = ui.label({ text = string.format("Fan %d", index), fontSize = 10, width = 42 })
 
   if snap.mode ~= "manual" then
@@ -131,7 +125,6 @@ local function fanRow(index, fan, multiFan, shown)
       return ui.row({ gap = 6, align = "center", minWidth = 320 }, {
         fanLabel,
         ui.box({ flexGrow = 1 }),
-        rpm,
       })
     end
     return ui.row({ gap = 6, align = "center", minWidth = 320 }, {
@@ -143,7 +136,6 @@ local function fanRow(index, fan, multiFan, shown)
         flexGrow = 1,
         maxLines = 1,
       }),
-      rpm,
     })
   end
 
@@ -190,7 +182,6 @@ local function fanRow(index, fan, multiFan, shown)
   return ui.row({ gap = 6, align = "center", minWidth = 320 }, {
     fanLabel,
     ui.row({ gap = 4, align = "center", flexGrow = 1 }, controls),
-    rpm,
   })
 end
 
@@ -223,15 +214,16 @@ local function loadRow()
 end
 
 local function header()
-  return ui.row({
-    gap = 6,
-    padding = 8,
-    fill = "surface_variant/0.5",
-    radius = 8,
-    align = "center",
-  }, {
-    ui.glyph({ name = "car-fan", size = 18, color = colors.icon(snap) }),
-    ui.label({ text = noctalia.tr("panel.title"), fontWeight = "bold", flexGrow = 1 }),
+  return ui.row({ gap = 8, align = "center" }, {
+    ui.glyph({ name = "car-fan", size = 28, color = colors.icon(snap) }),
+    ui.column({ gap = 2, flexGrow = 1 }, {
+      ui.label({ text = noctalia.tr("panel.title"), fontSize = 16, fontWeight = "bold" }),
+      ui.label({
+        text = tostring(snap.rpm or 0) .. " RPM",
+        fontSize = 12,
+        color = "on_surface_variant",
+      }),
+    }),
     modeButton("auto", "settings-automation", noctalia.tr("panel.auto")),
     modeButton("full", "car-fan", noctalia.tr("panel.full")),
     modeButton("manual", "adjustments", noctalia.tr("panel.manual")),
