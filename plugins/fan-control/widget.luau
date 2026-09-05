@@ -19,6 +19,10 @@ local snap = noctalia.state.get(SNAPSHOT) or {
 local isVertical = false
 local reqId = 0
 
+local function monitorOnly()
+  return noctalia.getConfig("control_mode") == "monitor"
+end
+
 local function displayText()
   local mode = noctalia.getConfig("bar_display")
   local showUnits = noctalia.getConfig("bar_show_units") ~= false
@@ -36,6 +40,9 @@ local function displayText()
 end
 
 local function modeText()
+  if monitorOnly() then
+    return noctalia.tr("panel.power_profile")
+  end
   if snap.mode == "full" then
     return noctalia.tr("mode.full")
   elseif snap.mode == "manual" then
@@ -130,6 +137,9 @@ local function runAction(settingKey)
     return
   end
   local action = ACTIONS[noctalia.getConfig(settingKey)]
+  if monitorOnly() and action ~= ACTIONS.panel then
+    return
+  end
   if action then
     action()
   end

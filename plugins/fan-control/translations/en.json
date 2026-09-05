@@ -15,6 +15,7 @@
     "load_graph": "Load average (1 min)",
     "load_average": "Load average",
     "manual": "Manual",
+    "power_profile": "Power-profile controlled",
     "rpm_graph": "Fan speed",
     "temp_graph": "Temperature",
     "title": "Fan control",
@@ -79,6 +80,14 @@
     "colorize_text": {
       "description": "Tint the bar text according to \"Color by\" below",
       "label": "Colorize text"
+    },
+    "control_mode": {
+      "description": "Choose direct PWM control when the driver accepts it. Monitor only keeps RPM/temperature reporting but disables all direct fan changes for firmware or power-profile-controlled hosts.",
+      "label": "Control mode",
+      "options": {
+        "direct": "Direct fan control",
+        "monitor": "Monitor only (power-profile controlled)"
+      }
     },
     "full_color": {
       "description": "Color while at Full blast. Empty uses the theme's error color.",

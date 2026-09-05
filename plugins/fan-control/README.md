@@ -55,6 +55,9 @@ Lua memory is shared between them):
   `thinkpad_acpi` the slider's 101 positions are mapped onto the hardware's 8
   discrete levels (0–7); dragging it always feels smooth, only the value
   committed on release is quantized.
+- **Monitor-only mode** — for firmware or power-profile-controlled machines
+  where PWM writes have no useful effect. It keeps the RPM and temperature
+  readouts while removing every direct control from the panel and widget.
 - **Temperature readout** from a configurable thermal zone.
 
 ## Requirements
@@ -147,6 +150,7 @@ noctalia msg plugins enable pschmitt/fan-control
 |---------|------|---------|--------------|
 | Bar display | select | `rpm` | What to show next to the icon: fan speed, temperature, or nothing |
 | Show units in bar | bool | `true` | Show "RPM"/"°C" next to the number in the bar |
+| Control mode | select | `direct` | Direct fan control, or monitor only for power-profile-controlled hosts; monitor only disables all direct fan writes while retaining RPM/temperature reporting |
 | Speed step (%) | int | `10` | Slider granularity, and the increase/decrease actions' step |
 | Left/Right/Middle click, Scroll up/down | select | see below | Action for each input: open panel, cycle Auto→Full→Manual, increase/decrease speed, or nothing. Defaults: left=panel, right=cycle_mode, scroll up=increase, scroll down=decrease, middle=none |
 | Colorize icon / Colorize text | bool | `true` | Whether the icon/text are tinted at all |
@@ -171,7 +175,8 @@ For review transparency (this plugin is trusted, unsandboxed Luau):
 - **Backend detection** runs once per load: a shell scan of
   `/sys/class/hwmon/hwmon*/name` against the built-in and configured chip
   names, entirely read-only.
-- **Writes**, only when you pick Auto/Full or drag the slider in the panel:
+- **Writes**, only when Control mode is Direct and you pick Auto/Full or drag
+  the slider in the panel:
   `level <value>` to `/proc/acpi/ibm/fan` (thinkpad), or `2` (auto) / `1`
   (manual) to `pwmN_enable` and a `0`–`255` value to `pwmN` (hwmon) — Full is
   manual PWM `255`, avoiding `pwmN_enable = 0`, which some drivers (including

@@ -78,6 +78,10 @@ local function clearSliderState()
   fanOptimisticTargets = {}
 end
 
+local function monitorOnly()
+  return noctalia.getConfig("control_mode") == "monitor"
+end
+
 local function selectMode(mode)
   clearSliderState()
   dispatch({ action = "set_mode", mode = mode })
@@ -216,20 +220,25 @@ local function loadRow()
 end
 
 local function header()
-  return ui.row({ gap = 8, align = "center" }, {
+  local children = {
     ui.glyph({ name = "car-fan", size = 28, color = colors.icon(snap) }),
     ui.column({ gap = 2, flexGrow = 1 }, {
       ui.label({ text = noctalia.tr("panel.title"), fontSize = 16, fontWeight = "bold" }),
       ui.label({
-        text = tostring(snap.rpm or 0) .. " RPM",
+        text = tostring(snap.rpm or 0) .. " RPM"
+          .. (monitorOnly() and " · " .. noctalia.tr("panel.power_profile") or ""),
         fontSize = 12,
         color = "on_surface_variant",
+        maxLines = 1,
       }),
     }),
-    modeButton("auto", "settings-automation", noctalia.tr("panel.auto")),
-    modeButton("full", "car-fan", noctalia.tr("panel.full")),
-    modeButton("manual", "adjustments", noctalia.tr("panel.manual")),
-  })
+  }
+  if not monitorOnly() then
+    table.insert(children, modeButton("auto", "settings-automation", noctalia.tr("panel.auto")))
+    table.insert(children, modeButton("full", "car-fan", noctalia.tr("panel.full")))
+    table.insert(children, modeButton("manual", "adjustments", noctalia.tr("panel.manual")))
+  end
+  return ui.row({ gap = 8, align = "center" }, children)
 end
 
 render = function()
@@ -245,7 +254,7 @@ render = function()
       maxLines = 3,
     }))
   else
-    if snap.mode ~= "auto" then
+    if not monitorOnly() and snap.mode ~= "auto" then
       local fans = {}
       for i, fan in snap.fans do
         table.insert(fans, fanRow(i, fan, multiFan, shown))
