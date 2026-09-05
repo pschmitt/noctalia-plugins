@@ -52,7 +52,10 @@ local function tooltipRows()
 end
 
 local function render()
-  local children = { ui.glyph({ name = "car-fan", color = colors.icon(snap) }) }
+  -- Match Noctalia's documented compact bar-widget glyph size. The explicit
+  -- size keeps this icon aligned with neighbouring built-in widgets when the
+  -- RPM label is hidden.
+  local children = { ui.glyph({ name = "car-fan", size = 14, color = colors.icon(snap) }) }
 
   local text = (not isVertical) and displayText() or nil
   if text then

@@ -1,7 +1,7 @@
 {
   "mode": {
     "auto": "Auto",
-    "full": "Full speed"
+    "full": "Full blast"
   },
   "notify": {
     "fan_error_body": "Could not set the fan mode/speed. Check the Noctalia service log for the driver error.",
@@ -11,7 +11,7 @@
     "auto": "Auto",
     "fan_rpm": "Fan {index}: {rpm} RPM",
     "fan_speed": "Fan speed",
-    "full": "Full",
+    "full": "Full blast",
     "load_graph": "Load average (1 min)",
     "load_average": "Load average",
     "manual": "Manual",
@@ -24,7 +24,7 @@
     "action": {
       "description": "What clicking/scrolling the widget does",
       "options": {
-        "cycle_mode": "Cycle Auto → Full → Manual",
+        "cycle_mode": "Cycle Auto → Full blast → Manual",
         "decrease": "Decrease speed",
         "increase": "Increase speed",
         "none": "Nothing",
@@ -67,7 +67,7 @@
       "description": "What decides the icon/text color",
       "label": "Color by",
       "options": {
-        "mode": "Mode (Auto/Manual/Full)",
+        "mode": "Mode (Auto/Manual/Full blast)",
         "rpm": "Fan speed threshold",
         "temp": "Temperature threshold"
       }
@@ -81,8 +81,8 @@
       "label": "Colorize text"
     },
     "full_color": {
-      "description": "Color while at Full speed (color_trigger = Mode). Empty uses the theme's error/warning color.",
-      "label": "Full-speed color"
+      "description": "Color while at Full blast. Empty uses the theme's on-error color.",
+      "label": "Full-blast color"
     },
     "load_high_color": {
       "description": "Color for each load-average value above the CPU count. Empty uses the theme's error color.",

@@ -5,7 +5,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-fan-control";
-  version = "1.5.28";
+  version = "1.5.29";
 
   src = lib.fileset.toSource {
     root = ../../plugins/fan-control;
