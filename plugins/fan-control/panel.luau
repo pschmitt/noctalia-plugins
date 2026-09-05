@@ -117,10 +117,6 @@ render = function()
         color = "on_surface_variant",
       }),
     }),
-    ui.row({ align = "center", justify = "space_between" }, {
-      ui.label({ text = noctalia.tr("panel.load_average"), fontSize = 11, color = "on_surface_variant" }),
-      ui.label({ text = loadAverageText(), fontSize = 11, color = "on_surface_variant" }),
-    }),
   }
 
   if not snap.available then
@@ -226,6 +222,10 @@ render = function()
     end
     table.insert(children, ui.column({ gap = 2 }, rows))
   end
+
+  table.insert(children, ui.row({ justify = "end" }, {
+    ui.label({ text = loadAverageText(), fontSize = 11, color = "on_surface_variant" }),
+  }))
 
   panel.render(ui.column({ gap = 6, padding = 10 }, children))
 end
