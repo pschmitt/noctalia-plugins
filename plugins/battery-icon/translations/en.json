@@ -1,5 +1,7 @@
 {
   "notify": {
+    "fan_error_body": "Could not set the fan mode/speed. Check the Noctalia service log for the driver error.",
+    "fan_error_title": "Fan control",
     "power_profile_error_body": "Could not change the power profile. Check that power-profiles-daemon is running.",
     "power_profile_error_title": "Power profile"
   },

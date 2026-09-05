@@ -38,10 +38,27 @@ local soundReady = { charging = false, unplug = false }
 
 local DETAILS = "battery_icon.details"
 local COMMAND = "battery_icon.command"
+local FAN_STATE = "battery_icon.fan"
 local POWER_PROFILES = {
   ["power-saver"] = true,
   balanced = true,
   performance = true,
+}
+
+local FAN_SEP = "__BATTERY_FAN_SEP__"
+local FAN_LOAD_SEP = "__BATTERY_FAN_LOAD_SEP__"
+local fanBackend = "none"
+local fanDir = nil
+local fanChannels = {}
+local readingFan = false
+local fanSnapshot = {
+  available = false,
+  backend = "none",
+  mode = "auto",
+  percent = 0,
+  rpm = 0,
+  temp = 0,
+  loadAvg = { one = 0, five = 0, fifteen = 0 },
 }
 
 -- "Is external power connected?", most portable source first.
@@ -146,7 +163,7 @@ local function parseDetails(output)
   return details
 end
 
-local function publishDetails(percent, charging, status, profile, limit, output)
+local function publishDetails(percent, charging, status, profile, limit, thresholdGuessed, output)
   local details = parseDetails(output)
   noctalia.state.set(DETAILS, {
     percent = percent,
@@ -154,11 +171,166 @@ local function publishDetails(percent, charging, status, profile, limit, output)
     status = status,
     powerProfile = POWER_PROFILES[profile] and profile or "",
     chargeLimit = limit,
+    thresholdGuessed = thresholdGuessed,
     health = details.health,
     thresholdStart = details.thresholdStart,
     thresholdEnd = details.thresholdEnd,
     devices = details.devices,
   })
+end
+
+local function publishFan()
+  noctalia.state.set(FAN_STATE, {
+    available = fanSnapshot.available,
+    backend = fanSnapshot.backend,
+    mode = fanSnapshot.mode,
+    percent = fanSnapshot.percent,
+    rpm = fanSnapshot.rpm,
+    temp = fanSnapshot.temp,
+    loadAvg = fanSnapshot.loadAvg,
+  })
+end
+
+local function fanReadCommand()
+  return [[
+if [ -r /proc/acpi/ibm/fan ]; then
+  echo BACKEND:thinkpad
+  cat /proc/acpi/ibm/fan 2>/dev/null
+else
+  for d in /sys/class/hwmon/hwmon*; do
+    name=$(cat "$d/name" 2>/dev/null)
+    case "$name" in
+      dell_smm|gpdfan)
+        echo BACKEND:hwmon
+        echo HWMONDIR:$d
+        channel=1
+        while [ "$channel" -le 8 ]; do
+          if [ -e "$d/pwm$channel" ]; then
+            echo CHAN:$channel
+            echo PWM$channel:$(cat "$d/pwm$channel" 2>/dev/null)
+            echo ENABLE$channel:$(cat "$d/pwm${channel}_enable" 2>/dev/null)
+            echo RPM$channel:$(cat "$d/fan${channel}_input" 2>/dev/null)
+          fi
+          channel=$((channel + 1))
+        done
+        break
+        ;;
+    esac
+  done
+fi
+echo BACKEND_END
+echo ]] .. FAN_SEP .. [[
+cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null
+echo ]] .. FAN_LOAD_SEP .. [[
+cat /proc/loadavg 2>/dev/null
+]]
+end
+
+local function readFan()
+  if readingFan then
+    return
+  end
+  readingFan = true
+  noctalia.runAsync(fanReadCommand(), function(result)
+    readingFan = false
+    local out = result.stdout or ""
+    local body, rest = out:match("^(.-)" .. FAN_SEP .. "\n?(.*)$")
+    body = body or out
+    local tempOut, loadOut = (rest or ""):match("^(.-)" .. FAN_LOAD_SEP .. "\n?(.*)$")
+
+    fanBackend = body:match("BACKEND:(%a+)") or "none"
+    fanDir = body:match("HWMONDIR:(%S+)")
+    fanChannels = {}
+    fanSnapshot = {
+      available = false,
+      backend = fanBackend,
+      mode = "auto",
+      percent = 0,
+      rpm = 0,
+      temp = fanSnapshot.temp or 0,
+      loadAvg = fanSnapshot.loadAvg or { one = 0, five = 0, fifteen = 0 },
+    }
+
+    if fanBackend == "thinkpad" then
+      local speed = tonumber(body:match("speed:%s*(%d+)"))
+      local level = trim(body:match("level:%s*(%S+)") or "auto"):lower()
+      fanSnapshot.available = speed ~= nil
+      fanSnapshot.rpm = speed or 0
+      if level == "disengaged" then
+        fanSnapshot.mode, fanSnapshot.percent = "full", 100
+      elseif level == "auto" then
+        fanSnapshot.mode, fanSnapshot.percent = "auto", 0
+      else
+        local numeric = tonumber(level)
+        fanSnapshot.mode = "manual"
+        fanSnapshot.percent = numeric and math.floor(numeric * 100 / 7 + 0.5) or 50
+      end
+    elseif fanBackend == "hwmon" and fanDir then
+      local maxRpm = 0
+      local firstPwm, firstEnable = nil, nil
+      for rawChannel in body:gmatch("CHAN:(%d+)") do
+        local channel = tonumber(rawChannel)
+        local pwm = tonumber(body:match("PWM" .. rawChannel .. ":(%d+)"))
+        local enable = tonumber(body:match("ENABLE" .. rawChannel .. ":(%d+)"))
+        local rpm = tonumber(body:match("RPM" .. rawChannel .. ":(%d+)")) or 0
+        table.insert(fanChannels, channel)
+        if #fanChannels == 1 then
+          firstPwm, firstEnable = pwm, enable
+        end
+        maxRpm = math.max(maxRpm, rpm)
+      end
+      fanSnapshot.available = #fanChannels > 0
+      fanSnapshot.rpm = maxRpm
+      if firstEnable == 2 then
+        fanSnapshot.mode, fanSnapshot.percent = "auto", 0
+      elseif firstEnable == 1 and firstPwm == 255 then
+        fanSnapshot.mode, fanSnapshot.percent = "full", 100
+      elseif firstEnable == 1 then
+        fanSnapshot.mode = "manual"
+        fanSnapshot.percent = firstPwm and math.floor(firstPwm * 100 / 255 + 0.5) or 50
+      end
+    end
+
+    local rawTemp = tonumber(trim(tempOut or ""))
+    if rawTemp then
+      fanSnapshot.temp = math.floor(rawTemp / 1000 + 0.5)
+    end
+    local one, five, fifteen = (loadOut or ""):match("^%s*(%S+)%s+(%S+)%s+(%S+)")
+    if one then
+      fanSnapshot.loadAvg = {
+        one = tonumber(one) or 0,
+        five = tonumber(five) or 0,
+        fifteen = tonumber(fifteen) or 0,
+      }
+    end
+    publishFan()
+  end, 5000)
+end
+
+local function fanWriteCommand(mode, percent)
+  if fanBackend == "thinkpad" then
+    local level = "auto"
+    if mode == "full" then
+      level = "disengaged"
+    elseif mode == "manual" then
+      local normalized = math.clamp(math.floor(tonumber(percent) or 50), 0, 100)
+      level = tostring(math.clamp(math.floor(normalized * 7 / 100 + 0.5), 0, 7))
+    end
+    return "echo level " .. level .. " > /proc/acpi/ibm/fan"
+  end
+  if fanBackend ~= "hwmon" or not fanDir or #fanChannels == 0 then
+    return nil
+  end
+  local enable = mode == "auto" and 2 or 1
+  local pwm = mode == "full" and 255 or math.clamp(math.floor((tonumber(percent) or 50) * 255 / 100 + 0.5), 0, 255)
+  local commands = {}
+  for _, channel in fanChannels do
+    table.insert(commands, "echo " .. enable .. " > " .. fanDir .. "/pwm" .. channel .. "_enable")
+    if mode ~= "auto" then
+      table.insert(commands, "echo " .. pwm .. " > " .. fanDir .. "/pwm" .. channel)
+    end
+  end
+  return table.concat(commands, "; ")
 end
 
 -- Highest level observed while external power was connected and the firmware
@@ -189,7 +361,7 @@ local function effectiveLimit(cfg, reported)
     lastLoggedLimit = limit
     noctalia.log("battery-icon: charge limit " .. tostring(limit) .. "% (" .. source .. ")")
   end
-  return limit
+  return limit, source
 end
 
 for _, name in ipairs({ "charging", "unplug" }) do
@@ -513,6 +685,7 @@ local function startPulse(cfg, percent, charging, powerSaver, dataDir)
 end
 
 local function poll()
+  readFan()
   local cfg = settings()
   local statusPath = "/sys/class/power_supply/" .. cfg.device .. "/status"
 
@@ -565,7 +738,8 @@ local function poll()
             learnedLimit = observed
           end
         end
-        cfg.fullAt = effectiveLimit(cfg, reportedLimit)
+        local limit, limitSource = effectiveLimit(cfg, reportedLimit)
+        cfg.fullAt = limit
 
         noctalia.runAsync("@powerprofilesctl@ get", function(profileResult)
           local profile = trim(profileResult.stdout)
@@ -603,7 +777,15 @@ local function poll()
             -- Always publish panel data, even when the rendered icon is
             -- unchanged (for example, a wireless mouse can change charge
             -- while the laptop battery stays at 80%).
-            publishDetails(percent, charging, status, profile ~= "" and profile or (lastProfile or ""), cfg.fullAt, detailsResult.stdout)
+            publishDetails(
+              percent,
+              charging,
+              status,
+              profile ~= "" and profile or (lastProfile or ""),
+              cfg.fullAt,
+              limitSource == "learned",
+              detailsResult.stdout
+            )
 
             local key = tostring(percent)
               .. (charging and "c" or "d")
@@ -639,10 +821,25 @@ local function poll()
   end, 5000)
 end
 
-noctalia.state.watch(COMMAND, function(cmd)
-  if type(cmd) ~= "table" or cmd.action ~= "set_power_profile" or not POWER_PROFILES[cmd.profile] then
+local function setFan(mode, percent)
+  local command = fanWriteCommand(mode, percent)
+  if command == nil then
     return
   end
+  noctalia.runAsync(command, function(result)
+    if result.exitCode ~= 0 then
+      noctalia.notifyError(noctalia.tr("notify.fan_error_title"), noctalia.tr("notify.fan_error_body"))
+      noctalia.log("battery-icon: fan change failed: " .. trim(result.stderr))
+    end
+    readFan()
+  end, 5000)
+end
+
+noctalia.state.watch(COMMAND, function(cmd)
+  if type(cmd) ~= "table" then
+    return
+  end
+  if cmd.action == "set_power_profile" and POWER_PROFILES[cmd.profile] then
   noctalia.runAsync("@powerprofilesctl@ set " .. cmd.profile, function(result)
     if result.exitCode ~= 0 then
       noctalia.notifyError(
@@ -653,6 +850,11 @@ noctalia.state.watch(COMMAND, function(cmd)
     end
     poll()
   end, 5000)
+  elseif cmd.action == "set_fan_mode" and (cmd.mode == "auto" or cmd.mode == "full" or cmd.mode == "manual") then
+    setFan(cmd.mode, cmd.mode == "manual" and 50 or nil)
+  elseif cmd.action == "set_fan_percent" then
+    setFan("manual", math.clamp(math.floor(tonumber(cmd.value) or 50), 0, 100))
+  end
 end)
 
 poll()

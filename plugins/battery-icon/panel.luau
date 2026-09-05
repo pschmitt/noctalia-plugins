@@ -6,8 +6,7 @@
 
 local DETAILS = "battery_icon.details"
 local BATTERY_COMMAND = "battery_icon.command"
-local FAN_SNAPSHOT = "fan.snapshot"
-local FAN_COMMAND = "fan.command"
+local FAN_STATE = "battery_icon.fan"
 
 local details = noctalia.state.get(DETAILS) or {
   percent = 0,
@@ -16,7 +15,7 @@ local details = noctalia.state.get(DETAILS) or {
   chargeLimit = 100,
   devices = {},
 }
-local fan = noctalia.state.get(FAN_SNAPSHOT) or {
+local fan = noctalia.state.get(FAN_STATE) or {
   available = false,
   mode = "auto",
   percent = 0,
@@ -30,7 +29,7 @@ local function batteryCommand(payload)
 end
 
 local function fanCommand(payload)
-  noctalia.state.set(FAN_COMMAND, payload)
+  noctalia.state.set(BATTERY_COMMAND, payload)
 end
 
 local PROFILES = {
@@ -95,6 +94,9 @@ local function batteryRows()
     else
       threshold = tostring(details.thresholdEnd or details.chargeLimit) .. ""
     end
+    if details.thresholdGuessed then
+      threshold = threshold .. "*"
+    end
     table.insert(rows, metricRow("battery-2", noctalia.tr("panel.charging_threshold"), threshold, "%"))
   end
   return rows
@@ -133,7 +135,7 @@ local function fanModeButton(mode, glyph, label)
       align = "center",
       justify = "center",
       onClick = function()
-        fanCommand({ action = "set_mode", mode = "full" })
+        fanCommand({ action = "set_fan_mode", mode = "full" })
       end,
     }, {
       ui.glyph({ name = glyph, size = 18, color = fan.mode == "full" and "on_error" or "on_surface" }),
@@ -145,13 +147,13 @@ local function fanModeButton(mode, glyph, label)
     controlSize = "sm",
     tooltip = label,
     onClick = function()
-      fanCommand({ action = "set_mode", mode = mode })
+      fanCommand({ action = "set_fan_mode", mode = mode })
     end,
   })
 end
 
 local function fanControls()
-  if noctalia.getConfig("show_fan_controls") == false or not fan.available or fan.controlMode == "power-profile" then
+  if noctalia.getConfig("show_fan_controls") == false or not fan.available then
     return nil
   end
   local children = {
@@ -171,7 +173,7 @@ local function fanControls()
       controlSize = "sm",
       width = 230,
       onDragEnd = function(value)
-        fanCommand({ action = "set_percent", value = tonumber(value) or 50 })
+        fanCommand({ action = "set_fan_percent", value = tonumber(value) or 50 })
       end,
     }))
   end
@@ -200,7 +202,7 @@ end
 
 function onOpen(_context)
   details = noctalia.state.get(DETAILS) or details
-  fan = noctalia.state.get(FAN_SNAPSHOT) or fan
+  fan = noctalia.state.get(FAN_STATE) or fan
   render()
 end
 
@@ -211,7 +213,7 @@ noctalia.state.watch(DETAILS, function(value)
   end
 end)
 
-noctalia.state.watch(FAN_SNAPSHOT, function(value)
+noctalia.state.watch(FAN_STATE, function(value)
   if type(value) == "table" then
     fan = value
     render()
