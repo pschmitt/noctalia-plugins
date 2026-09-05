@@ -27,6 +27,7 @@
     "performance": "Performance",
     "fan": "Fan",
     "power_saver": "Power saver",
+    "rpm": "RPM",
     "temperature": "Temperature",
     "title": "Power control"
   },

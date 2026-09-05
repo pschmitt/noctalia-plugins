@@ -128,16 +128,30 @@ local function systemRows()
   local temperatureThreshold = tonumber(noctalia.getConfig("temperature_threshold")) or 85
   local loadThreshold = tonumber(noctalia.getConfig("load_average_threshold")) or 8
   local one, five, fifteen = load.one or 0, load.five or 0, load.fifteen or 0
-  local loadError = one >= loadThreshold or five >= loadThreshold or fifteen >= loadThreshold
+  local function loadValue(value)
+    return ui.label({
+      text = string.format("%.2f", value),
+      fontSize = 14,
+      fontWeight = "bold",
+      color = value >= loadThreshold and "error" or nil,
+    })
+  end
+  local loadRow = ui.row({ gap = 6, align = "center" }, {
+    ui.glyph({
+      name = "activity",
+      size = 14,
+      color = (one >= loadThreshold or five >= loadThreshold or fifteen >= loadThreshold) and "error" or "on_surface_variant",
+    }),
+    ui.label({ text = noctalia.tr("panel.load_average"), fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
+    loadValue(one),
+    ui.label({ text = "·", fontSize = 14, color = "on_surface_variant" }),
+    loadValue(five),
+    ui.label({ text = "·", fontSize = 14, color = "on_surface_variant" }),
+    loadValue(fifteen),
+  })
   return ui.column({ gap = 6 }, {
     metricRow("temperature", noctalia.tr("panel.temperature"), tostring(temperature), "°C", temperature >= temperatureThreshold),
-    metricRow(
-      "activity",
-      noctalia.tr("panel.load_average"),
-      string.format("%.2f / %.2f / %.2f", one, five, fifteen),
-      nil,
-      loadError
-    ),
+    loadRow,
   })
 end
 
@@ -198,6 +212,7 @@ local function fanControls()
     ui.row({ gap = 8, align = "center" }, {
       ui.glyph({ name = "car-fan", size = 14, color = "on_surface_variant" }),
       ui.label({ text = noctalia.tr("panel.fan"), fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
+      ui.label({ text = tostring(fan.rpm or 0) .. " " .. noctalia.tr("panel.rpm"), fontSize = 12, color = "on_surface_variant" }),
       fanModeButton("auto", "settings-automation", noctalia.tr("panel.auto")),
       fanModeButton("full", "car-fan", noctalia.tr("panel.full_blast")),
       fanModeButton("manual", "adjustments", noctalia.tr("panel.manual")),
