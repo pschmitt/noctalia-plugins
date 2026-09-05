@@ -35,7 +35,7 @@ local function fanCommand(payload)
 end
 
 local PROFILES = {
-  { profile = "power-saver", glyph = "battery-2", label = "panel.power_saver" },
+  { profile = "power-saver", glyph = "leaf", label = "panel.power_saver" },
   { profile = "balanced", glyph = "scale", label = "panel.balanced" },
   { profile = "performance", glyph = "rocket", label = "panel.performance" },
 }
