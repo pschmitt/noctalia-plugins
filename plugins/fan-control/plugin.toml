@@ -7,7 +7,7 @@ license     = "GPL-3.0"
 icon        = "car-fan"
 description = "Fan speed monitor and manual control for thinkpad_acpi (ThinkPad) and generic hwmon PWM fans (Dell dell-smm-hwmon, GPD gpd_fan, etc.) — no root at runtime."
 tags        = ["bar", "panel", "system", "hardware", "indicator", "utility"]
-dependencies = ["sh", "cat"]
+dependencies = ["sh", "cat", "sg"]
 
 [[setting]]
 key            = "colorize_by_status"

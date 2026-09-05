@@ -308,8 +308,15 @@ end
 
 -- ── Commands from UI entries ─────────────────────────────────────────────────
 
+-- Group membership (fan_ctl, from the setup script/NixOS module) is only
+-- picked up by processes started *after* the group existed — which noctalia
+-- itself, already running by the time this plugin is ever enabled, never
+-- is. `sg`/`newgrp` are setuid-root specifically so a process can still gain
+-- a group it was only just added to without a fresh login; re-deriving via
+-- `sg` here means the write works immediately instead of needing a logout.
 local function runWrite(cmd, onDone)
-  noctalia.runAsync(cmd, function(res)
+  local wrapped = "sg fan_ctl -c " .. shellQuote(cmd)
+  noctalia.runAsync(wrapped, function(res)
     if res.exitCode ~= 0 then
       noctalia.notifyError(noctalia.tr("notify.fan_error_title"), noctalia.tr("notify.fan_error_body"))
       noctalia.log("fan control write failed: " .. (res.stderr or ""))
