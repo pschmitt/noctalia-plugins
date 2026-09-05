@@ -30,6 +30,17 @@ local sliderPreview = nil
 -- still shows up rather than getting stuck on a stale target forever.
 local optimisticTarget = nil
 
+local function loadColor(value, cpuCount)
+  if cpuCount > 0 and value > cpuCount then
+    local custom = noctalia.getConfig("load_high_color")
+    if type(custom) == "string" and custom ~= "" then
+      return custom
+    end
+    return "on_error"
+  end
+  return "on_surface_variant"
+end
+
 local function shownPercent()
   if sliderPreview then
     return sliderPreview
@@ -97,6 +108,11 @@ end
 
 render = function()
   local shown = shownPercent()
+  local loadAvg = snap.loadAvg or {}
+  local loadOne = loadAvg.one or 0
+  local loadFive = loadAvg.five or 0
+  local loadFifteen = loadAvg.fifteen or 0
+  local cpuCount = snap.cpuCount or 0
   local children = {
     ui.row({ gap = 6, align = "center" }, {
       ui.glyph({ name = "car-fan", color = colors.icon(snap) }),
@@ -107,16 +123,21 @@ render = function()
         color = "on_surface_variant",
       }),
     }),
-    ui.row({ justify = "end" }, {
+    ui.row({ justify = "end", gap = 4 }, {
       ui.label({
-        text = string.format(
-          "load: %.2f %.2f %.2f",
-          (snap.loadAvg or {}).one or 0,
-          (snap.loadAvg or {}).five or 0,
-          (snap.loadAvg or {}).fifteen or 0
-        ),
+        text = string.format("%.2f", loadOne),
         fontSize = 11,
-        color = "on_surface_variant",
+        color = loadColor(loadOne, cpuCount),
+      }),
+      ui.label({
+        text = string.format("%.2f", loadFive),
+        fontSize = 11,
+        color = loadColor(loadFive, cpuCount),
+      }),
+      ui.label({
+        text = string.format("%.2f", loadFifteen),
+        fontSize = 11,
+        color = loadColor(loadFifteen, cpuCount),
       }),
     }),
   }

@@ -82,6 +82,10 @@
       "description": "Color while at Full speed (color_trigger = Mode). Empty uses the theme's error/warning color.",
       "label": "Full-speed color"
     },
+    "load_high_color": {
+      "description": "Color for each load-average value above the CPU count. Empty uses the theme's error color.",
+      "label": "High load color"
+    },
     "hwmon_name": {
       "description": "Extra hwmon chip name to also treat as a controllable fan (matches /sys/class/hwmon/hwmon*/name), on top of the built-in dell_smm and gpdfan. Leave empty unless auto-detection misses your hardware.",
       "label": "Extra hwmon chip name"

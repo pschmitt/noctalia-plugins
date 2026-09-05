@@ -1,13 +1,13 @@
 id          = "pschmitt/fan-control"
 name        = "Fan Control"
-version     = "1.5.4"
+version     = "1.5.6"
 plugin_api  = 3
 author      = "pschmitt (fork of piero-93/thinkpad-fan)"
 license     = "GPL-3.0"
 icon        = "car-fan"
 description = "Fan speed monitor and manual control for thinkpad_acpi (ThinkPad) and generic hwmon PWM fans (Dell dell-smm-hwmon, GPD gpdfan, etc.) — no root at runtime."
 tags        = ["bar", "panel", "system", "hardware", "indicator", "utility"]
-dependencies = ["sh", "cat"]
+dependencies = ["sh", "cat", "nproc"]
 
 [[setting]]
 key            = "bar_display"
@@ -90,6 +90,13 @@ key            = "full_color"
 type           = "color"
 label_key      = "settings.full_color.label"
 description_key = "settings.full_color.description"
+default        = ""
+
+[[setting]]
+key            = "load_high_color"
+type           = "color"
+label_key      = "settings.load_high_color.label"
+description_key = "settings.load_high_color.description"
 default        = ""
 
 # color_trigger = "temp": below temp_threshold_low / between / at-or-above

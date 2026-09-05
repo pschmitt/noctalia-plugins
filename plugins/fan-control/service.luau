@@ -27,6 +27,7 @@ local READ_TIMEOUT_MS = 4000
 local WRITE_TIMEOUT_MS = 4000
 local SEP = "__NTF_SEP__"
 local LOAD_SEP = "__NTF_LOAD_SEP__"
+local CPU_SEP = "__NTF_CPU_SEP__"
 local LOADAVG_PATH = "/proc/loadavg"
 
 -- backend = "thinkpad" | "hwmon" | "none". Detected once; cleared (like
@@ -49,6 +50,7 @@ local snapshot = {
   fanCount = 0,
   fans = {}, -- hwmon only: { { rpm = N }, ... }, one per channel
   loadAvg = { one = 0, five = 0, fifteen = 0 },
+  cpuCount = 0,
 }
 
 local reading = false
@@ -145,7 +147,7 @@ end
 local function thinkpadReadCmd()
   return "cat " .. shellQuote(THINKPAD_FAN_PATH) .. " 2>/dev/null; echo " .. SEP
     .. "; cat " .. shellQuote(thermalPath()) .. " 2>/dev/null; echo " .. LOAD_SEP
-    .. "; cat " .. LOADAVG_PATH .. " 2>/dev/null"
+    .. "; cat " .. LOADAVG_PATH .. " 2>/dev/null; echo " .. CPU_SEP .. "; nproc 2>/dev/null"
 end
 
 local function thinkpadWriteCmd(level)
@@ -208,7 +210,8 @@ local function hwmonReadCmd()
     )
   end
   return table.concat(parts, "; ") .. "; echo " .. SEP .. "; cat " .. shellQuote(thermalPath())
-    .. " 2>/dev/null; echo " .. LOAD_SEP .. "; cat " .. LOADAVG_PATH .. " 2>/dev/null"
+    .. " 2>/dev/null; echo " .. LOAD_SEP .. "; cat " .. LOADAVG_PATH
+    .. " 2>/dev/null; echo " .. CPU_SEP .. "; nproc 2>/dev/null"
 end
 
 -- enable: 0 (full/no control), 1 (manual), 2 (auto) — the standard hwmon PWM
@@ -309,7 +312,10 @@ local function readNow()
     local tempAndLoad = sepAt and out:sub(sepAt + #SEP) or ""
     local loadAt = tempAndLoad:find(LOAD_SEP, 1, true)
     local tempOut = loadAt and tempAndLoad:sub(1, loadAt - 1) or tempAndLoad
-    local loadOut = loadAt and tempAndLoad:sub(loadAt + #LOAD_SEP) or ""
+    local loadAndCpuOut = loadAt and tempAndLoad:sub(loadAt + #LOAD_SEP) or ""
+    local cpuAt = loadAndCpuOut:find(CPU_SEP, 1, true)
+    local loadOut = cpuAt and loadAndCpuOut:sub(1, cpuAt - 1) or loadAndCpuOut
+    local cpuOut = cpuAt and loadAndCpuOut:sub(cpuAt + #CPU_SEP) or ""
     if backend == "thinkpad" then
       parseThinkpad(body)
     else
@@ -326,6 +332,10 @@ local function readNow()
         five = tonumber(loadFive) or 0,
         fifteen = tonumber(loadFifteen) or 0,
       }
+    end
+    local cpuCount = tonumber(noctalia.string.trim(cpuOut))
+    if cpuCount and cpuCount > 0 then
+      snapshot.cpuCount = cpuCount
     end
     if snapshot.available then
       pushHistory()
