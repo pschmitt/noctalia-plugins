@@ -241,8 +241,13 @@ local function fanControls()
   local children = {
     ui.row({ gap = 8, align = "center" }, {
       ui.glyph({ name = "car-fan", size = 14, color = "on_surface_variant" }),
-      ui.label({ text = noctalia.tr("panel.fan"), fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
-      ui.label({ text = tostring(fan.rpm or 0) .. " " .. noctalia.tr("panel.rpm"), fontSize = 12, color = "on_surface_variant" }),
+      ui.label({ text = noctalia.tr("panel.fan"), fontSize = 11, color = "on_surface_variant" }),
+      ui.label({
+        text = tostring(fan.rpm or 0) .. " " .. noctalia.tr("panel.rpm"),
+        fontSize = 12,
+        color = "on_surface_variant",
+        flexGrow = 1,
+      }),
       fanModeButton("auto", "settings-automation", noctalia.tr("panel.auto")),
       fanModeButton("full", "car-fan", noctalia.tr("panel.full_blast")),
       fanModeButton("manual", "adjustments", noctalia.tr("panel.manual")),
