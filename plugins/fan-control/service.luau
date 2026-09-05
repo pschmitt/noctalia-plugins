@@ -445,7 +445,7 @@ local function applyPercent(percent, selectedIndex)
 end
 
 noctalia.state.watch(COMMAND, function(cmd)
-  if noctalia.getConfig("control_mode") == "monitor" or type(cmd) ~= "table" or not detected or backend == "none" then
+  if noctalia.getConfig("alt_mode") == true or type(cmd) ~= "table" or not detected or backend == "none" then
     return
   end
   if cmd.action == "set_mode" and (cmd.mode == "auto" or cmd.mode == "full" or cmd.mode == "manual") then

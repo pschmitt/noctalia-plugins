@@ -79,7 +79,7 @@ local function clearSliderState()
 end
 
 local function monitorOnly()
-  return noctalia.getConfig("control_mode") == "monitor"
+  return noctalia.getConfig("alt_mode") == true
 end
 
 local function selectMode(mode)

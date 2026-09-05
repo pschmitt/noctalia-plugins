@@ -29,15 +29,11 @@ description_key = "settings.bar_show_units.description"
 default        = true
 
 [[setting]]
-key            = "control_mode"
-type           = "select"
-label_key      = "settings.control_mode.label"
-description_key = "settings.control_mode.description"
-default        = "direct"
-options = [
-  { value = "direct", label_key = "settings.control_mode.options.direct" },
-  { value = "monitor", label_key = "settings.control_mode.options.monitor" },
-]
+key            = "alt_mode"
+type           = "bool"
+label_key      = "settings.alt_mode.label"
+description_key = "settings.alt_mode.description"
+default        = false
 
 [[setting]]
 key            = "percent_step"
