@@ -3,8 +3,8 @@
 --
 -- Red dot + "REC" label whenever service.luau reports an active screen
 -- share; hidden entirely otherwise (matches the old Waybar module's
--- setVisibilityOverride(false)-when-idle behavior). No click action and no
--- panel: this is a passive indicator, same scope as the widget it replaces.
+-- setVisibilityOverride(false)-when-idle behavior). Clicking the widget opens
+-- the detail panel defined in plugin.toml.
 --
 -- The dot breathes (alpha-pulses) while active, like a recording light —
 -- driven by our own update() tick, not the service's poll interval, so the

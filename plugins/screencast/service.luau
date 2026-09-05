@@ -11,6 +11,9 @@ local PW_CLI = "@pw-cli@"
 local POLL_TIMEOUT_MS = 5000
 local lastKey = ""
 local polling = false
+local stopPending = false
+local lastCommand = 0
+local poll
 
 local function pollMs()
   return (tonumber(noctalia.getConfig("poll_interval")) or 2) * 1000
@@ -44,7 +47,7 @@ local function parseListing(raw, wantedType)
   return objects
 end
 
-local function portalApps(nodeRaw, linkRaw)
+local function portalGraph(nodeRaw, linkRaw)
   local portalNodes = {}
   local nodeNames = {}
   for _, node in ipairs(parseListing(nodeRaw, "PipeWire:Interface:Node")) do
@@ -56,10 +59,12 @@ local function portalApps(nodeRaw, linkRaw)
   end
 
   local apps = {}
+  local linkIds = {}
   for _, link in ipairs(parseListing(linkRaw, "PipeWire:Interface:Link")) do
     local input = link["link.input.node"] or ""
     local output = link["link.output.node"] or ""
     if portalNodes[input] or portalNodes[output] then
+      table.insert(linkIds, link.id)
       -- A portal link has one portal endpoint and one client endpoint.
       -- Report the latter's PipeWire node name, matching the old helper.
       for _, id in ipairs({ input, output }) do
@@ -78,7 +83,10 @@ local function portalApps(nodeRaw, linkRaw)
     table.insert(names, name)
   end
   table.sort(names)
-  return names
+  table.sort(linkIds, function(left, right)
+    return tonumber(left) < tonumber(right)
+  end)
+  return names, linkIds
 end
 
 local function publish(apps)
@@ -101,7 +109,73 @@ local function fail(message)
   publish({})
 end
 
-local function poll()
+local function publishCommand(command, success, message)
+  noctalia.state.set("screencast_action", {
+    n = command.n,
+    action = command.action,
+    success = success,
+    message = message or "",
+  })
+end
+
+local function finishStop(command, failed)
+  stopPending = false
+  if #failed == 0 then
+    publishCommand(command, true, "Screen sharing stopped")
+  else
+    publishCommand(command, false, `Could not remove PipeWire link(s): {table.concat(failed, ", ")}`)
+  end
+  poll()
+end
+
+local function destroyLinks(command, linkIds, index, failed)
+  if index > #linkIds then
+    finishStop(command, failed)
+    return
+  end
+
+  local linkId = linkIds[index]
+  noctalia.runAsync({ PW_CLI, "destroy", linkId }, function(result)
+    if result.exitCode ~= 0 then
+      table.insert(failed, linkId)
+    end
+    destroyLinks(command, linkIds, index + 1, failed)
+  end, POLL_TIMEOUT_MS)
+end
+
+local function stopSharing(command)
+  if stopPending then
+    return
+  end
+  stopPending = true
+
+  noctalia.runAsync({ PW_CLI, "ls", "Node" }, function(result)
+    if result.exitCode ~= 0 then
+      stopPending = false
+      publishCommand(command, false, noctalia.string.trim(result.stderr or "pw-cli failed"))
+      return
+    end
+
+    noctalia.runAsync({ PW_CLI, "ls", "Link" }, function(linkResult)
+      if linkResult.exitCode ~= 0 then
+        stopPending = false
+        publishCommand(command, false, noctalia.string.trim(linkResult.stderr or "pw-cli failed"))
+        return
+      end
+
+      local _, linkIds = portalGraph(result.stdout or "", linkResult.stdout or "")
+      if #linkIds == 0 then
+        stopPending = false
+        publishCommand(command, false, "No active screencast links found")
+        poll()
+        return
+      end
+      destroyLinks(command, linkIds, 1, {})
+    end, POLL_TIMEOUT_MS)
+  end, POLL_TIMEOUT_MS)
+end
+
+poll = function()
   if polling then
     return
   end
@@ -120,10 +194,29 @@ local function poll()
       end
 
       polling = false
-      publish(portalApps(result.stdout or "", linkResult.stdout or ""))
+      local apps = portalGraph(result.stdout or "", linkResult.stdout or "")
+      publish(apps)
     end, POLL_TIMEOUT_MS)
   end, POLL_TIMEOUT_MS)
 end
+
+local initialCommand = noctalia.state.get("screencast_cmd")
+if initialCommand then
+  local command = noctalia.json.decode(initialCommand)
+  lastCommand = command and tonumber(command.n) or 0
+end
+
+noctalia.state.watch("screencast_cmd", function(raw)
+  local command = raw and noctalia.json.decode(raw) or nil
+  local nonce = command and tonumber(command.n) or 0
+  if not command or nonce <= lastCommand then
+    return
+  end
+  lastCommand = nonce
+  if command.action == "stop" then
+    stopSharing(command)
+  end
+end)
 
 poll()
 
