@@ -145,7 +145,8 @@ local function fanRow(index, fan, multiFan, shown)
     max = 100,
     step = tonumber(noctalia.getConfig("percent_step")) or 10,
     value = value,
-    flexGrow = 1,
+    width = 180,
+    controlSize = "sm",
     onChange = function(nextValue)
       if multiFan then
         fanSliderPreviews[index] = tonumber(nextValue) or value
@@ -178,6 +179,7 @@ local function fanRow(index, fan, multiFan, shown)
       color = "on_surface_variant",
     }))
   end
+  table.insert(controls, ui.box({ flexGrow = 1 }))
 
   return ui.row({ gap = 6, align = "center", minWidth = 320 }, {
     fanLabel,
@@ -243,11 +245,13 @@ render = function()
       maxLines = 3,
     }))
   else
-    local fans = {}
-    for i, fan in snap.fans do
-      table.insert(fans, fanRow(i, fan, multiFan, shown))
+    if snap.mode ~= "auto" then
+      local fans = {}
+      for i, fan in snap.fans do
+        table.insert(fans, fanRow(i, fan, multiFan, shown))
+      end
+      table.insert(children, ui.column({ gap = 8 }, fans))
     end
-    table.insert(children, ui.column({ gap = 8 }, fans))
     table.insert(children, ui.separator({}))
     table.insert(children, temperatureRow())
     table.insert(children, loadRow())
