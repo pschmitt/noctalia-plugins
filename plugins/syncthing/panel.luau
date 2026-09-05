@@ -11,6 +11,7 @@
 
 local statusIcon = require("./lib/status_icon.luau")
 local stateColors = require("./lib/state_colors.luau")
+local rowIcons = require("./lib/row_icons.luau")
 
 -- Must match height = … in the [[panel]] entry of plugin.toml. The root
 -- column's height is what actually sizes the content, and it is measured
@@ -202,7 +203,6 @@ local function folderRow(folder)
     fill = "surface_variant/0.5",
     radius = 8,
   }, {
-    ui.box({ width = 8, height = 8, radius = 4, fill = color }),
     ui.column({ gap = 2, flexGrow = 1 }, {
       ui.label({ text = folder.label, fontWeight = "bold", fontSize = 13, maxLines = 1 }),
       ui.label({ text = folderStateText(folder), fontSize = 10, color = "on_surface/0.65", maxLines = 1 }),
@@ -213,6 +213,8 @@ local function folderRow(folder)
         visible = folder.state == "syncing",
       }),
     }),
+    -- Status indicator on the right, where Syncthing's web GUI puts it.
+    ui.glyph({ name = rowIcons.folder(folder), size = 14, color = color }),
     ui.button({
       glyph = folder.paused and "player-play" or "player-pause",
       variant = "ghost",
@@ -236,7 +238,8 @@ local function folderRow(folder)
 end
 
 local function deviceRow(device)
-  local color = device.connected and stateColors.get("idle") or stateColors.get("disconnected")
+  local color = device.paused and stateColors.get("paused")
+    or (device.connected and stateColors.get("idle") or stateColors.get("disconnected"))
   local subtitle
   if device.paused then
     subtitle = tr("device.paused")
@@ -257,10 +260,19 @@ local function deviceRow(device)
     radius = 8,
     opacity = device.connected and 1 or 0.7,
   }, {
-    ui.box({ width = 8, height = 8, radius = 4, fill = color }),
     ui.column({ gap = 1, flexGrow = 1 }, {
       ui.label({ text = device.name, fontWeight = "bold", fontSize = 13, maxLines = 1 }),
       ui.label({ text = subtitle, fontSize = 11, color = "on_surface/0.65", maxLines = 1 }),
+    }),
+    -- State glyph plus connection-type meter, the same pair (and order) the
+    -- web GUI shows at the right edge of a device row.
+    ui.row({ gap = 4, align = "center" }, {
+      ui.glyph({ name = rowIcons.device(device), size = 14, color = color }),
+      ui.glyph({
+        name = rowIcons.signal(device),
+        size = 14,
+        color = (device.connected and not device.paused) and color or "on_surface/0.35",
+      }),
     }),
     ui.button({
       glyph = device.paused and "player-play" or "player-pause",

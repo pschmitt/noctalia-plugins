@@ -5,18 +5,12 @@
 -- selected folder.
 
 local statusIcon = require("./lib/status_icon.luau")
+local rowIcons = require("./lib/row_icons.luau")
 
 local function decodeSnapshot()
   local encoded = noctalia.state.get("st.snapshot")
   return encoded and noctalia.json.decode(encoded) or nil
 end
-
-local STATE_GLYPHS = {
-  idle = "cloud-check",
-  syncing = "refresh",
-  paused = "player-pause",
-  error = "alert-triangle",
-}
 
 function onQuery(text)
   local snapshot = decodeSnapshot()
@@ -46,7 +40,7 @@ function onQuery(text)
       id = folder.id,
       title = folder.label,
       subtitle = `{status} · {action}`,
-      glyph = STATE_GLYPHS[folder.state] or "cloud-question",
+      glyph = rowIcons.folder(folder),
       score = score,
     })
   end

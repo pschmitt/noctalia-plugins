@@ -319,6 +319,32 @@ local function publish(snapshot, generation)
   end
 end
 
+-- Connection type in the three buckets Syncthing's web GUI shows as a signal
+-- meter next to a connected device: a relay hop is the weakest, then a direct
+-- connection over the WAN, then a direct one on the local network. v2 repeats
+-- these fields inside `primary`; read the top-level ones and fall back.
+local function connectionType(info)
+  local conn = info or {}
+  local kind = trim(conn.type)
+  local isLocal = conn.isLocal
+  local primary = conn.primary
+  if primary then
+    if kind == "" then
+      kind = trim(primary.type)
+    end
+    if isLocal == nil then
+      isLocal = primary.isLocal
+    end
+  end
+  if kind == "" then
+    return ""
+  end
+  if kind:find("relay", 1, true) then
+    return "relay"
+  end
+  return isLocal == true and "lan" or "wan"
+end
+
 local function summarizeFolder(folder, status)
   local rawState = trim(status.state or "unknown")
   if rawState == "" then rawState = "unknown" end
@@ -505,6 +531,7 @@ local function fetchCore(generation)
           connected = info.connected == true,
           address = trim(info.address),
           version = trim(info.clientVersion),
+          connType = connectionType(info),
         })
       end
     end
