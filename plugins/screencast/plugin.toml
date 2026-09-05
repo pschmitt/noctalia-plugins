@@ -1,11 +1,11 @@
 # Detects active portal shares directly from PipeWire's graph. The packaged
-# plugin embeds an absolute pw-dump path; it needs neither jq nor an external
+# plugin embeds an absolute pw-cli path; it needs neither jq nor an external
 # xdg-desktop-portal watcher/state-file service.
 
 id = "pschmitt/screencast"
 name = "Screencast Indicator"
-version = "0.3.0"
-plugin_api = 24 # argument-array runAsync() keeps the pw-dump call shell-free
+version = "0.3.1"
+plugin_api = 24 # argument-array runAsync() keeps the pw-cli calls shell-free
 author = "pschmitt"
 license = "GPL-3.0-only"
 tags = ["bar", "indicator", "utility"]

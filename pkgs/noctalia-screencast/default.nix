@@ -6,7 +6,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-screencast";
-  version = "0.3.0";
+  version = "0.3.1";
 
   src = lib.fileset.toSource {
     root = ../../plugins/screencast;
@@ -31,7 +31,7 @@ stdenvNoCC.mkDerivation {
     cp plugin.toml bar.luau README.md "$dest"/
     cp -r translations "$dest"/
     substitute service.luau "$dest"/service.luau \
-      --replace-fail "@pw-dump@" "${lib.getExe' pipewire "pw-dump"}"
+      --replace-fail "@pw-cli@" "${lib.getExe' pipewire "pw-cli"}"
 
     runHook postInstall
   '';
