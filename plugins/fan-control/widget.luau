@@ -1,6 +1,7 @@
 --!nonstrict
 
 local SNAPSHOT = "fan.snapshot"
+local COMMAND = "fan.command"
 local PANEL_ID = "pschmitt/fan-control:panel"
 
 local snap = noctalia.state.get(SNAPSHOT) or {
@@ -14,6 +15,7 @@ local snap = noctalia.state.get(SNAPSHOT) or {
   fans = {},
 }
 local isVertical = false
+local reqId = 0
 
 -- "full" (fans running uncapped, no software limit) and a low manual percent
 -- both deserve a warning color; a comfortable manual level is just the accent.
@@ -27,6 +29,16 @@ local function accent()
     return "primary"
   end
   return "on_surface"
+end
+
+local function displayText()
+  local mode = noctalia.getConfig("bar_display")
+  if mode == "temp" then
+    return (snap.temp or 0) .. "°C"
+  elseif mode == "none" then
+    return nil
+  end
+  return (snap.rpm or 0) .. " RPM"
 end
 
 local function modeText()
@@ -54,12 +66,9 @@ local function render()
   local color = accent()
   local children = { ui.glyph({ name = "car-fan", color = color }) }
 
-  if not isVertical then
-    table.insert(children, ui.label({
-      text = (snap.rpm or 0) .. " RPM",
-      fontWeight = "bold",
-      color = color,
-    }))
+  local text = (not isVertical) and displayText() or nil
+  if text then
+    table.insert(children, ui.label({ text = text, fontWeight = "bold", color = color }))
   end
 
   local container = isVertical and ui.column or ui.row
@@ -83,10 +92,67 @@ function onConfigChanged()
   render()
 end
 
-function onClick()
-  if noctalia.getConfig("allow_popup") ~= false then
-    noctalia.togglePanel(PANEL_ID)
+-- ── Configurable bar actions ─────────────────────────────────────────────────
+
+local function dispatch(payload)
+  reqId += 1
+  payload.requestId = tostring(os.time()) .. "-" .. tostring(reqId)
+  noctalia.state.set(COMMAND, payload)
+end
+
+-- Reusing snap.percent (already meaningful in every mode — 0 for auto, 100
+-- for full, the real duty for manual — see service.luau) means cycling or
+-- nudging never causes a surprise jump: "full" -> "manual" via cycle_mode
+-- lands on the same 100% it was already spinning at.
+local function cycleMode()
+  if snap.mode == "auto" then
+    dispatch({ action = "set_mode", mode = "full" })
+  elseif snap.mode == "full" then
+    dispatch({ action = "set_percent", value = snap.percent or 100 })
+  else
+    dispatch({ action = "set_mode", mode = "auto" })
   end
+end
+
+local function adjustPercent(direction)
+  local step = tonumber(noctalia.getConfig("percent_step")) or 10
+  local target = math.clamp((snap.percent or 0) + direction * step, 0, 100)
+  dispatch({ action = "set_percent", value = target })
+end
+
+local ACTIONS = {
+  panel = function()
+    noctalia.togglePanel(PANEL_ID)
+  end,
+  cycle_mode = cycleMode,
+  increase = function() adjustPercent(1) end,
+  decrease = function() adjustPercent(-1) end,
+}
+
+local function runAction(settingKey)
+  if not snap.available then
+    return
+  end
+  local action = ACTIONS[noctalia.getConfig(settingKey)]
+  if action then
+    action()
+  end
+end
+
+function onClick()
+  runAction("action_left_click")
+end
+
+function onRightClick()
+  runAction("action_right_click")
+end
+
+function onMiddleClick()
+  runAction("action_middle_click")
+end
+
+function onScroll(_axis, steps, _startsGesture)
+  runAction(steps > 0 and "action_scroll_up" or "action_scroll_down")
 end
 
 noctalia.setUpdateInterval(30000)

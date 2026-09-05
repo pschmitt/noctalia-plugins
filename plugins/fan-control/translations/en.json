@@ -16,9 +16,39 @@
     "unavailable": "No supported fan control found (thinkpad_acpi or a known hwmon chip). See the plugin README."
   },
   "settings": {
-    "allow_popup": {
-      "description": "Open the manual fan control panel by left-clicking the widget",
-      "label": "Left-click opens the control panel"
+    "action": {
+      "description": "What clicking/scrolling the widget does",
+      "options": {
+        "cycle_mode": "Cycle Auto → Full → Manual",
+        "decrease": "Decrease speed",
+        "increase": "Increase speed",
+        "none": "Nothing",
+        "panel": "Open control panel"
+      }
+    },
+    "action_left_click": {
+      "label": "Left click"
+    },
+    "action_middle_click": {
+      "label": "Middle click"
+    },
+    "action_right_click": {
+      "label": "Right click"
+    },
+    "action_scroll_down": {
+      "label": "Scroll down"
+    },
+    "action_scroll_up": {
+      "label": "Scroll up"
+    },
+    "bar_display": {
+      "description": "What to show next to the icon in the bar",
+      "label": "Bar display",
+      "options": {
+        "none": "Icon only",
+        "rpm": "Fan speed (RPM)",
+        "temp": "Temperature"
+      }
     },
     "colorize_by_status": {
       "description": "Tint the widget when the fan is at full speed or a manual level",
@@ -27,6 +57,10 @@
     "hwmon_name": {
       "description": "Extra hwmon chip name to also treat as a controllable fan (matches /sys/class/hwmon/hwmon*/name), on top of the built-in dell_smm and gpd_fan. Leave empty unless auto-detection misses your hardware.",
       "label": "Extra hwmon chip name"
+    },
+    "percent_step": {
+      "description": "How much the increase/decrease actions change the manual speed by",
+      "label": "Speed step (%)"
     },
     "thermal_zone": {
       "description": "sysfs thermal zone used for the temperature, e.g. thermal_zone0",

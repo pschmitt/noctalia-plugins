@@ -216,7 +216,7 @@ local function folderRow(folder)
     -- Status indicator on the right, where Syncthing's web GUI puts it.
     ui.glyph({ name = rowIcons.folder(folder), size = 14, color = color }),
     -- Keeps the status indicators from reading as more action buttons.
-    ui.separator({ orientation = "vertical", thickness = 1, height = 18, color = "on_surface/0.15" }),
+    ui.box({ width = 1, height = 18, fill = "on_surface/0.15" }),
     ui.button({
       glyph = folder.paused and "player-play" or "player-pause",
       variant = "ghost",
@@ -277,7 +277,7 @@ local function deviceRow(device)
       }),
     }),
     -- Keeps the status indicators from reading as more action buttons.
-    ui.separator({ orientation = "vertical", thickness = 1, height = 18, color = "on_surface/0.15" }),
+    ui.box({ width = 1, height = 18, fill = "on_surface/0.15" }),
     ui.button({
       glyph = device.paused and "player-play" or "player-pause",
       variant = "ghost",
