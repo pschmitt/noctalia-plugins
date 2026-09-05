@@ -917,7 +917,9 @@ noctalia.state.watch(COMMAND, function(cmd)
   if type(cmd) ~= "table" then
     return
   end
-  if cmd.action == "set_power_profile" and POWER_PROFILES[cmd.profile] then
+  if cmd.action == "refresh" then
+    poll()
+  elseif cmd.action == "set_power_profile" and POWER_PROFILES[cmd.profile] then
   noctalia.runAsync("@powerprofilesctl@ set " .. cmd.profile, function(result)
     if result.exitCode ~= 0 then
       noctalia.notifyError(

@@ -17,6 +17,7 @@
     "caffeine_enabled": "On",
     "charging": "Charging",
     "charge_rate": "Charge rate",
+    "discharging_rate": "Discharging rate",
     "charging_threshold": "Charging threshold",
     "disable_caffeine": "Allow idle and sleep",
     "enable_caffeine": "Prevent idle and sleep",

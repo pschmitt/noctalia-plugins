@@ -26,6 +26,7 @@ local fan = noctalia.state.get(FAN_STATE) or {
   loadAvg = { one = 0, five = 0, fifteen = 0 },
 }
 local render
+local fanSliderPreview = nil
 
 local function batteryCommand(payload)
   noctalia.state.set(BATTERY_COMMAND, payload)
@@ -96,7 +97,8 @@ local function batteryRows()
   }
   if details.rateWatts ~= nil then
     local prefix = details.charging and "+" or (details.status == "Discharging" and "−" or "")
-    table.insert(rows, metricRow("bolt", noctalia.tr("panel.charge_rate"), prefix .. string.format("%.1f", details.rateWatts), "W"))
+    local rateLabel = details.plugged and noctalia.tr("panel.charge_rate") or noctalia.tr("panel.discharging_rate")
+    table.insert(rows, metricRow("bolt", rateLabel, prefix .. string.format("%.1f", details.rateWatts), "W"))
   end
   local eta = details.charging and details.timeToFull
     or (details.status == "Discharging" and details.timeToEmpty or nil)
@@ -264,11 +266,17 @@ local function fanControls()
       min = 0,
       max = 100,
       step = 10,
-      value = fan.percent or 50,
+      value = fanSliderPreview or fan.percent or 50,
       controlSize = "sm",
       width = 230,
+      onChange = function(nextValue)
+        fanSliderPreview = tonumber(nextValue) or value
+        render()
+      end,
       onDragEnd = function(value)
-        fanCommand({ action = "set_fan_percent", value = tonumber(value) or 50 })
+        local target = fanSliderPreview or tonumber(value) or fan.percent or 50
+        fanSliderPreview = nil
+        fanCommand({ action = "set_fan_percent", value = target })
       end,
     }))
   end
@@ -301,6 +309,7 @@ function onOpen(_context)
   details = noctalia.state.get(DETAILS) or details
   fan = noctalia.state.get(FAN_STATE) or fan
   batteryIcon = noctalia.state.get("battery_icon") or batteryIcon
+  batteryCommand({ action = "refresh" })
   render()
 end
 
@@ -320,7 +329,21 @@ end)
 
 noctalia.state.watch(FAN_STATE, function(value)
   if type(value) == "table" then
+    if value.mode ~= fan.mode or value.percent ~= fan.percent then
+      fanSliderPreview = nil
+    end
     fan = value
     render()
   end
 end)
+
+-- The service normally polls at a relaxed interval. While this panel is open,
+-- refresh telemetry frequently enough for RPM and temperature to feel live.
+panel.setWantsSecondTicks(true)
+local refreshTick = 0
+function update()
+  refreshTick += 1
+  if refreshTick % 2 == 0 then
+    batteryCommand({ action = "refresh" })
+  end
+end
