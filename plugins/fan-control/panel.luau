@@ -243,11 +243,6 @@ end
 
 local function header()
   local subtitle = tostring(snap.rpm or 0) .. " RPM"
-  if monitorOnly() then
-    local profile = snap.powerProfile ~= "" and noctalia.tr("panel." .. snap.powerProfile:gsub("-", "_"))
-      or noctalia.tr("panel.power_profile")
-    subtitle = subtitle .. " · " .. profile
-  end
   local children = {
     ui.glyph({ name = "car-fan", size = 28, color = "on_surface" }),
     ui.column({ gap = 2, flexGrow = 1 }, {
