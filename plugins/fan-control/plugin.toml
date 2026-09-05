@@ -1,6 +1,6 @@
 id          = "pschmitt/fan-control"
 name        = "Fan Control"
-version     = "1.5.15"
+version     = "1.5.16"
 plugin_api  = 3
 author      = "pschmitt (fork of piero-93/thinkpad-fan)"
 license     = "GPL-3.0"
@@ -276,7 +276,7 @@ entry = "widget.luau"
 [[panel]]
 id              = "panel"
 entry           = "panel.luau"
-width           = 300
+width           = 340
 height          = 600
 placement       = "attached"
 position        = "auto"
