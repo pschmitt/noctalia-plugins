@@ -21,6 +21,7 @@ local fan = noctalia.state.get(FAN_STATE) or {
   available = false,
   mode = "auto",
   percent = 0,
+  cpuCount = 1,
   temp = 0,
   loadAvg = { one = 0, five = 0, fifteen = 0 },
 }
@@ -143,8 +144,10 @@ local function otherDevices()
     return "battery-2"
   end
   local rows = { ui.label({ text = noctalia.tr("panel.other_devices"), fontSize = 11, color = "on_surface_variant" }) }
+  local lowThreshold = tonumber(noctalia.getConfig("low_threshold")) or 20
   for _, device in devices do
-    table.insert(rows, metricRow(deviceGlyph(device), device.label, tostring(device.percent or 0), "%"))
+    local isLow = (device.percent or 0) <= lowThreshold
+    table.insert(rows, metricRow(deviceGlyph(device), device.label, tostring(device.percent or 0), "%", isLow))
   end
   return ui.column({ gap = 6 }, rows)
 end
@@ -156,7 +159,10 @@ local function systemRows()
   local load = fan.loadAvg or {}
   local temperature = fan.temp or 0
   local temperatureThreshold = tonumber(noctalia.getConfig("temperature_threshold")) or 85
-  local loadThreshold = tonumber(noctalia.getConfig("load_average_threshold")) or 8
+  local loadThreshold = tonumber(noctalia.getConfig("load_average_threshold")) or 0
+  if loadThreshold <= 0 then
+    loadThreshold = fan.cpuCount or 1
+  end
   local one, five, fifteen = load.one or 0, load.five or 0, load.fifteen or 0
   local function loadValue(value)
     return ui.label({

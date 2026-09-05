@@ -126,7 +126,7 @@
     },
     "load_average_threshold": {
       "label": "Load average alert threshold",
-      "description": "Color the load-average icon and values with the error color when any of the 1, 5, or 15 minute values reaches this level."
+      "description": "Color the load-average icon and values with the error color when any of the 1, 5, or 15 minute values reaches this level. 0 uses the host's logical CPU count."
     },
     "icon_width": {
       "label": "Icon width",

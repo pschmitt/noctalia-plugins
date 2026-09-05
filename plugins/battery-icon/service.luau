@@ -55,6 +55,7 @@ local fanSnapshot = {
   mode = "auto",
   percent = 0,
   rpm = 0,
+  cpuCount = 1,
   temp = 0,
   loadAvg = { one = 0, five = 0, fifteen = 0 },
 }
@@ -230,6 +231,7 @@ local function publishFan()
     mode = fanSnapshot.mode,
     percent = fanSnapshot.percent,
     rpm = fanSnapshot.rpm,
+    cpuCount = fanSnapshot.cpuCount,
     temp = fanSnapshot.temp,
     loadAvg = fanSnapshot.loadAvg,
   })
@@ -263,6 +265,7 @@ else
   done
 fi
 echo BACKEND_END
+echo CPUCOUNT:@nproc@
 printf 'TEMP:%s\n' "$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)"
 read -r one five fifteen _ < /proc/loadavg 2>/dev/null
 printf 'LOAD:%s %s %s\n' "$one" "$five" "$fifteen"
@@ -288,6 +291,7 @@ local function readFan()
       mode = "auto",
       percent = 0,
       rpm = 0,
+      cpuCount = tonumber(out:match("CPUCOUNT:(%d+)")) or fanSnapshot.cpuCount or 1,
       temp = fanSnapshot.temp or 0,
       loadAvg = fanSnapshot.loadAvg or { one = 0, five = 0, fifteen = 0 },
     }

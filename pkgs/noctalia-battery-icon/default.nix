@@ -50,6 +50,7 @@ stdenvNoCC.mkDerivation {
       --subst-var-by systemctl ${systemd}/bin/systemctl \
       --subst-var-by systemd_inhibit ${systemd}/bin/systemd-inhibit \
       --subst-var-by systemd_run ${systemd}/bin/systemd-run \
+      --subst-var-by nproc ${coreutils}/bin/nproc \
       --subst-var-by sleep ${coreutils}/bin/sleep \
       --subst-var-by stdbuf ${coreutils}/bin/stdbuf \
       --subst-var-by sed ${gnused}/bin/sed \

@@ -165,8 +165,8 @@ key = "load_average_threshold"
 type = "int"
 label_key = "settings.load_average_threshold.label"
 description_key = "settings.load_average_threshold.description"
-default = 8
-min = 1
+default = 0
+min = 0
 max = 64
 
 # ── Bar widget actions ───────────────────────────────────────────────────────
