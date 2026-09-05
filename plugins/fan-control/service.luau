@@ -50,6 +50,20 @@ local snapshot = {
 
 local reading = false
 
+-- Rolling temp/RPM history for the panel's graph, oldest first. Capped
+-- rather than windowed by time: at the ~2.5s poll interval this is a bit
+-- over 2 minutes, which is enough to see a trend without the snapshot
+-- (re-sent to the panel on every poll) growing unbounded.
+local MAX_HISTORY = 60
+local history = {}
+
+local function pushHistory()
+  table.insert(history, { temp = snapshot.temp, rpm = snapshot.rpm })
+  if #history > MAX_HISTORY then
+    table.remove(history, 1)
+  end
+end
+
 local function shellQuote(s)
   return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
 end
@@ -74,6 +88,7 @@ local function publish()
     rpm = snapshot.rpm,
     fanCount = snapshot.fanCount,
     fans = snapshot.fans,
+    history = history,
   })
 end
 
@@ -290,6 +305,9 @@ local function readNow()
     local raw = tonumber(noctalia.string.trim(tempOut))
     if raw then
       snapshot.temp = math.floor(raw / 1000 + 0.5)
+    end
+    if snapshot.available then
+      pushHistory()
     end
     publish()
   end, READ_TIMEOUT_MS)

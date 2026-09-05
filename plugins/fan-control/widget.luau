@@ -17,18 +17,28 @@ local snap = noctalia.state.get(SNAPSHOT) or {
 local isVertical = false
 local reqId = 0
 
--- "full" (fans running uncapped, no software limit) and a low manual percent
--- both deserve a warning color; a comfortable manual level is just the accent.
+-- Each mode's color is user-overridable (auto_color/manual_color/full_color
+-- settings); empty (the default) falls back to a sensible theme token — an
+-- error/warning tint for "full" (uncapped, no software limit), the accent
+-- for a manual level, and neutral for auto.
+local function configuredColor(key, fallback)
+  local custom = noctalia.getConfig(key)
+  if type(custom) == "string" and custom ~= "" then
+    return custom
+  end
+  return fallback
+end
+
 local function accent()
   if noctalia.getConfig("colorize_by_status") == false then
-    return "on_surface"
+    return configuredColor("auto_color", "on_surface")
   end
   if snap.mode == "full" then
-    return "error"
+    return configuredColor("full_color", "error")
   elseif snap.mode == "manual" then
-    return "primary"
+    return configuredColor("manual_color", "primary")
   end
-  return "on_surface"
+  return configuredColor("auto_color", "on_surface")
 end
 
 local function displayText()

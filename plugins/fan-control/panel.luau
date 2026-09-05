@@ -39,6 +39,50 @@ local function shownPercent()
   return snap.percent or 0
 end
 
+-- Mirrors widget.luau's accent(): same auto_color/manual_color/full_color
+-- settings, so the panel header matches the bar icon.
+local function configuredColor(key, fallback)
+  local custom = noctalia.getConfig(key)
+  if type(custom) == "string" and custom ~= "" then
+    return custom
+  end
+  return fallback
+end
+
+local function accent()
+  if noctalia.getConfig("colorize_by_status") == false then
+    return configuredColor("auto_color", "on_surface")
+  end
+  if snap.mode == "full" then
+    return configuredColor("full_color", "error")
+  elseif snap.mode == "manual" then
+    return configuredColor("manual_color", "primary")
+  end
+  return configuredColor("auto_color", "on_surface")
+end
+
+-- ui.graph wants values in [0, 1]. maxValue fixes the scale (e.g. 100 for a
+-- °C reading); omit it to auto-scale against the series' own peak (RPM
+-- ranges wildly by hardware, from a GPD Pocket's tiny fan to a ThinkPad's).
+-- A small floor keeps a flat/near-zero series visible as a line instead of
+-- collapsing to nothing.
+local function graphSeries(history, key, maxValue)
+  local peak = maxValue or 1
+  if not maxValue then
+    for _, sample in history do
+      local v = sample[key] or 0
+      if v > peak then
+        peak = v
+      end
+    end
+  end
+  local series = {}
+  for _, sample in history do
+    table.insert(series, math.max(0.02, math.min(1, (sample[key] or 0) / peak)))
+  end
+  return series
+end
+
 local function dispatch(payload)
   reqId += 1
   payload.requestId = tostring(os.time()) .. "-" .. tostring(reqId)
@@ -58,7 +102,7 @@ render = function()
   local shown = shownPercent()
   local children = {
     ui.row({ gap = 6, align = "center" }, {
-      ui.glyph({ name = "car-fan", color = "primary" }),
+      ui.glyph({ name = "car-fan", color = accent() }),
       ui.label({ text = noctalia.tr("panel.title"), fontWeight = "bold", flexGrow = 1 }),
       ui.label({
         text = (snap.rpm or 0) .. " RPM · " .. (snap.temp or 0) .. " °C",
@@ -106,6 +150,27 @@ render = function()
       end,
     }),
   }))
+
+  if #(snap.history or {}) > 1 then
+    table.insert(children, ui.column({ gap = 4 }, {
+      ui.label({ text = noctalia.tr("panel.temp_graph"), fontSize = 11, color = "on_surface_variant" }),
+      ui.graph({
+        values = graphSeries(snap.history, "temp", 100),
+        color = "error",
+        lineWidth = 2,
+        fillOpacity = 0.2,
+        height = 36,
+      }),
+      ui.label({ text = noctalia.tr("panel.rpm_graph"), fontSize = 11, color = "on_surface_variant" }),
+      ui.graph({
+        values = graphSeries(snap.history, "rpm"),
+        color = "primary",
+        lineWidth = 2,
+        fillOpacity = 0.2,
+        height = 36,
+      }),
+    }))
+  end
 
   if (snap.fanCount or 0) > 1 then
     local rows = {}

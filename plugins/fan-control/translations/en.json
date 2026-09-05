@@ -12,6 +12,8 @@
     "fan_rpm": "Fan {index}: {rpm} RPM",
     "full": "Full",
     "manual": "Manual",
+    "rpm_graph": "Fan speed",
+    "temp_graph": "Temperature",
     "title": "Fan control",
     "unavailable": "No supported fan control found (thinkpad_acpi or a known hwmon chip). See the plugin README."
   },
@@ -41,6 +43,10 @@
     "action_scroll_up": {
       "label": "Scroll up"
     },
+    "auto_color": {
+      "description": "Icon/text color while in Auto mode. Empty uses the theme's neutral color.",
+      "label": "Auto color"
+    },
     "bar_display": {
       "description": "What to show next to the icon in the bar",
       "label": "Bar display",
@@ -54,12 +60,20 @@
       "description": "Tint the widget when the fan is at full speed or a manual level",
       "label": "Colorize by status"
     },
+    "full_color": {
+      "description": "Icon/text color while at Full speed. Empty uses the theme's error/warning color.",
+      "label": "Full-speed color"
+    },
     "hwmon_name": {
       "description": "Extra hwmon chip name to also treat as a controllable fan (matches /sys/class/hwmon/hwmon*/name), on top of the built-in dell_smm and gpdfan. Leave empty unless auto-detection misses your hardware.",
       "label": "Extra hwmon chip name"
     },
+    "manual_color": {
+      "description": "Icon/text color while at a manual speed. Empty uses the theme's accent color.",
+      "label": "Manual color"
+    },
     "percent_step": {
-      "description": "How much the increase/decrease actions change the manual speed by",
+      "description": "Granularity of manual speed changes: the slider's step size, and how much the increase/decrease actions change it by",
       "label": "Speed step (%)"
     },
     "thermal_zone": {
