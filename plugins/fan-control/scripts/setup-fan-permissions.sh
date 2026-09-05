@@ -85,7 +85,10 @@ fi
 echo "Writing ${HWMON_RULE_FILE}..."
 {
   for name in dell_smm gpd_fan "${EXTRA_HWMON_NAMES[@]}"; do
-    echo "SUBSYSTEM==\"hwmon\", ATTR{name}==\"${name}\", RUN+=\"${SH_BIN} -c 'for f in /sys/%p/pwm*; do ${CHGRP_BIN} ${GROUP_NAME} \"\$f\"; ${CHMOD_BIN} 0664 \"\$f\"; done'\""
+    # $$f (not $f): udev's rule-value parser treats a bare "$name" as one of
+    # its own substitutions and rejects anything it doesn't recognize, so the
+    # literal '$' the shell needs has to be escaped for udev as '$$'.
+    echo "SUBSYSTEM==\"hwmon\", ATTR{name}==\"${name}\", RUN+=\"${SH_BIN} -c 'for f in /sys/%p/pwm*; do ${CHGRP_BIN} ${GROUP_NAME} \"\$\$f\"; ${CHMOD_BIN} 0664 \"\$\$f\"; done'\""
   done
 } >"${HWMON_RULE_FILE}"
 
