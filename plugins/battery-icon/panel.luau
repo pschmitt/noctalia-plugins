@@ -83,7 +83,6 @@ end
 
 local function batteryRows()
   local rows = {
-    metricRow("battery-2", noctalia.tr("panel.battery"), tostring(details.percent or 0), "%"),
     metricRow(
       "battery-2",
       noctalia.tr("panel.battery_health"),
