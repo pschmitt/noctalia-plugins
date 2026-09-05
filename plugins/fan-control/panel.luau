@@ -113,10 +113,14 @@ local function fanRow(index, fan, multiFan, shown)
   local fanLabel = ui.label({ text = string.format("Fan %d", index), fontSize = 10, width = 42 })
 
   if snap.mode ~= "manual" then
-    local state = snap.mode == "full" and "uncapped" or "firmware"
-    local fill = snap.mode == "full" and "error/0.35" or "surface_variant/0.5"
-    local color = snap.mode == "full" and "on_error" or "on_surface_variant"
-    return ui.row({ gap = 6, align = "center" }, { fanLabel, stateChip(state, fill, color), rpm })
+    if snap.mode == "auto" then
+      return ui.row({ gap = 6, align = "center" }, { fanLabel, ui.box({ flexGrow = 1 }), rpm })
+    end
+    return ui.row({ gap = 6, align = "center" }, {
+      fanLabel,
+      stateChip("uncapped", "error/0.35", "on_error"),
+      rpm,
+    })
   end
 
   local value = multiFan and shownFanPercent(index, fan) or shown
