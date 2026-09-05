@@ -369,7 +369,7 @@ local function effectiveLimit(cfg, reported)
     limit, source = cfg.fullAt, "configured"
   elseif reported ~= nil and reported > 0 and reported < 100 then
     limit, source = reported, "reported"
-  elseif learnedLimit ~= nil then
+  elseif learnedLimit ~= nil and learnedLimit < 100 then
     limit, source = learnedLimit, "learned"
   end
   if limit ~= lastLoggedLimit then
