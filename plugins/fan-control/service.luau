@@ -169,6 +169,11 @@ local function hwmonModeAndPercent(channels)
     return "auto", 0
   elseif first.enable == 0 then
     return "full", 100
+  elseif first.enable == 1 and first.pwm == 255 then
+    -- Full is written as manual PWM 255 below: dell-smm-hwmon rejects the
+    -- otherwise common `pwm*_enable = 0` form. The readback is intentionally
+    -- treated as Full too, even though manual 100% is indistinguishable.
+    return "full", 100
   end
   return "manual", math.floor((first.pwm or 0) * 100 / 255 + 0.5)
 end
@@ -215,9 +220,10 @@ local function hwmonReadCmd()
     .. " 2>/dev/null; echo " .. CPU_SEP .. "; nproc 2>/dev/null"
 end
 
--- enable: 0 (full/no control), 1 (manual), 2 (auto) — the standard hwmon PWM
--- enable semantics (Documentation/hwmon/sysfs-interface), applied uniformly
--- to every detected channel.
+-- `pwm*_enable = 0` is often described as full/no control, but it is not
+-- universally supported (dell-smm-hwmon rejects it). Full is consequently
+-- represented by manual control at PWM 255; automatic and manual modes use
+-- the portable 2 and 1 values respectively.
 local function hwmonWriteCmd(enable, pwmValue, selectedIndex)
   local parts = {}
   for i, chan in hwmonChannels do
@@ -375,21 +381,38 @@ local function runWrite(cmd, onDone)
   end, WRITE_TIMEOUT_MS)
 end
 
--- Auto/full are absolute mode writes. Manual preserves the current duty cycle
--- while switching the fans out of automatic control; the sliders then change
--- individual channels where the backend exposes more than one.
+-- Auto/full are absolute mode writes. Entering Manual starts at 100% instead
+-- of inheriting an unknown automatic duty cycle (or accidentally starting at
+-- 0% after Auto); the sliders then change individual channels where the
+-- backend exposes more than one.
 local function applyMode(mode)
   if backend == "thinkpad" then
-    local level = mode == "auto" and "auto" or (mode == "full" and "disengaged" or thinkpadLevelFromPercent(snapshot.percent))
+    local level
+    if mode == "auto" then
+      level = "auto"
+      snapshot.percent = 0
+    elseif mode == "full" then
+      level = "disengaged"
+      snapshot.percent = 100
+    else
+      level = thinkpadLevelFromPercent(100)
+      snapshot.percent = 100
+    end
     snapshot.level = level
     snapshot.mode = mode
     publish()
     runWrite(thinkpadWriteCmd(level), readNow)
   elseif backend == "hwmon" then
     snapshot.mode = mode
-    publish()
-    local enable = mode == "auto" and 2 or (mode == "full" and 0 or 1)
-    runWrite(hwmonWriteCmd(enable, nil), readNow)
+    if mode == "auto" then
+      snapshot.percent = 0
+      publish()
+      runWrite(hwmonWriteCmd(2, nil), readNow)
+    else
+      snapshot.percent = 100
+      publish()
+      runWrite(hwmonWriteCmd(1, 255), readNow)
+    end
   end
 end
 

@@ -4,7 +4,7 @@
     "full": "Full speed"
   },
   "notify": {
-    "fan_error_body": "Could not set the fan mode/speed. Check the write permissions (see the plugin README).",
+    "fan_error_body": "Could not set the fan mode/speed. Check the Noctalia service log for the driver error.",
     "fan_error_title": "Fan control"
   },
   "panel": {

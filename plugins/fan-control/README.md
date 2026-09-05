@@ -50,9 +50,11 @@ Lua memory is shared between them):
 - **Status coloring** — the widget turns red at full speed and uses the
   accent color under manual control.
 - **Manual control** — Auto, Full (uncapped/no software limit), or a 0–100%
-  slider. On `thinkpad_acpi` the slider's 101 positions are mapped onto the
-  hardware's 8 discrete levels (0–7); dragging it always feels smooth, only
-  the value committed on release is quantized.
+  slider. Entering Manual starts at 100% rather than inheriting an unknown
+  firmware-controlled duty cycle; adjust from there with the slider. On
+  `thinkpad_acpi` the slider's 101 positions are mapped onto the hardware's 8
+  discrete levels (0–7); dragging it always feels smooth, only the value
+  committed on release is quantized.
 - **Temperature readout** from a configurable thermal zone.
 
 ## Requirements
@@ -170,11 +172,12 @@ For review transparency (this plugin is trusted, unsandboxed Luau):
   `/sys/class/hwmon/hwmon*/name` against the built-in and configured chip
   names, entirely read-only.
 - **Writes**, only when you pick Auto/Full or drag the slider in the panel:
-  `level <value>` to `/proc/acpi/ibm/fan` (thinkpad), or `<0|1|2>` to
-  `pwmN_enable` and (for manual) a `0`–`255` value to `pwmN` (hwmon) — through
-  the same shell. All values are computed internally (clamped to their valid
-  ranges) before reaching the command, never passed through from arbitrary
-  input.
+  `level <value>` to `/proc/acpi/ibm/fan` (thinkpad), or `2` (auto) / `1`
+  (manual) to `pwmN_enable` and a `0`–`255` value to `pwmN` (hwmon) — Full is
+  manual PWM `255`, avoiding `pwmN_enable = 0`, which some drivers (including
+  `dell-smm-hwmon`) reject. The writes go through the same shell. All values
+  are computed internally (clamped to their valid ranges) before reaching the
+  command, never passed through from arbitrary input.
 - **No network access**, and no commands beyond the shell, `cat`, and the
   redirects described above.
 - The **setup script** is never invoked by the plugin; you run it yourself
