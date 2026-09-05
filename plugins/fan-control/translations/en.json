@@ -60,6 +60,14 @@
         "temp": "Temperature"
       }
     },
+    "bar_icon": {
+      "description": "Symbol shown by the bar widget",
+      "label": "Bar icon",
+      "options": {
+        "fan": "Fan",
+        "thermometer": "Thermometer"
+      }
+    },
     "bar_show_units": {
       "description": "Show \"RPM\"/\"°C\" next to the number in the bar",
       "label": "Show units in bar"

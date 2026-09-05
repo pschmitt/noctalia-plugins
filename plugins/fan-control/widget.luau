@@ -23,6 +23,13 @@ local function monitorOnly()
   return noctalia.getConfig("alt_mode") == true
 end
 
+local function barIcon()
+  if noctalia.getConfig("bar_icon") == "thermometer" then
+    return "thermometer"
+  end
+  return "car-fan"
+end
+
 local function displayText()
   local mode = noctalia.getConfig("bar_display")
   local showUnits = noctalia.getConfig("bar_show_units") ~= false
@@ -63,7 +70,7 @@ local function render()
   -- size keeps this icon aligned with neighbouring built-in widgets when the
   -- RPM label is hidden.
   local children = {
-    ui.glyph({ name = "car-fan", size = 14, color = colors.barColor(snap, "colorize_icon") }),
+    ui.glyph({ name = barIcon(), size = 14, color = colors.barColor(snap, "colorize_icon") }),
   }
 
   local text = (not isVertical) and displayText() or nil

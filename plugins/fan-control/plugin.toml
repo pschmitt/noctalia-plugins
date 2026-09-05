@@ -29,6 +29,17 @@ description_key = "settings.bar_show_units.description"
 default        = true
 
 [[setting]]
+key            = "bar_icon"
+type           = "select"
+label_key      = "settings.bar_icon.label"
+description_key = "settings.bar_icon.description"
+default        = "fan"
+options = [
+  { value = "fan", label_key = "settings.bar_icon.options.fan" },
+  { value = "thermometer", label_key = "settings.bar_icon.options.thermometer" },
+]
+
+[[setting]]
 key            = "alt_mode"
 type           = "bool"
 label_key      = "settings.alt_mode.label"
