@@ -132,18 +132,6 @@ render = function()
       ui.glyph({ name = "car-fan", color = colors.icon(snap) }),
       ui.label({ text = noctalia.tr("panel.title"), fontWeight = "bold" }),
     }),
-    ui.row({ gap = 6 }, {
-      metricCard(noctalia.tr("panel.fan_speed"), (snap.rpm or 0) .. " RPM", "on_surface"),
-      metricCard(noctalia.tr("tooltip.temperature"), (snap.temp or 0) .. " °C", "on_surface"),
-    }),
-    ui.column({ gap = 5, fill = "surface_variant/0.5", radius = 8, padding = 8 }, {
-      ui.label({ text = noctalia.tr("panel.load_average"), fontSize = 10, color = "on_surface_variant" }),
-      ui.row({ gap = 4, align = "center", justify = "space_between" }, {
-        loadMetric("1m", loadOne, loadColor(loadOne, cpuCount)),
-        loadMetric("5m", loadFive, loadColor(loadFive, cpuCount)),
-        loadMetric("15m", loadFifteen, loadColor(loadFifteen, cpuCount)),
-      }),
-    }),
   }
 
   if not snap.available then
@@ -157,7 +145,6 @@ render = function()
     return
   end
 
-  table.insert(children, ui.spacer({ height = 4 }))
   table.insert(children, ui.row({ gap = 6 }, {
     modeButton("auto", noctalia.tr("panel.auto")),
     modeButton("full", noctalia.tr("panel.full")),
@@ -186,6 +173,18 @@ render = function()
     }),
   }))
   table.insert(children, ui.separator({}))
+  table.insert(children, ui.row({ gap = 6 }, {
+    metricCard(noctalia.tr("panel.fan_speed"), (snap.rpm or 0) .. " RPM", "on_surface"),
+    metricCard(noctalia.tr("tooltip.temperature"), (snap.temp or 0) .. " °C", "on_surface"),
+  }))
+  table.insert(children, ui.column({ gap = 5, fill = "surface_variant/0.5", radius = 8, padding = 8 }, {
+    ui.label({ text = noctalia.tr("panel.load_average"), fontSize = 10, color = "on_surface_variant" }),
+    ui.row({ gap = 4, align = "center", justify = "space_between" }, {
+      loadMetric("1m", loadOne, loadColor(loadOne, cpuCount)),
+      loadMetric("5m", loadFive, loadColor(loadFive, cpuCount)),
+      loadMetric("15m", loadFifteen, loadColor(loadFifteen, cpuCount)),
+    }),
+  }))
 
   if #(snap.history or {}) > 1 then
     local tempLo, tempHi = historyRange(snap.history, "temp")
