@@ -53,11 +53,11 @@ local snapshot = {
 
 local reading = false
 
--- Rolling temp/RPM history for the panel's graph, oldest first. Capped
--- rather than windowed by time: at the ~2.5s poll interval this is a bit
--- over 2 minutes, which is enough to see a trend without the snapshot
--- (re-sent to the panel on every poll) growing unbounded.
-local MAX_HISTORY = 60
+-- Rolling temp/RPM/load history for the panel's graph, oldest first. Capped
+-- rather than windowed by time: at the 2.5s poll interval this stores 10
+-- minutes without the snapshot (re-sent to the panel on every poll) growing
+-- unbounded.
+local MAX_HISTORY = 240
 local history = {}
 
 local function pushHistory()
