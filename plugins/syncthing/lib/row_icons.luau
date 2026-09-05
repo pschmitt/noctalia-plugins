@@ -11,6 +11,14 @@
 
 local M = {}
 
+-- Web-GUI ink for the two indicators that have a color of their own there: the
+-- "Up to Date" check is Syncthing's success green, a disconnected device's
+-- power glyph its muted violet. Sampled from the web GUI itself; they are
+-- deliberately palette-independent so the rows read the same as the browser
+-- tab next to them. Everything else stays on the plugin's theme colors.
+M.CHECK_COLOR = "#2ab34d"
+M.POWER_COLOR = "#8a61ab"
+
 -- Syncthing's raw folder states (model.State) that have their own web-GUI
 -- glyph. Anything not listed here falls back to the coarse plugin state below.
 local FOLDER_RAW_GLYPHS = {
@@ -70,6 +78,16 @@ function M.connKind(device)
     return "none"
   end
   return SIGNAL_GLYPHS[device.connType] and device.connType or "unknown"
+end
+
+-- Ink for the state half of a device row: the web GUI's green check when the
+-- device is up, its violet power glyph when it is not, and the row's own state
+-- color (paused) in between.
+function M.deviceColor(device, fallback)
+  if device.paused then
+    return fallback
+  end
+  return device.connected and M.CHECK_COLOR or M.POWER_COLOR
 end
 
 -- Glyph for the signal half of a device row.

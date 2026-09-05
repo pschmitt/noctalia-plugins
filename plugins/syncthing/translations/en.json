@@ -136,15 +136,19 @@
     "label": "Syncthing"
   },
   "state": {
+    "cleaning": "Cleaning versions",
     "disabled": "Disabled",
     "disconnected": "No devices connected",
     "error": "Error",
     "idle": "Up to date",
     "offline": "Syncthing unreachable",
     "paused": "Paused",
+    "scanning": "Scanning",
+    "sync-preparing": "Preparing to sync",
     "syncing": "Syncing",
     "unauthorized": "API key rejected",
-    "unconfigured": "Not configured"
+    "unconfigured": "Not configured",
+    "waiting": "Waiting"
   },
   "summary": {
     "disconnected": "No remote devices are connected.",

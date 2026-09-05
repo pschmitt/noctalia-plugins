@@ -152,7 +152,9 @@ function onMiddleClick()
 end
 
 function onScroll(_axis, steps, _startsGesture)
-  runAction(steps > 0 and "action_scroll_up" or "action_scroll_down")
+  -- Positive steps is a scroll *down* (matches noctalia's own convention,
+  -- e.g. niri-active-workspace's onScroll), not up.
+  runAction(steps > 0 and "action_scroll_down" or "action_scroll_up")
 end
 
 noctalia.setUpdateInterval(30000)

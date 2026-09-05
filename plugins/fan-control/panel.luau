@@ -20,6 +20,24 @@ local render
 -- update the on-screen percentage without spamming the service; the actual
 -- write only fires once, from onDragEnd.
 local sliderPreview = nil
+-- The last percent committed via onDragEnd, held onscreen optimistically
+-- until the service's own snapshot catches up to it — otherwise the display
+-- snaps back to the old percent for the round-trip (a hwmon write + a
+-- confirming read) before jumping to the new one, which reads as lag.
+-- Cleared once snap.percent matches, so an external change (another client)
+-- still shows up rather than getting stuck on a stale target forever.
+local optimisticTarget = nil
+
+local function shownPercent()
+  if sliderPreview then
+    return sliderPreview
+  end
+  if optimisticTarget and optimisticTarget ~= snap.percent then
+    return optimisticTarget
+  end
+  optimisticTarget = nil
+  return snap.percent or 0
+end
 
 local function dispatch(payload)
   reqId += 1
@@ -31,12 +49,13 @@ local function modeButton(mode, label)
   local active = snap.mode == mode
   return ui.button({ text = label, variant = active and "primary" or "ghost", flexGrow = 1, onClick = function()
     sliderPreview = nil
+    optimisticTarget = nil
     dispatch({ action = "set_mode", mode = mode })
   end })
 end
 
 render = function()
-  local shown = sliderPreview or snap.percent or 0
+  local shown = shownPercent()
   local children = {
     ui.row({ gap = 6, align = "center" }, {
       ui.glyph({ name = "car-fan", color = "primary" }),
@@ -73,7 +92,7 @@ render = function()
     ui.slider({
       min = 0,
       max = 100,
-      step = 1,
+      step = tonumber(noctalia.getConfig("percent_step")) or 10,
       value = shown,
       onChange = function(value)
         sliderPreview = tonumber(value) or shown
@@ -82,6 +101,7 @@ render = function()
       onDragEnd = function(value)
         local target = sliderPreview or tonumber(value) or shown
         sliderPreview = nil
+        optimisticTarget = target
         dispatch({ action = "set_percent", value = target })
       end,
     }),

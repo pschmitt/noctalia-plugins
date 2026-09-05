@@ -26,6 +26,10 @@ local cmdNonce = 0
 -- Active list tab: "folders" | "devices" (Syncthing Tray-style tabs).
 local view = "folders"
 
+-- Hover handlers exist only to keep the indicator buttons' input areas live
+-- (see folderRow); there is nothing to do when the pointer arrives.
+function noop() end
+
 local function tr(key, subst)
   return noctalia.tr(key, subst)
 end
@@ -151,9 +155,24 @@ local function ratesLabel()
   })
 end
 
+-- Syncthing's raw states that say more than the coarse "syncing" they all map
+-- to, and that the row's glyph already distinguishes (magnifier for a scan,
+-- hourglass while preparing, and so on). Keeping the wording in step with the
+-- glyph is what stops a scanning folder from reading "Syncing" next to a
+-- magnifier.
+local RAW_STATE_LABELS = {
+  ["scanning"] = "state.scanning",
+  ["sync-preparing"] = "state.sync-preparing",
+  ["sync-waiting"] = "state.waiting",
+  ["scan-waiting"] = "state.waiting",
+  ["clean-waiting"] = "state.waiting",
+  ["cleaning"] = "state.cleaning",
+}
+
 local function folderStateText(folder)
   local progress = folder.state ~= "idle" and folder.completion >= 0 and ` {folder.completion}%` or ""
-  local base = `{tr(`state.{folder.state}`)}{progress}`
+  local rawKey = folder.state ~= "paused" and folder.state ~= "error" and RAW_STATE_LABELS[folder.rawState] or nil
+  local base = `{tr(rawKey or `state.{folder.state}`)}{progress}`
   if folder.state == "syncing" then
     if folder.needItems > 0 then
       base = tr("panel.folder-state", { state = base, count = folder.needItems })
@@ -226,7 +245,11 @@ local function folderRow(folder)
       glyphSize = 14,
       width = 22,
       height = 22,
+      color = folder.state == "idle" and rowIcons.CHECK_COLOR or color,
       tooltip = folderStateText(folder),
+      -- A button with no callback at all keeps its input area disabled, and a
+      -- disabled input area never hovers — so the tooltip would never show.
+      onHover = noop,
     }),
     -- Keeps the status indicators from reading as more action buttons.
     ui.box({ width = 1, height = 18, fill = "on_surface/0.15" }),
@@ -303,7 +326,10 @@ local function deviceRow(device)
         glyphSize = 14,
         width = 22,
         height = 22,
+        color = rowIcons.deviceColor(device, color),
         tooltip = deviceStateText(device),
+        -- See folderRow: no callback means no hover means no tooltip.
+        onHover = noop,
       }),
       ui.button({
         glyph = rowIcons.signal(device),
@@ -311,7 +337,9 @@ local function deviceRow(device)
         glyphSize = 14,
         width = 22,
         height = 22,
+        color = (device.connected and not device.paused) and color or "on_surface/0.35",
         tooltip = tr(`device.conn-{rowIcons.connKind(device)}`),
+        onHover = noop,
       }),
     }),
     -- Keeps the status indicators from reading as more action buttons.
