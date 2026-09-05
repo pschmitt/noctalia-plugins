@@ -88,7 +88,9 @@ local function modeButton(mode, glyph, label)
     return ui.row({
       width = 32,
       height = 32,
-      fill = snap.mode == mode and colors.fullColor() or nil,
+      -- The declarative runtime retains an omitted fill from the previous
+      -- render, so clear the Full-blast background explicitly on mode changes.
+      fill = snap.mode == mode and colors.fullColor() or "#00000000",
       radius = 8,
       align = "center",
       justify = "center",
@@ -120,6 +122,7 @@ local function fanRow(index, fan, multiFan, shown)
     text = tostring(fan.rpm or 0) .. " RPM",
     fontSize = 11,
     fontWeight = "bold",
+    color = "on_surface",
   })
   local fanLabel = ui.label({ text = string.format("Fan %d", index), fontSize = 10, width = 42 })
 
