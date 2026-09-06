@@ -130,10 +130,38 @@ local function otherDevices()
   if #devices == 0 then
     return nil
   end
+
+  local function chargeGlyph(device)
+    local state = tostring(device.state or ""):lower()
+    if state == "charging" then
+      return "battery-charging"
+    elseif state == "fully-charged" or state == "pending-charge" then
+      return "battery-plugged"
+    end
+
+    local percent = tonumber(device.percent) or 0
+    if percent >= 85 then
+      return "battery-4"
+    elseif percent >= 55 then
+      return "battery-3"
+    elseif percent >= 30 then
+      return "battery-2"
+    elseif percent >= 10 then
+      return "battery-1"
+    end
+    return "battery-0"
+  end
+
   local function deviceGlyph(device)
+    if noctalia.getConfig("other_device_icon_mode") == "level" then
+      return chargeGlyph(device)
+    end
+
     local kind = tostring(device.kind or ""):lower()
-    if kind == "mouse" or kind == "touchpad" then
-      return "mouse"
+    if kind == "mouse" then
+      return "mouse-2"
+    elseif kind == "touchpad" or kind == "tablet" then
+      return "device-tablet"
     elseif kind == "keyboard" then
       return "keyboard"
     elseif kind == "headset" or kind == "headphones" then
@@ -152,6 +180,18 @@ local function otherDevices()
     table.insert(rows, metricRow(deviceGlyph(device), device.label, tostring(device.percent or 0), "%", isLow))
   end
   return ui.column({ gap = 6 }, rows)
+end
+
+local function settingsButton()
+  return ui.row({ justify = "end" }, {
+    ui.button({
+      glyph = "settings",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = noctalia.tr("panel.open_settings"),
+      onClick = "onSettings",
+    }),
+  })
 end
 
 local function systemRows()
@@ -302,6 +342,7 @@ render = function()
     table.insert(children, ui.separator({}))
     table.insert(children, controls)
   end
+  table.insert(children, settingsButton())
   panel.render(ui.column({ gap = 10, padding = 10, align = "stretch" }, children))
 end
 
@@ -311,6 +352,10 @@ function onOpen(_context)
   batteryIcon = noctalia.state.get("battery_icon") or batteryIcon
   batteryCommand({ action = "refresh" })
   render()
+end
+
+function onSettings()
+  noctalia.openSettings()
 end
 
 noctalia.state.watch(DETAILS, function(value)

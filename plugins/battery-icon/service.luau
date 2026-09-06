@@ -144,7 +144,7 @@ local function detailsCommand(device)
     .. mainPath
     .. " org.freedesktop.UPower.Device TimeToEmpty 2>/dev/null); printf 'BATTERY\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \"$full\" \"$design\" \"$start\" \"$finish\" \"$rate\" \"$tofull\" \"$toempty\"; "
     .. "@upower@ -e 2>/dev/null | while IFS= read -r d; do [ \"$d\" = "
-    .. "'" .. mainPath .. "' ] && continue; [ \"$d\" = '/org/freedesktop/UPower/devices/DisplayDevice' ] && continue; info=$(@upower@ -i \"$d\" 2>/dev/null); percent=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*percentage:[[:space:]]*\\([0-9][0-9]*\\)%.*/\\1/p'); [ -z \"$percent\" ] && continue; label=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*model:[[:space:]]*//p'); [ -z \"$label\" ] && label=${d##*/}; kind=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*type:[[:space:]]*//p'); printf 'DEVICE\\t%s\\t%s\\t%s\\n' \"$label\" \"$percent\" \"$kind\"; done"
+    .. "'" .. mainPath .. "' ] && continue; [ \"$d\" = '/org/freedesktop/UPower/devices/DisplayDevice' ] && continue; info=$(@upower@ -i \"$d\" 2>/dev/null); percent=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*percentage:[[:space:]]*\\([0-9][0-9]*\\)%.*/\\1/p'); [ -z \"$percent\" ] && continue; label=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*model:[[:space:]]*//p'); [ -z \"$label\" ] && label=${d##*/}; kind=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*type:[[:space:]]*//p'); state=$(printf '%s\\n' \"$info\" | @sed@ -n 's/^[[:space:]]*state:[[:space:]]*//p'); printf 'DEVICE\\t%s\\t%s\\t%s\\t%s\\n' \"$label\" \"$percent\" \"$kind\" \"$state\"; done"
 end
 
 local function parseDetails(output)
@@ -175,9 +175,9 @@ local function parseDetails(output)
       details.timeToFull = parseNumber(toFull)
       details.timeToEmpty = parseNumber(toEmpty)
     else
-      local label, percent, kind = line:match("^DEVICE\t(.-)\t(%d+)\t(.-)$")
+      local label, percent, kind, state = line:match("^DEVICE\t(.-)\t(%d+)\t(.-)\t(.-)$")
       if label and percent then
-        table.insert(details.devices, { label = label, percent = tonumber(percent), kind = kind })
+        table.insert(details.devices, { label = label, percent = tonumber(percent), kind = kind, state = state })
       end
     end
   end

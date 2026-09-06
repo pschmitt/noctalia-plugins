@@ -21,6 +21,10 @@ and temperature/load from Fan Control. Fan Auto/Full blast/Manual controls are
 shown by default when Fan Control supports direct control; disable them with
 **Show fan controls** in **Settings → Plugins → Battery Icon**.
 
+The small gear in the popup's lower-right corner opens these plugin settings.
+Use **Other devices icons** to choose device-type glyphs (for example, mouse
+or touchpad) or battery glyphs that reflect each device's current charge state.
+
 `full_at = 0` learns a sensible full-charge limit from the hardware. Set it to
 an explicit percentage only when the automatic value does not match a device's
 charge-preservation limit. Plug/unplug sounds also require Noctalia's global

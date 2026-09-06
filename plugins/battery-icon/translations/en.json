@@ -26,6 +26,7 @@
     "manual": "Manual",
     "not_available": "Not available",
     "other_devices": "Other devices",
+    "open_settings": "Plugin settings",
     "performance": "Performance",
     "plugged": "Plugged in",
     "fan": "Fan",
@@ -120,6 +121,14 @@
     "show_fan_controls": {
       "label": "Show fan controls",
       "description": "Show fan Auto, Full blast, and Manual controls in the power panel when the Fan Control plugin is available."
+    },
+    "other_device_icon_mode": {
+      "label": "Other devices icons",
+      "description": "Use device-type icons, or icons that show each device’s current charge state in the power panel.",
+      "options": {
+        "device": "Device type",
+        "level": "Charge level"
+      }
     },
     "temperature_threshold": {
       "label": "Temperature alert threshold (°C)",

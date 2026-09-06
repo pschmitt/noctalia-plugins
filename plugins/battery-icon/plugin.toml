@@ -1,7 +1,7 @@
 id = "pschmitt/battery-icon"
 name = "Battery Icon"
-version = "0.5.2"
-plugin_api = 26 # noctalia.getSetting(), needed to resolve palette-role color values
+version = "0.5.3"
+plugin_api = 26 # noctalia.getSetting() and noctalia.openSettings()
 author = "pschmitt"
 license = "GPL-3.0-only"
 tags = ["bar", "system", "hardware"]
@@ -150,6 +150,17 @@ type = "bool"
 label_key = "settings.show_fan_controls.label"
 description_key = "settings.show_fan_controls.description"
 default = true
+
+[[setting]]
+key = "other_device_icon_mode"
+type = "select"
+label_key = "settings.other_device_icon_mode.label"
+description_key = "settings.other_device_icon_mode.description"
+default = "device"
+options = [
+  { value = "device", label_key = "settings.other_device_icon_mode.options.device" },
+  { value = "level", label_key = "settings.other_device_icon_mode.options.level" },
+]
 
 [[setting]]
 key = "temperature_threshold"
