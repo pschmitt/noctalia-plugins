@@ -65,20 +65,21 @@ local function metricRow(glyph, label, value, unit, isError)
 end
 
 local function header()
-  local subtitle = tostring(details.percent or 0) .. "%"
+  local subtitle = ""
   if details.charging then
-    subtitle = subtitle .. " · " .. noctalia.tr("panel.charging")
+    subtitle = noctalia.tr("panel.charging")
   elseif details.plugged then
-    subtitle = subtitle .. " · " .. noctalia.tr("panel.plugged")
+    subtitle = noctalia.tr("panel.plugged")
+  end
+  local titleChildren = { ui.label({ text = noctalia.tr("panel.title"), fontSize = 16, fontWeight = "bold" }) }
+  if subtitle ~= "" then
+    table.insert(titleChildren, ui.label({ text = subtitle, fontSize = 12, color = "on_surface_variant" }))
   end
   local children = {
     batteryIcon.path
         and ui.image({ path = batteryIcon.path, width = 44, height = 24, fit = "contain" })
       or ui.glyph({ name = "battery-2", size = 28, color = "on_surface" }),
-    ui.column({ gap = 2, flexGrow = 1 }, {
-      ui.label({ text = noctalia.tr("panel.title"), fontSize = 16, fontWeight = "bold" }),
-      ui.label({ text = subtitle, fontSize = 12, color = "on_surface_variant" }),
-    }),
+    ui.column({ gap = 2, flexGrow = 1 }, titleChildren),
   }
   for _, spec in PROFILES do
     table.insert(children, profileButton(spec))
