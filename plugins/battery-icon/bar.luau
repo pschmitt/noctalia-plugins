@@ -7,31 +7,36 @@ local state = noctalia.state.get("battery_icon")
 local details = noctalia.state.get("battery_icon.details") or {}
 local PANEL_ID = "pschmitt/battery-icon:power"
 
-local function tooltip()
-  local lines = {
-    noctalia.tr("tooltip.battery") .. ": " .. tostring(state.percent or 0) .. "%"
-      .. (state.charging and " · " .. noctalia.tr("tooltip.charging") or "")
-      .. (details.plugged and not state.charging and " · " .. noctalia.tr("tooltip.plugged") or ""),
+local function tooltipRows()
+  local status = state.charging and noctalia.tr("tooltip.charging")
+    or (details.plugged and noctalia.tr("tooltip.plugged") or "")
+  local rows = {
+    {
+      key = noctalia.tr("tooltip.battery"),
+      value = tostring(state.percent or 0) .. "%" .. (status ~= "" and " · " .. status or ""),
+    },
   }
   if details.health ~= nil then
-    table.insert(lines, noctalia.tr("tooltip.health") .. ": " .. tostring(details.health) .. "%")
+    table.insert(rows, { key = noctalia.tr("tooltip.health"), value = tostring(details.health) .. "%" })
   end
   if details.thresholdStart ~= nil or details.thresholdEnd ~= nil then
     local threshold = details.thresholdStart and details.thresholdEnd
         and tostring(details.thresholdStart) .. "–" .. tostring(details.thresholdEnd)
       or tostring(details.thresholdEnd or details.thresholdStart)
-    table.insert(lines, noctalia.tr("tooltip.charge_limit") .. ": " .. threshold .. "%")
+    table.insert(rows, { key = noctalia.tr("tooltip.charge_limit"), value = threshold .. "%" })
   end
 
   local devices = details.devices or {}
   if #devices > 0 then
-    table.insert(lines, "")
-    table.insert(lines, noctalia.tr("tooltip.other_devices") .. ":")
+    table.insert(rows, { key = noctalia.tr("tooltip.other_devices"), value = tostring(#devices) })
     for _, device in devices do
-      table.insert(lines, "• " .. tostring(device.label or noctalia.tr("panel.not_available")) .. ": " .. tostring(device.percent or 0) .. "%")
+      table.insert(rows, {
+        key = tostring(device.label or noctalia.tr("panel.not_available")),
+        value = tostring(device.percent or 0) .. "%",
+      })
     end
   end
-  return table.concat(lines, "\n")
+  return rows
 end
 
 local function render()
@@ -50,7 +55,7 @@ local function render()
     -- bolt) — without contain, a mismatched display box stretches it.
     ui.image({ path = state.path, width = width, height = height, fit = "contain" }),
   }))
-  barWidget.setTooltip(tooltip())
+  barWidget.setTooltip(tooltipRows())
 end
 
 noctalia.state.watch("battery_icon", function(val)
