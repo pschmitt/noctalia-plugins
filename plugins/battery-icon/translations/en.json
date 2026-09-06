@@ -153,6 +153,7 @@
     "charging": "Charging",
     "health": "Health",
     "other_devices": "Other devices",
-    "plugged": "Plugged in"
+    "plugged": "Plugged in",
+    "state": "State"
   }
 }

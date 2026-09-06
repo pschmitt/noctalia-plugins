@@ -13,9 +13,12 @@ local function tooltipRows()
   local rows = {
     {
       key = noctalia.tr("tooltip.battery"),
-      value = tostring(state.percent or 0) .. "%" .. (status ~= "" and " · " .. status or ""),
+      value = tostring(state.percent or 0) .. "%",
     },
   }
+  if status ~= "" then
+    table.insert(rows, { key = noctalia.tr("tooltip.state"), value = status })
+  end
   if details.health ~= nil then
     table.insert(rows, { key = noctalia.tr("tooltip.health"), value = tostring(details.health) .. "%" })
   end
