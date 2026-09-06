@@ -21,6 +21,7 @@
         {
           noctalia-battery-icon = pkgs.callPackage ./pkgs/noctalia-battery-icon { };
           noctalia-fan-control = pkgs.callPackage ./pkgs/noctalia-fan-control { };
+          noctalia-ha-ai-usage = pkgs.callPackage ./pkgs/noctalia-ha-ai-usage { };
           noctalia-osd = pkgs.callPackage ./pkgs/noctalia-osd { };
           noctalia-screencast = pkgs.callPackage ./pkgs/noctalia-screencast { };
           noctalia-syncthing = pkgs.callPackage ./pkgs/noctalia-syncthing { };
@@ -30,6 +31,7 @@
             paths = [
               (pkgs.callPackage ./pkgs/noctalia-battery-icon { })
               (pkgs.callPackage ./pkgs/noctalia-fan-control { })
+              (pkgs.callPackage ./pkgs/noctalia-ha-ai-usage { })
               (pkgs.callPackage ./pkgs/noctalia-osd { })
               (pkgs.callPackage ./pkgs/noctalia-screencast { })
               (pkgs.callPackage ./pkgs/noctalia-syncthing { })

@@ -1,0 +1,231 @@
+id = "pschmitt/ha-ai-usage"
+name = "Home Assistant AI Usage"
+version = "0.6.3"
+plugin_api = 24
+author = "pschmitt"
+license = "GPL-3.0-only"
+icon = "chart-donut-3"
+description = "Dynamically discovered AI plan quotas from Home Assistant, with a compact icon-only bar mode."
+tags = ["ai", "bar", "panel", "service", "indicator", "utility"]
+
+# ── Connection ───────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "server_file"
+type = "file"
+label_key = "settings.server_file.label"
+description_key = "settings.server_file.description"
+default = ""
+
+[[setting]]
+key = "token_file"
+type = "file"
+label_key = "settings.token_file.label"
+description_key = "settings.token_file.description"
+default = ""
+
+[[setting]]
+key = "allow_insecure_tls"
+type = "bool"
+label_key = "settings.allow_insecure_tls.label"
+description_key = "settings.allow_insecure_tls.description"
+default = false
+advanced = true
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 60
+min = 10
+max = 3600
+
+# ── Bar content ──────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "display_mode"
+type = "select"
+label_key = "settings.display_mode.label"
+description_key = "settings.display_mode.description"
+default = "summary"
+options = [
+  { value = "icon", label_key = "settings.display_mode.icon" },
+  { value = "summary", label_key = "settings.display_mode.summary" },
+  { value = "detailed", label_key = "settings.display_mode.detailed" },
+]
+
+[[setting]]
+key = "metric_window"
+type = "select"
+label_key = "settings.metric_window.label"
+description_key = "settings.metric_window.description"
+default = "short"
+options = [
+  { value = "all", label_key = "settings.metric_window.all" },
+  { value = "short", label_key = "settings.metric_window.short" },
+  { value = "weekly", label_key = "settings.metric_window.weekly" },
+]
+
+[[setting]]
+key = "card_filter"
+type = "string"
+label_key = "settings.card_filter.label"
+description_key = "settings.card_filter.description"
+default = ""
+
+[[setting]]
+key = "metric_limit"
+type = "int"
+label_key = "settings.metric_limit.label"
+description_key = "settings.metric_limit.description"
+default = 3
+min = 1
+max = 20
+
+[[setting]]
+key = "show_name"
+type = "bool"
+label_key = "settings.show_name.label"
+description_key = "settings.show_name.description"
+default = false
+
+[[setting]]
+key = "show_value"
+type = "bool"
+label_key = "settings.show_value.label"
+description_key = "settings.show_value.description"
+default = false
+
+[[setting]]
+key = "show_progress"
+type = "bool"
+label_key = "settings.show_progress.label"
+description_key = "settings.show_progress.description"
+default = true
+
+[[setting]]
+key = "show_reset"
+type = "bool"
+label_key = "settings.show_reset.label"
+description_key = "settings.show_reset.description"
+default = false
+
+[[setting]]
+key = "show_remaining"
+type = "bool"
+label_key = "settings.show_remaining.label"
+description_key = "settings.show_remaining.description"
+default = false
+
+# ── Formatting and colors ────────────────────────────────────────────────────
+
+[[setting]]
+key = "reset_time_format"
+type = "select"
+label_key = "settings.reset_time_format.label"
+description_key = "settings.reset_time_format.description"
+default = "relative"
+options = [
+  { value = "relative", label_key = "settings.reset_time_format.relative" },
+  { value = "local_short", label_key = "settings.reset_time_format.local_short" },
+  { value = "local_long", label_key = "settings.reset_time_format.local_long" },
+  { value = "iso", label_key = "settings.reset_time_format.iso" },
+]
+
+[[setting]]
+key = "normal_color"
+type = "color"
+label_key = "settings.normal_color.label"
+description_key = "settings.normal_color.description"
+default = "primary"
+
+[[setting]]
+key = "warning_color"
+type = "color"
+label_key = "settings.warning_color.label"
+description_key = "settings.warning_color.description"
+default = "tertiary"
+
+[[setting]]
+key = "critical_color"
+type = "color"
+label_key = "settings.critical_color.label"
+description_key = "settings.critical_color.description"
+default = "error"
+
+[[setting]]
+key = "warning_threshold"
+type = "int"
+label_key = "settings.warning_threshold.label"
+description_key = "settings.warning_threshold.description"
+default = 75
+min = 0
+max = 100
+
+[[setting]]
+key = "critical_threshold"
+type = "int"
+label_key = "settings.critical_threshold.label"
+description_key = "settings.critical_threshold.description"
+default = 90
+min = 0
+max = 100
+
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "icon_size"
+  type = "int"
+  label_key = "settings.icon_size.label"
+  description_key = "settings.icon_size.description"
+  default = 16
+  min = 10
+  max = 48
+
+  [[widget.setting]]
+  key = "progress_width"
+  type = "int"
+  label_key = "settings.progress_width.label"
+  description_key = "settings.progress_width.description"
+  default = 26
+  min = 4
+  max = 200
+
+  [[widget.setting]]
+  key = "progress_height"
+  type = "int"
+  label_key = "settings.progress_height.label"
+  description_key = "settings.progress_height.description"
+  default = 5
+  min = 2
+  max = 32
+
+  [[widget.setting]]
+  key = "spacing"
+  type = "int"
+  label_key = "settings.spacing.label"
+  description_key = "settings.spacing.description"
+  default = 6
+  min = 0
+  max = 48
+
+  [widget.actions]
+  left = "panel-toggle pschmitt/ha-ai-usage:panel"
+  right = "plugin pschmitt/ha-ai-usage:poller all refresh"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 600
+height = 620
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true

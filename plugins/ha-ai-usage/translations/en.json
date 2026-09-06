@@ -1,0 +1,27 @@
+{
+  "settings": {
+    "server_file": { "label": "Home Assistant server file", "description": "File containing the Home Assistant base URL. This keeps the URL outside the declarative plugin config." },
+    "token_file": { "label": "Home Assistant token file", "description": "File containing a long-lived Home Assistant token. It is read only at runtime and never stored by the plugin." },
+    "allow_insecure_tls": { "label": "Allow insecure TLS", "description": "Skip HTTPS certificate verification. Use only for a trusted Home Assistant with a self-signed certificate." },
+    "refresh_interval": { "label": "Refresh interval (seconds)", "description": "How often to rediscover active Home Assistant usage metrics." },
+    "reset_time_format": { "label": "Reset-time format", "description": "How reset timestamps are rendered in the tooltip and panel.", "relative": "Relative countdown", "local_short": "Local short date", "local_long": "Local long date", "iso": "ISO-like local date" },
+    "normal_color": { "label": "Normal color", "description": "Color below the warning threshold." },
+    "warning_color": { "label": "Warning color", "description": "Color at or above the warning threshold." },
+    "critical_color": { "label": "Critical color", "description": "Color at or above the critical threshold." },
+    "warning_threshold": { "label": "Warning threshold (%)", "description": "Usage percentage that switches to the warning color." },
+    "critical_threshold": { "label": "Critical threshold (%)", "description": "Usage percentage that switches to the critical color." },
+    "display_mode": { "label": "Bar display mode", "description": "Icon is the compact icon-only mode; summary shows discovered metrics; detailed adds reset text.", "icon": "Compact icon only", "summary": "Summary", "detailed": "Detailed" },
+    "metric_limit": { "label": "Bar metric limit", "description": "Maximum number of discovered usage metrics displayed in this bar instance." },
+    "card_filter": { "label": "Bar cards", "description": "Optional comma-separated card names or account fragments to show, matched case-insensitively. For example: Pro, Gemini, Codex. Leave empty to show all discovered cards." },
+    "metric_window": { "label": "Bar quota window", "description": "Choose the 5h/session or weekly quota displayed in the bar. Providers with category-only quotas remain visible.", "all": "Automatic (first quota)", "short": "5h / session", "weekly": "Weekly" },
+    "show_name": { "label": "Show metric name", "description": "Show Home Assistant's discovered metric label in the bar." },
+    "show_value": { "label": "Show percentage", "description": "Show the usage percentage in the bar. It remains available in the tooltip and panel when disabled." },
+    "show_progress": { "label": "Show progress bar", "description": "Show a compact usage bar beside each metric." },
+    "show_reset": { "label": "Show reset time", "description": "In detailed mode, show a reset time when the integration exposes one." },
+    "show_remaining": { "label": "Show remaining instead of used", "description": "Invert percentage labels while retaining usage-colored progress bars." },
+    "icon_size": { "label": "Icon size", "description": "Bar icon size in pixels." },
+    "progress_width": { "label": "Progress width", "description": "Bar progress width in pixels." },
+    "progress_height": { "label": "Progress height", "description": "Bar progress height in pixels." },
+    "spacing": { "label": "Bar spacing", "description": "Gap inside a card in pixels; cards are separated by twice this." }
+  }
+}
