@@ -146,5 +146,13 @@
       "label": "Icon height",
       "description": "Bar display height of the rendered icon, in pixels."
     }
+  },
+  "tooltip": {
+    "battery": "Battery",
+    "charge_limit": "Charge limit",
+    "charging": "Charging",
+    "health": "Health",
+    "other_devices": "Other devices",
+    "plugged": "Plugged in"
   }
 }

@@ -1,6 +1,6 @@
 id = "pschmitt/battery-icon"
 name = "Battery Icon"
-version = "0.5.6"
+version = "0.5.7"
 plugin_api = 26 # noctalia.getSetting() and noctalia.openSettings()
 author = "pschmitt"
 license = "GPL-3.0-only"

@@ -4,7 +4,35 @@
 -- this plugin's compact power panel under the bar widget.
 
 local state = noctalia.state.get("battery_icon")
+local details = noctalia.state.get("battery_icon.details") or {}
 local PANEL_ID = "pschmitt/battery-icon:power"
+
+local function tooltip()
+  local lines = {
+    noctalia.tr("tooltip.battery") .. ": " .. tostring(state.percent or 0) .. "%"
+      .. (state.charging and " · " .. noctalia.tr("tooltip.charging") or "")
+      .. (details.plugged and not state.charging and " · " .. noctalia.tr("tooltip.plugged") or ""),
+  }
+  if details.health ~= nil then
+    table.insert(lines, noctalia.tr("tooltip.health") .. ": " .. tostring(details.health) .. "%")
+  end
+  if details.thresholdStart ~= nil or details.thresholdEnd ~= nil then
+    local threshold = details.thresholdStart and details.thresholdEnd
+        and tostring(details.thresholdStart) .. "–" .. tostring(details.thresholdEnd)
+      or tostring(details.thresholdEnd or details.thresholdStart)
+    table.insert(lines, noctalia.tr("tooltip.charge_limit") .. ": " .. threshold .. "%")
+  end
+
+  local devices = details.devices or {}
+  if #devices > 0 then
+    table.insert(lines, "")
+    table.insert(lines, noctalia.tr("tooltip.other_devices") .. ":")
+    for _, device in devices do
+      table.insert(lines, "• " .. tostring(device.label or noctalia.tr("panel.not_available")) .. ": " .. tostring(device.percent or 0) .. "%")
+    end
+  end
+  return table.concat(lines, "\n")
+end
 
 local function render()
   if state == nil or state.path == nil then
@@ -22,13 +50,19 @@ local function render()
     -- bolt) — without contain, a mismatched display box stretches it.
     ui.image({ path = state.path, width = width, height = height, fit = "contain" }),
   }))
-  local suffix = state.charging and " (charging)" or (state.powerSaver and " (Battery Saver)" or "")
-  barWidget.setTooltip(tostring(state.percent) .. "%" .. suffix)
+  barWidget.setTooltip(tooltip())
 end
 
 noctalia.state.watch("battery_icon", function(val)
   state = val
   render()
+end)
+
+noctalia.state.watch("battery_icon.details", function(value)
+  if type(value) == "table" then
+    details = value
+    render()
+  end
 end)
 
 render()
