@@ -7,6 +7,8 @@
 local DETAILS = "battery_icon.details"
 local BATTERY_COMMAND = "battery_icon.command"
 local FAN_STATE = "battery_icon.fan"
+local PANEL_HEIGHT = 560
+local PANEL_PADDING = 10
 
 local details = noctalia.state.get(DETAILS) or {
   percent = 0,
@@ -344,7 +346,15 @@ render = function()
     table.insert(children, controls)
   end
   table.insert(children, settingsButton())
-  panel.render(ui.column({ gap = 10, padding = 10, align = "stretch" }, children))
+  -- The manifest's height is the panel surface size; pin this root to its
+  -- inner content box so optional fan controls and the footer stay inside the
+  -- panel background instead of overflowing below it.
+  panel.render(ui.column({
+    gap = 10,
+    padding = PANEL_PADDING,
+    align = "stretch",
+    height = PANEL_HEIGHT - PANEL_PADDING * 2,
+  }, children))
 end
 
 function onOpen(_context)
