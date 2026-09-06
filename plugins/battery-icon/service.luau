@@ -26,6 +26,10 @@ local lastKey = ""
 -- edge does.
 local lastCharging = nil
 
+-- Same nil-on-(re)start convention as lastCharging: an already-low battery
+-- when the service (re)starts must not immediately fire the critical alarm.
+local lastLow = nil
+
 -- Last successfully read power profile. A failed or empty `powerprofilesctl`
 -- read is "unknown", not "off": several poll()s fire at once when the shell
 -- restarts (the initial poll plus every stream's first line), and treating a
@@ -555,36 +559,33 @@ local BOLT_STROKE_WIDTH = 3.5
 local PLUS_ARMS = { "82,28 112,37", "93,17 102,47" }
 local PLUS_GAP_ARMS = { "78,24 116,41", "89,13 106,51" }
 
--- Plug/unplug pulse: the bar has no frame-tick API (setUpdateInterval is
--- the only clock a widget/service gets), so "animation" here means briefly
--- driving that interval fast and rendering a double-flash of blended-color
--- frames before settling on the real icon, instead of a single flat cut.
--- The single quick blend this started as (2 frames, 110ms, peak 0.85) read
--- as barely-there on a 36x18 bar icon — this is a deliberately louder
--- two-beat flash (peak/dip/peak/dip/settle) at a slower cadence instead.
-local ANIM_FRAME_MS = 140
+-- Plug/unplug and low-battery pulses: the bar has no frame-tick API
+-- (setUpdateInterval is the only clock a widget/service gets), so
+-- "animation" here means briefly driving that interval fast and rendering a
+-- sequence of alternating-color frames before settling on the real icon,
+-- instead of a single flat cut. Two earlier attempts (a single
+-- 0.85-toward-white blend, then a 5-frame 0.95-peak double-flash, both at a
+-- fixed cadence) were invisible or read as a slow color fade rather than a
+-- flash: on the neutral Material 3 tiers (#9AA0A6 medium/high, #F1F3F4
+-- empty) a *blend toward white* barely moves the color at all, and an even
+-- on/off split reads as blinking, not flashing. A real flash has a sharp
+-- rise and a longer fall, so each frame now carries its own hold time
+-- (short for the flash color, longer for the real one) instead of sharing
+-- one fixed interval.
+local ANIM_SETTLE_MS = 150 -- fallback hold for the final real-color frame
 local pendingAnim = nil -- { cfg, percent, charging, powerSaver, dataDir, frames, index }
 
-local function hexToRgb(hex)
-  local h = hex:gsub("#", "")
-  return tonumber(h:sub(1, 2), 16), tonumber(h:sub(3, 4), 16), tonumber(h:sub(5, 6), 16)
-end
-
-local function blendHex(fromHex, toHex, t)
-  local r1, g1, b1 = hexToRgb(fromHex)
-  local r2, g2, b2 = hexToRgb(toHex)
-  return string.format(
-    "#%02X%02X%02X",
-    math.clamp(math.round(r1 + (r2 - r1) * t), 0, 255),
-    math.clamp(math.round(g1 + (g2 - g1) * t), 0, 255),
-    math.clamp(math.round(b1 + (b2 - b1) * t), 0, 255)
-  )
-end
-
-local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverride)
+local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverride, fillOverride, boltColorOverride)
   local bg = bgOverride or tierColor(cfg, percent, charging)
   local fg = cfg.textColor
   local label = tostring(percent)
+  -- fillOverride/boltColorOverride let an animation frame draw a *different*
+  -- level fill or bolt tint than the real, current state (the classic
+  -- charging sweep below fills toward the real percent repeatedly and
+  -- flashes the bolt yellow independently of it), without touching the
+  -- number label, which always shows the real percent.
+  local fillPercent = fillOverride or percent
+  local boltColor = boltColorOverride or cfg.chargingBoltColor
   local outPath = dataDir
     .. "/battery-m3e-v5-"
     .. tostring(percent)
@@ -597,9 +598,11 @@ local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverrid
     .. "-"
     .. sanitize(cfg.emptyColor)
     .. "-"
-    .. sanitize(cfg.chargingBoltColor)
+    .. sanitize(boltColor)
     .. "-"
     .. sanitize(cfg.powerSaverPlusColor)
+    .. "-"
+    .. tostring(fillPercent)
     .. ".png"
 
   if noctalia.fileExists(outPath) then
@@ -615,7 +618,7 @@ local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverrid
   -- boundary while retaining the body's rounded outer edge; drawing a
   -- second rounded rectangle here gives the fill a visibly incorrect
   -- rounded boundary at 20% and 50%.
-  local fillX = 4 + math.floor(86 * math.clamp(percent, 0, 100) / 100)
+  local fillX = 4 + math.floor(86 * math.clamp(fillPercent, 0, 100) / 100)
   local cmd = "@magick@ -size 128x64 xc:none "
     .. "-fill '"
     .. cfg.emptyColor
@@ -634,7 +637,7 @@ local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverrid
   if charging then
     cmd = cmd
       .. "-fill '"
-      .. cfg.chargingBoltColor
+      .. boltColor
       .. "' -stroke '"
       .. fg
       .. "' -strokewidth "
@@ -687,56 +690,147 @@ end
 
 -- Renders the next queued pulse frame, if any, and reports whether the
 -- caller should keep ticking fast (true) or fall back to normal poll
--- cadence (false — nothing was pending, or this was the last frame).
--- The blended frames in anim.frames run first; one further call renders
--- the *real* tier color (bgOverride = nil) so the icon actually settles
--- on the true state instead of being left on a blended color forever.
+-- cadence (false — nothing was pending, or this was the last frame). Each
+-- frame carries its own hold time: advanceAnim sets the *next* tick's
+-- interval to the frame it just rendered, so a flash can stay lit briefly
+-- and the real color can hold longer, instead of every step taking the same
+-- amount of time. The frames in anim.frames run first; one further call
+-- renders the *real* tier color (color = nil) so the icon actually settles
+-- on the true state instead of being left on a flash color forever.
 local function advanceAnim()
   if pendingAnim == nil then
     return false
   end
   local anim = pendingAnim
-  local bg = anim.index <= #anim.frames and anim.frames[anim.index] or nil
+  local frame = anim.index <= #anim.frames and anim.frames[anim.index] or nil
   anim.index += 1
   local finished = anim.index > #anim.frames + 1
   if finished then
     pendingAnim = nil
+  else
+    noctalia.setUpdateInterval((frame and frame.ms) or ANIM_SETTLE_MS)
   end
-  regenerate(anim.cfg, anim.percent, anim.charging, anim.powerSaver, anim.dataDir, bg)
+  regenerate(
+    anim.cfg,
+    anim.percent,
+    anim.charging,
+    anim.powerSaver,
+    anim.dataDir,
+    frame and frame.color,
+    frame and frame.fillPercent,
+    frame and frame.boltColor
+  )
   return not finished
 end
 
--- Two flashes toward near-white, easing back to the real tier color, so a
--- plug/unplug reads as a distinct moment instead of the icon just snapping
--- to its new state. A single flash got lost against the bar's other icons;
--- the second echo (fainter than the first) is what actually catches the eye
--- at this size, closer to a notification blink than a subtle color fade.
-local function startPulse(cfg, percent, charging, powerSaver, dataDir)
-  local target = tierColor(cfg, percent, charging)
-  -- blendHex needs exactly #RRGGBB; ImageMagick (and resolveColor) also
-  -- accept #RGB/#RGBA/#RRGGBBAA, so skip straight to the real icon rather
-  -- than mis-parse a color shorthand into a garbled flash.
-  if not target:match("^#%x%x%x%x%x%x$") then
-    regenerate(cfg, percent, charging, powerSaver, dataDir)
-    return
+-- Builds an alternating on/off frame list: `flashColor` held for `onMs`,
+-- then `targetColor` (the real color the icon settles back on between
+-- blinks) held for `offMs`, repeated `blinks` times. A short onMs/long offMs
+-- pairing is what makes this read as a *flash* rather than an even blink.
+local function strobeFrames(targetColor, flashColor, blinks, onMs, offMs)
+  local frames = {}
+  for _ = 1, blinks do
+    table.insert(frames, { color = flashColor, ms = onMs })
+    table.insert(frames, { color = targetColor, ms = offMs })
   end
+  return frames
+end
+
+local function startStrobe(cfg, percent, charging, powerSaver, dataDir, frames)
   pendingAnim = {
     cfg = cfg,
     percent = percent,
     charging = charging,
     powerSaver = powerSaver,
     dataDir = dataDir,
-    frames = {
-      blendHex(target, "#FFFFFF", 0.95), -- flash 1: peak
-      blendHex(target, "#FFFFFF", 0.55), -- dip
-      blendHex(target, "#FFFFFF", 0.90), -- flash 2: fainter echo
-      blendHex(target, "#FFFFFF", 0.45), -- ease down
-      blendHex(target, "#FFFFFF", 0.15), -- nearly settled
-    },
+    frames = frames,
     index = 1,
   }
-  noctalia.setUpdateInterval(ANIM_FRAME_MS)
   advanceAnim()
+end
+
+-- ImageMagick (and resolveColor) also accept #RGB/#RGBA/#RRGGBBAA; only
+-- plain #RRGGBB round-trips through the on/off alternation strobeFrames
+-- builds, so any caller skips straight to the real icon instead of
+-- strobing a mis-parsed color.
+local function isStrobeSafe(color)
+  return color:match("^#%x%x%x%x%x%x$") ~= nil
+end
+
+local CHARGE_BOLT_FLASHES = 3
+local CHARGE_BOLT_ON_MS = 260
+local CHARGE_BOLT_OFF_MS = 260
+local CHARGE_BOLT_FLASH_COLOR = "#FFD600"
+local CHARGE_FILL_STEPS = 4 -- frames per rise, e.g. 25/50/75/100% of the real level
+local CHARGE_FILL_STEP_MS = 260
+local CHARGE_FILL_CYCLES = 3
+
+-- The classic "plugged in" animation: the bolt flashes yellow a few times
+-- (lead-in only, on an empty body), then the level fill rises from empty up
+-- to the real charge level, repeated a few times -- like the level is
+-- actively climbing, not just snapping to its new number. The level bar
+-- always rises toward and ends exactly at the real percent (never fabricates
+-- a fuller charge than what's actually there); only the fill and the bolt
+-- tint animate, the printed number stays the real percent throughout. The
+-- color itself never changes here (it's always the real chargingColor) --
+-- unlike startCriticalPulse, which strobes the *color* because there's no
+-- "level" to animate on a low-battery edge.
+local function chargeSweepFrames(percent)
+  local frames = {}
+  for _ = 1, CHARGE_BOLT_FLASHES do
+    table.insert(frames, { fillPercent = 0, boltColor = CHARGE_BOLT_FLASH_COLOR, ms = CHARGE_BOLT_ON_MS })
+    table.insert(frames, { fillPercent = 0, ms = CHARGE_BOLT_OFF_MS })
+  end
+  for _ = 1, CHARGE_FILL_CYCLES do
+    for step = 1, CHARGE_FILL_STEPS do
+      table.insert(frames, { fillPercent = math.floor(percent * step / CHARGE_FILL_STEPS), ms = CHARGE_FILL_STEP_MS })
+    end
+  end
+  return frames
+end
+
+local function startChargePulse(cfg, percent, charging, powerSaver, dataDir)
+  startStrobe(cfg, percent, charging, powerSaver, dataDir, chargeSweepFrames(percent))
+end
+
+-- Plugging in gets the "filling up" animation above; unplugging just cuts
+-- straight to the real (discharging) icon, no animation. This matches how
+-- Android/iOS/macOS/Windows all treat a disconnect -- an instant icon swap,
+-- never a flash -- plugging in is the only moment any of them animate. The
+-- existing unplug sound chime (charging_sound_enabled) already carries the
+-- "something changed" cue on its own.
+local function startPulse(cfg, percent, charging, powerSaver, dataDir)
+  if charging then
+    startChargePulse(cfg, percent, charging, powerSaver, dataDir)
+  else
+    regenerate(cfg, percent, charging, powerSaver, dataDir)
+  end
+end
+
+local CRITICAL_BLINKS = 3
+local CRITICAL_ON_MS = 450 -- slow, deliberate hold -- an alarm, not a flash
+local CRITICAL_OFF_MS = 200
+local CRITICAL_COLOR = "#FF1E1E" -- more saturated than low_color, so this alarm reads as its own color, not just "the low-battery icon again"
+
+-- A slower, longer-held strobe toward a distinct alarm red, fired once when
+-- the battery *enters* the low tier (not on every poll while it stays
+-- there). Deliberately paced differently from startPulse's quick flash
+-- (long on / short off vs. short on / long off) so the two are never
+-- mistaken for each other.
+local function startCriticalPulse(cfg, percent, charging, powerSaver, dataDir)
+  local target = tierColor(cfg, percent, charging)
+  if not isStrobeSafe(target) then
+    regenerate(cfg, percent, charging, powerSaver, dataDir)
+    return
+  end
+  startStrobe(
+    cfg,
+    percent,
+    charging,
+    powerSaver,
+    dataDir,
+    strobeFrames(target, CRITICAL_COLOR, CRITICAL_BLINKS, CRITICAL_ON_MS, CRITICAL_OFF_MS)
+  )
 end
 
 local function poll()
@@ -828,6 +922,15 @@ local function poll()
           end
           lastCharging = charging
 
+          -- Entering the low tier (tierColor already forces chargingColor
+          -- while plugged in, so this is implicitly "discharging and at or
+          -- below low_threshold"). Same nil-guard as edge: never fires on
+          -- the first read, and only on the false->true transition, not on
+          -- every poll while the battery stays low.
+          local isLow = tierColor(cfg, percent, charging) == cfg.lowColor
+          local lowEdge = lastLow ~= nil and not lastLow and isLow
+          lastLow = isLow
+
           readCaffeine(function(caffeineEnabled)
             noctalia.runAsync(detailsCommand(cfg.device), function(detailsResult)
               -- Always publish panel data, even when the rendered icon is
@@ -868,6 +971,8 @@ local function poll()
 
               if edge then
                 startPulse(cfg, percent, charging, powerSaver, dataDir)
+              elseif lowEdge then
+                startCriticalPulse(cfg, percent, charging, powerSaver, dataDir)
               else
                 regenerate(cfg, percent, charging, powerSaver, dataDir)
               end
@@ -1037,9 +1142,10 @@ end)
 function update()
   -- advanceAnim() returns false both when nothing is pending and right
   -- after it renders the pulse's last (real-color) frame — either way
-  -- normal polling should resume.
+  -- normal polling should resume. When it returns true it has already set
+  -- the interval for the next frame itself (see advanceAnim), so this must
+  -- not stomp that with a fixed interval of its own.
   if advanceAnim() then
-    noctalia.setUpdateInterval(ANIM_FRAME_MS)
     return
   end
   noctalia.setUpdateInterval(settings().pollMs)
