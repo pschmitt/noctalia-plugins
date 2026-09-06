@@ -16,6 +16,7 @@
     "caffeine_disabled": "Off",
     "caffeine_enabled": "On",
     "charging": "Charging",
+    "discharging": "Discharging",
     "charge_rate": "Charge rate",
     "discharging_rate": "Discharging rate",
     "charging_threshold": "Charging threshold",
@@ -128,6 +129,16 @@
       "options": {
         "device": "Device type",
         "level": "Charge level"
+      }
+    },
+    "panel_size": {
+      "label": "Power panel size",
+      "description": "Choose a fixed panel height, or select one automatically from the available controls and devices.",
+      "options": {
+        "auto": "Automatic",
+        "compact": "Compact",
+        "standard": "Standard",
+        "tall": "Tall"
       }
     },
     "temperature_threshold": {

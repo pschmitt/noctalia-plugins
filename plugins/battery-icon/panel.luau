@@ -7,7 +7,6 @@
 local DETAILS = "battery_icon.details"
 local BATTERY_COMMAND = "battery_icon.command"
 local FAN_STATE = "battery_icon.fan"
-local PANEL_HEIGHT = 560
 local PANEL_PADDING = 10
 
 local details = noctalia.state.get(DETAILS) or {
@@ -66,16 +65,50 @@ local function metricRow(glyph, label, value, unit, isError)
   })
 end
 
+local function batteryLevelGlyph(percent)
+  local p = tonumber(percent) or 0
+  if p >= 85 then
+    return "battery-4"
+  elseif p >= 55 then
+    return "battery-3"
+  elseif p >= 30 then
+    return "battery-2"
+  elseif p >= 10 then
+    return "battery-1"
+  end
+  return "battery-0"
+end
+
 local function header()
   local subtitle = ""
+  local subtitleGlyph = nil
+  local subtitleGlyphColor = "on_surface_variant"
+
+  local lowThreshold = tonumber(noctalia.getConfig("low_threshold")) or 20
+  local isLow = (tonumber(details.percent) or 0) <= lowThreshold
+
   if details.charging then
     subtitle = noctalia.tr("panel.charging")
+    subtitleGlyph = "bolt"
+    subtitleGlyphColor = "primary"
   elseif details.plugged then
     subtitle = noctalia.tr("panel.plugged")
+    subtitleGlyph = "plug"
+    subtitleGlyphColor = "on_surface_variant"
+  elseif details.status == "Discharging" or (details.percent and not details.plugged) then
+    subtitle = noctalia.tr("panel.discharging")
+    subtitleGlyph = batteryLevelGlyph(details.percent)
+    subtitleGlyphColor = isLow and "error" or "on_surface_variant"
   end
+
   local titleChildren = { ui.label({ text = noctalia.tr("panel.title"), fontSize = 16, fontWeight = "bold" }) }
   if subtitle ~= "" then
-    table.insert(titleChildren, ui.label({ text = subtitle, fontSize = 12, color = "on_surface_variant" }))
+    local subChildren = {}
+    if subtitleGlyph then
+      table.insert(subChildren, ui.glyph({ name = subtitleGlyph, size = 11, color = subtitleGlyphColor }))
+    end
+    table.insert(subChildren, ui.label({ text = subtitle, fontSize = 10, color = "on_surface_variant" }))
+    table.insert(titleChildren, ui.row({ gap = 4, align = "center" }, subChildren))
   end
   local children = {
     batteryIcon.path
@@ -176,7 +209,7 @@ local function otherDevices()
     end
     return "battery-2"
   end
-  local rows = { ui.label({ text = noctalia.tr("panel.other_devices"), fontSize = 11, color = "on_surface_variant" }) }
+  local rows = {}
   local lowThreshold = tonumber(noctalia.getConfig("low_threshold")) or 20
   for _, device in devices do
     local isLow = (device.percent or 0) <= lowThreshold
@@ -189,8 +222,11 @@ local function settingsButton()
   return ui.row({ justify = "end" }, {
     ui.button({
       glyph = "settings",
+      glyphSize = 13,
+      width = 24,
+      height = 24,
+      color = "on_surface_variant",
       variant = "ghost",
-      controlSize = "sm",
       tooltip = noctalia.tr("panel.open_settings"),
       onClick = "onSettings",
     }),
@@ -327,34 +363,38 @@ local function fanControls()
 end
 
 render = function()
-  local children = { header(), ui.column({ gap = 6 }, batteryRows()) }
+  local scrollChildren = { ui.column({ gap = 6 }, batteryRows()) }
   local others = otherDevices()
   if others then
-    table.insert(children, ui.separator({}))
-    table.insert(children, others)
+    table.insert(scrollChildren, ui.separator({}))
+    table.insert(scrollChildren, others)
   end
   local system = systemRows()
   if system then
-    table.insert(children, ui.separator({}))
-    table.insert(children, system)
+    table.insert(scrollChildren, ui.separator({}))
+    table.insert(scrollChildren, system)
   end
-  table.insert(children, ui.separator({}))
-  table.insert(children, caffeineControl())
+  table.insert(scrollChildren, ui.separator({}))
+  table.insert(scrollChildren, caffeineControl())
   local controls = fanControls()
   if controls then
-    table.insert(children, ui.separator({}))
-    table.insert(children, controls)
+    table.insert(scrollChildren, ui.separator({}))
+    table.insert(scrollChildren, controls)
   end
-  table.insert(children, settingsButton())
-  -- The manifest's height is the panel surface size; pin this root to its
-  -- inner content box so optional fan controls and the footer stay inside the
-  -- panel background instead of overflowing below it.
+
+  -- The manifest selects the surface height. Fill that surface so the header
+  -- and settings footer remain anchored while body content scrolls if
+  -- peripheral devices or fan controls expand.
   panel.render(ui.column({
-    gap = 10,
+    gap = 8,
     padding = PANEL_PADDING,
     align = "stretch",
-    height = PANEL_HEIGHT - PANEL_PADDING * 2,
-  }, children))
+    flexGrow = 1,
+  }, {
+    header(),
+    ui.scroll({ flexGrow = 1, gap = 8 }, scrollChildren),
+    settingsButton(),
+  }))
 end
 
 function onOpen(_context)

@@ -1,11 +1,34 @@
 --!nonstrict
 -- Battery icon bar widget — displays the pre-rendered PNG from the
 -- service (percentage baked directly into the icon body). Left-click opens
--- this plugin's compact power panel under the bar widget.
+-- the power panel whose fixed height best matches the current content.
 
 local state = noctalia.state.get("battery_icon")
 local details = noctalia.state.get("battery_icon.details") or {}
-local PANEL_ID = "pschmitt/battery-icon:power"
+local fan = noctalia.state.get("battery_icon.fan") or {}
+
+local PANEL_IDS = {
+  compact = "pschmitt/battery-icon:power-compact",
+  standard = "pschmitt/battery-icon:power",
+  tall = "pschmitt/battery-icon:power-tall",
+}
+
+local function selectedPanelId()
+  local size = noctalia.getConfig("panel_size") or "auto"
+  if size ~= "auto" and PANEL_IDS[size] then
+    return PANEL_IDS[size]
+  end
+
+  local devices = details.devices or {}
+  local showFan = noctalia.getConfig("show_fan_controls") ~= false and fan.available ~= false
+  local needsTall = fan.mode == "manual" or #devices >= 2 or (showFan and #devices >= 1)
+  if needsTall then
+    return PANEL_IDS.tall
+  elseif showFan or #devices >= 1 then
+    return PANEL_IDS.standard
+  end
+  return PANEL_IDS.compact
+end
 
 local function tooltipRows()
   local status = state.charging and noctalia.tr("tooltip.charging")
@@ -80,6 +103,12 @@ noctalia.state.watch("battery_icon.details", function(value)
   end
 end)
 
+noctalia.state.watch("battery_icon.fan", function(value)
+  if type(value) == "table" then
+    fan = value
+  end
+end)
+
 render()
 
 function update()
@@ -102,7 +131,7 @@ end
 
 local ACTIONS = {
   panel = function()
-    noctalia.togglePanel(PANEL_ID)
+    noctalia.togglePanel(selectedPanelId())
   end,
   cycle_power_profile = function()
     noctalia.runAsync("noctalia msg power-cycle", function(_result) end, 5000)
