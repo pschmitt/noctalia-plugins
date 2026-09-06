@@ -21,10 +21,9 @@ local function selectedPanelId()
 
   local devices = details.devices or {}
   local showFan = noctalia.getConfig("show_fan_controls") ~= false and fan.available ~= false
-  local needsTall = fan.mode == "manual" or #devices >= 2 or (showFan and #devices >= 1)
-  if needsTall then
+  if showFan and (fan.mode == "manual" or #devices >= 1) then
     return PANEL_IDS.tall
-  elseif showFan or #devices >= 1 then
+  elseif showFan or #devices >= 3 then
     return PANEL_IDS.standard
   end
   return PANEL_IDS.compact
