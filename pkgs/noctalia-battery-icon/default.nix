@@ -13,7 +13,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-battery-icon";
-  version = "0.5.3";
+  version = "0.5.4";
 
   src = lib.fileset.toSource {
     root = ../../plugins/battery-icon;
