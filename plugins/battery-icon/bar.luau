@@ -51,13 +51,20 @@ local function render()
   local width = tonumber(noctalia.getConfig("icon_width")) or 36
   local height = tonumber(noctalia.getConfig("icon_height")) or 18
 
-  barWidget.setVisible(true)
-  barWidget.render(ui.row({}, {
+  local children = {}
+  if details.caffeineEnabled then
+    table.insert(children, ui.glyph({ name = "coffee", size = 14, color = "primary" }))
+  end
+  table.insert(
+    children,
     -- fit="contain": the rendered PNG is 128x64 (2:1, wider than the
     -- battery body itself to leave room for either the terminal or charging
     -- bolt) — without contain, a mismatched display box stretches it.
-    ui.image({ path = state.path, width = width, height = height, fit = "contain" }),
-  }))
+    ui.image({ path = state.path, width = width, height = height, fit = "contain" })
+  )
+
+  barWidget.setVisible(true)
+  barWidget.render(ui.row({ gap = 4, align = "center" }, children))
   barWidget.setTooltip(tooltipRows())
 end
 
