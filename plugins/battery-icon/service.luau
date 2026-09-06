@@ -557,9 +557,12 @@ local PLUS_GAP_ARMS = { "78,24 116,41", "89,13 106,51" }
 
 -- Plug/unplug pulse: the bar has no frame-tick API (setUpdateInterval is
 -- the only clock a widget/service gets), so "animation" here means briefly
--- driving that interval fast and rendering a couple of extra blended-color
+-- driving that interval fast and rendering a double-flash of blended-color
 -- frames before settling on the real icon, instead of a single flat cut.
-local ANIM_FRAME_MS = 110
+-- The single quick blend this started as (2 frames, 110ms, peak 0.85) read
+-- as barely-there on a 36x18 bar icon — this is a deliberately louder
+-- two-beat flash (peak/dip/peak/dip/settle) at a slower cadence instead.
+local ANIM_FRAME_MS = 140
 local pendingAnim = nil -- { cfg, percent, charging, powerSaver, dataDir, frames, index }
 
 local function hexToRgb(hex)
@@ -703,9 +706,11 @@ local function advanceAnim()
   return not finished
 end
 
--- A brief flash toward white, easing back to the real tier color, so a
--- plug/unplug reads as a distinct moment instead of the icon just
--- snapping to its new state.
+-- Two flashes toward near-white, easing back to the real tier color, so a
+-- plug/unplug reads as a distinct moment instead of the icon just snapping
+-- to its new state. A single flash got lost against the bar's other icons;
+-- the second echo (fainter than the first) is what actually catches the eye
+-- at this size, closer to a notification blink than a subtle color fade.
 local function startPulse(cfg, percent, charging, powerSaver, dataDir)
   local target = tierColor(cfg, percent, charging)
   -- blendHex needs exactly #RRGGBB; ImageMagick (and resolveColor) also
@@ -715,14 +720,19 @@ local function startPulse(cfg, percent, charging, powerSaver, dataDir)
     regenerate(cfg, percent, charging, powerSaver, dataDir)
     return
   end
-  local flash = blendHex(target, "#FFFFFF", 0.85)
   pendingAnim = {
     cfg = cfg,
     percent = percent,
     charging = charging,
     powerSaver = powerSaver,
     dataDir = dataDir,
-    frames = { flash, blendHex(target, flash, 0.4) },
+    frames = {
+      blendHex(target, "#FFFFFF", 0.95), -- flash 1: peak
+      blendHex(target, "#FFFFFF", 0.55), -- dip
+      blendHex(target, "#FFFFFF", 0.90), -- flash 2: fainter echo
+      blendHex(target, "#FFFFFF", 0.45), -- ease down
+      blendHex(target, "#FFFFFF", 0.15), -- nearly settled
+    },
     index = 1,
   }
   noctalia.setUpdateInterval(ANIM_FRAME_MS)
