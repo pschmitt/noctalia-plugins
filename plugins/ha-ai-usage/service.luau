@@ -49,7 +49,13 @@ local function discoveryTemplate(monitors)
       {%- set attrs = item.attributes -%}
       {%- set reset_id = id | replace('_session_usage', '_session_reset_time') | replace('_week_usage', '_weekly_reset_time') -%}
       {%- set reset = states[reset_id] -%}
-      {%- set ns.items = ns.items + [{"integration": monitor.id, "entity_id": id, "state": item.state, "name": item.name, "icon": attrs.icon | default('', true), "reset_time": reset.state if monitor.id == 'claude' and reset is not none else attrs.reset_time | default('', true), "resets_at": attrs.resets_at | default('', true), "quota_reset_date_utc": attrs.quota_reset_date_utc | default('', true), "primary_reset_time": attrs.primary_reset_time | default('', true), "secondary_reset_time": attrs.secondary_reset_time | default('', true)}] -%}
+      {%- set pace_a = id ~ '_pace' -%}
+      {%- set pace_b = (id[:-5] ~ '_usage_pace') if id.endswith('_used') else '' -%}
+      {%- set pace_val = states(pace_a) -%}
+      {%- if pace_val in ['unknown', 'unavailable', none] and pace_b != '' -%}
+        {%- set pace_val = states(pace_b) -%}
+      {%- endif -%}
+      {%- set ns.items = ns.items + [{"integration": monitor.id, "entity_id": id, "state": item.state, "name": item.name, "icon": attrs.icon | default('', true), "reset_time": reset.state if monitor.id == 'claude' and reset is not none else attrs.reset_time | default('', true), "resets_at": attrs.resets_at | default('', true), "quota_reset_date_utc": attrs.quota_reset_date_utc | default('', true), "primary_reset_time": attrs.primary_reset_time | default('', true), "secondary_reset_time": attrs.secondary_reset_time | default('', true), "pace": pace_val if pace_val not in ['unknown', 'unavailable', none] else ''}] -%}
     {%- endif -%}
   {%- endfor -%}
 {%- endfor -%}

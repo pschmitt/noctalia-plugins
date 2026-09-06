@@ -1,11 +1,12 @@
 {
   lib,
   stdenvNoCC,
+  imagemagick,
 }:
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-ha-ai-usage";
-  version = "0.6.3";
+  version = "0.7.0";
 
   src = lib.fileset.toSource {
     root = ../../plugins/ha-ai-usage;
@@ -30,8 +31,12 @@ stdenvNoCC.mkDerivation {
     dest=$out/share/noctalia-plugins/ha-ai-usage
     mkdir -p "$dest"
 
-    cp plugin.toml README.md bar.luau panel.luau service.luau shared.luau "$dest"/
+    cp plugin.toml README.md bar.luau service.luau shared.luau "$dest"/
     cp -r assets translations "$dest"/
+    # panel.luau renders its reset-countdown rings with ImageMagick at
+    # runtime (Noctalia's Luau UI has no native circular progress control),
+    # so its @magick@ placeholder needs the store path baked in here.
+    substitute panel.luau "$dest"/panel.luau --subst-var-by magick ${imagemagick}/bin/magick
 
     runHook postInstall
   '';

@@ -72,9 +72,7 @@ local function tooltip(cards)
   for _, card in ipairs(cards) do
     local values = {}
     for _, metric in ipairs(card.metrics) do
-      if not metric.secondary and (metric.window == "short" or metric.window == "weekly") then
-        values[#values + 1] = metricText(metric)
-      end
+      if shared.isHeadline(metric) then values[#values + 1] = metricText(metric) end
     end
     if #values == 0 and card.primary then values[#values + 1] = metricText(card.primary) end
     rows[#rows + 1] = { key = card.label, value = table.concat(values, "\n") }

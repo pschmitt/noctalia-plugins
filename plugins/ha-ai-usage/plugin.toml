@@ -1,6 +1,6 @@
 id = "pschmitt/ha-ai-usage"
 name = "Home Assistant AI Usage"
-version = "0.6.3"
+version = "0.7.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"

@@ -128,6 +128,7 @@ function M.cards(items)
         byId[id] = card
       end
       local window, metricLabel, secondary = metricDetails(item)
+      local pace = tonumber(item.pace)
       card.metrics[#card.metrics + 1] = {
         entity = entity,
         label = metricLabel,
@@ -135,6 +136,11 @@ function M.cards(items)
         secondary = secondary,
         used = used,
         reset = M.metricReset(item),
+        -- Percentage-points/day versus a flat linear pace to the next reset:
+        -- positive means burning faster than budget (quota risks running out
+        -- early), negative means under budget. Home Assistant only publishes
+        -- this for weekly/category metrics so far, never session/5h ones.
+        pace = pace,
         available = true,
       }
     end
@@ -184,6 +190,14 @@ function M.filterCards(cards, filter)
   return filtered
 end
 
+-- The metrics worth a dedicated countdown/tooltip line: an account's own
+-- session/weekly windows, never Gemini's 3P side quotas or a provider's
+-- per-category counters (Copilot chat/completions/premium), which don't map
+-- to a single fixed-length window.
+function M.isHeadline(metric)
+  return not metric.secondary and (metric.window == "short" or metric.window == "weekly")
+end
+
 function M.metricWindow(card)
   return card.primary and card.primary.window or "other"
 end
@@ -228,6 +242,48 @@ local function timestamp(value)
   return localEpoch
 end
 
+-- Positive pace = burning quota faster than a flat linear rate to reset
+-- (risks running out early); negative = under budget. Thresholds are
+-- deliberately looser than the usage color ones: pace is inherently noisy
+-- (a single heavy session skews it) and is a secondary signal, not the
+-- primary quota color.
+function M.paceGlyph(pace)
+  if pace == nil then return nil end
+  if pace > 5 then return "trending-up" end
+  if pace < -5 then return "trending-down" end
+  return "equal"
+end
+
+function M.paceColor(pace)
+  if pace == nil then return "on_surface_variant" end
+  if pace > 5 then return M.config("critical_color", "error") end
+  return "on_surface_variant"
+end
+
+function M.paceText(pace)
+  if pace == nil then return "" end
+  return string.format("%+.0f%%/day vs. pace", pace)
+end
+
+-- Home Assistant gives us only the reset target, never when the current
+-- window started, so there's no way to compute an exact elapsed/remaining
+-- fraction. These are the fixed cadences every supported integration's
+-- session/weekly windows actually run on (5h and 7d); anything else (a
+-- provider's monthly category quotas) has no fixed length here and is
+-- deliberately left out of M.isHeadline above.
+local WINDOW_SECONDS = { short = 5 * 3600, weekly = 7 * 86400 }
+
+function M.windowSeconds(window)
+  return WINDOW_SECONDS[window]
+end
+
+function M.remainingSeconds(value)
+  if not M.validState(value) then return nil end
+  local epoch = timestamp(value)
+  if not epoch then return nil end
+  return os.difftime(epoch, os.time())
+end
+
 function M.resetText(value)
   if not M.validState(value) then return "—" end
   local epoch = timestamp(value)
@@ -244,6 +300,51 @@ function M.resetText(value)
   if days > 0 then return string.format("in %dd %dh", days, hours) end
   if hours > 0 then return string.format("in %dh %dm", hours, minutes) end
   return string.format("in %dm", math.max(1, minutes))
+end
+
+
+-- Noctalia's own "color" settings (bar.color, capsule fill, ...) accept
+-- either a hex value or a palette role name like "on_primary" -- see
+-- docs/user/bar/index.mdx. ImageMagick's -fill only understands actual
+-- colors, so a role name has to be resolved against the active custom
+-- palette file first. Ported from pschmitt/battery-icon's service.luau,
+-- which solved this same problem for its rendered battery bitmap.
+local paletteCache = { key = nil, colors = nil }
+
+local function roleToPaletteKey(role)
+  local out = "m"
+  for word in role:gmatch("[^_]+") do
+    out = out .. word:sub(1, 1):upper() .. word:sub(2)
+  end
+  return out
+end
+
+local function resolveRoleColor(role)
+  if noctalia.getSetting("theme.source") ~= "custom" then
+    return nil -- built-in palettes aren't user files we can read directly
+  end
+  local paletteName = noctalia.getSetting("theme.custom_palette")
+  if paletteName == nil or paletteName == "" then return nil end
+  local mode = noctalia.isDarkMode() and "dark" or "light"
+  local cacheKey = paletteName .. ":" .. mode
+
+  if paletteCache.key ~= cacheKey then
+    local raw = noctalia.readFile(noctalia.expandPath("~/.config/noctalia/palettes/" .. paletteName .. ".json"))
+    local decoded = raw ~= nil and noctalia.json.decode(raw) or nil
+    paletteCache = { key = cacheKey, colors = decoded ~= nil and decoded[mode] or nil }
+  end
+
+  if paletteCache.colors == nil then return nil end
+  return paletteCache.colors[roleToPaletteKey(role)]
+end
+
+-- `value` is either a hex color or a Noctalia palette role name; `fallback`
+-- is the fixed hex used when it's a role name that can't be resolved
+-- (built-in palette, unknown role, missing palette file, ...).
+function M.resolveColor(value, fallback)
+  if type(value) ~= "string" or value == "" then return fallback end
+  if value:match("^#%x+$") then return value end
+  return resolveRoleColor(value) or fallback
 end
 
 return M
