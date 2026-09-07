@@ -170,7 +170,13 @@ end
 
 local function intervalRow(row, fmt)
   local children = {
-    ui.label({ text = `@{row.id}`, fontSize = 11, color = "on_surface_variant", width = 24 }),
+    -- Fixed-width and right-aligned: a bare label with a width still lays out
+    -- its own text, so a two-digit id ("@10") pushed the times a few pixels
+    -- further right than a one-digit one ("@9") and the columns stopped
+    -- lining up between rows.
+    ui.row({ width = 34, justify = "end" }, {
+      ui.label({ text = `@{row.id}`, fontSize = 11, color = "on_surface_variant" }),
+    }),
     timeCell(row, "start", clockText(row.startEpoch)),
     ui.label({ text = "→", fontSize = 12, color = "on_surface_variant" }),
   }
@@ -354,11 +360,17 @@ function onConfigChanged()
   render()
 end
 
-function onOpen(_context)
+function onOpen(context)
   -- A panel reopened later should read today, not sit in whatever cell was
   -- left mid-edit on whichever day was being inspected when it was dismissed.
+  -- A YYYY-MM-DD context opens straight on that day instead, so a keybind or
+  -- `noctalia msg panel-open pschmitt/timewarrior:panel 2026-09-01` can land
+  -- on the day it means.
   editing = nil
   selectedDate = nil
+  if type(context) == "string" and context:match("^%d%d%d%d%-%d%d%-%d%d$") then
+    selectedDate = context
+  end
   render()
 end
 

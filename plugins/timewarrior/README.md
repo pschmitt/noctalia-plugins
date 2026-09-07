@@ -82,6 +82,9 @@ accept.
 
 Clicking a day in the breakdown points that section at that day
 (clicking it again, or the "Today" button in the section header, comes back).
+Opening the panel with a `YYYY-MM-DD` context lands on that day directly, so a
+keybind can too:
+`noctalia msg panel-open pschmitt/timewarrior:panel 2026-09-01`.
 `breakdown_days` (default 14) sets how far back the breakdown reaches, and with
 it the export that feeds these lists: every day it shows comes from that single
 export, so browsing days costs no extra `timew` call, and the ids stay valid for
