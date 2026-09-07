@@ -243,6 +243,24 @@ local function intervalSection(fmt)
   return ui.column({ gap = 4 }, children)
 end
 
+-- Each stat box has its own format setting; an unset or empty one falls back
+-- to panel_time_format, which is what the day rows and interval durations use.
+-- getConfig returns nil for a setting the user has never touched, so the
+-- manifest defaults are mirrored here.
+local BOX_FORMAT_DEFAULTS = {
+  week_time_format = "{hours}h {minutes}m",
+  month_time_format = "{hours}h",
+  year_time_format = "{hours}h",
+}
+
+local function boxFormat(key)
+  local fmt = noctalia.getConfig(key)
+  if fmt == nil or fmt == "" then
+    return BOX_FORMAT_DEFAULTS[key]
+  end
+  return fmt
+end
+
 local function statBox(label, value)
   return ui.column({
     flexGrow = 1,
@@ -312,9 +330,9 @@ function render()
     header(),
     toggle(),
     ui.row({ gap = 8 }, {
-      statBox("Week", duration.format(summary.week, fmt)),
-      statBox("Month", duration.format(summary.month, fmt)),
-      statBox("Year", duration.format(summary.year, fmt)),
+      statBox("Week", duration.format(summary.week, boxFormat("week_time_format"))),
+      statBox("Month", duration.format(summary.month, boxFormat("month_time_format"))),
+      statBox("Year", duration.format(summary.year, boxFormat("year_time_format"))),
     }),
     ui.separator({}),
     intervalSection(fmt),

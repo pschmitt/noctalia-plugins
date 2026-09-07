@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.16.1"
+version = "0.17.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -134,6 +134,32 @@ type = "string"
 label_key = "settings.panel_time_format.label"
 description_key = "settings.panel_time_format.description"
 default = "{hours}h {minutes}m"
+
+# The three stat boxes get their own formats, because they are read very
+# differently: the week figure is something you compare against a target to the
+# minute, while a month or a year total is a magnitude — "1194h 33m" is just
+# noise where "1194h" says the same thing. Empty falls back to
+# panel_time_format, which still formats the day rows and interval durations.
+[[setting]]
+key = "week_time_format"
+type = "string"
+label_key = "settings.week_time_format.label"
+description_key = "settings.week_time_format.description"
+default = "{hours}h {minutes}m"
+
+[[setting]]
+key = "month_time_format"
+type = "string"
+label_key = "settings.month_time_format.label"
+description_key = "settings.month_time_format.description"
+default = "{hours}h"
+
+[[setting]]
+key = "year_time_format"
+type = "string"
+label_key = "settings.year_time_format.label"
+description_key = "settings.year_time_format.description"
+default = "{hours}h"
 
 [[setting]]
 key = "label_color"
