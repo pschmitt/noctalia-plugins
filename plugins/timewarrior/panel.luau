@@ -18,6 +18,10 @@ local action = nil
 -- Which boundary is currently being edited, as { id, field }, or nil while the
 -- list is just being read. Only one cell is ever an input at a time.
 local editing = nil
+-- Which interval is showing its delete button, as its id, or nil. Rows are
+-- read far more often than they are deleted, so the trash stays out of sight
+-- until the row's id or its duration is clicked.
+local revealed = nil
 -- Which interval is one click away from being deleted, as its id, or nil.
 -- Deleting is irreversible, so the trash button only arms the confirmation and
 -- a second, deliberately different control commits it.
@@ -170,12 +174,21 @@ local function timeCell(row, field, value)
 end
 
 local function intervalRow(row, fmt)
+  -- The id and the duration are the row's "handles": clicking either reveals
+  -- the delete button, clicking again puts it away. Neither is an editable
+  -- value, so a click on them has nothing else to mean.
+  local toggleReveal = function()
+    revealed = revealed == row.id and nil or row.id
+    pendingDelete = nil
+    render()
+  end
+
   local children = {
     -- Fixed-width and right-aligned: a bare label with a width still lays out
     -- its own text, so a two-digit id ("@10") pushed the times a few pixels
     -- further right than a one-digit one ("@9") and the columns stopped
     -- lining up between rows.
-    ui.row({ width = 34, justify = "end" }, {
+    ui.row({ width = 34, justify = "end", padding = 3, onClick = toggleReveal }, {
       ui.label({ text = `@{row.id}`, fontSize = 11, color = "on_surface_variant" }),
     }),
     timeCell(row, "start", clockText(row.startEpoch)),
@@ -192,11 +205,15 @@ local function intervalRow(row, fmt)
     table.insert(children, timeCell(row, "end", clockText(row.endEpoch)))
   end
 
-  table.insert(children, ui.row({ justify = "end", flexGrow = 1 }, {
+  table.insert(children, ui.row({ justify = "end", flexGrow = 1, padding = 3, onClick = toggleReveal }, {
     ui.label({ text = duration.format(row.duration, fmt), fontSize = 12 }),
   }))
 
-  if pendingDelete == row.id then
+  -- An empty slot the width of the button keeps the durations in one column
+  -- whether or not a row is showing its trash.
+  if revealed ~= row.id then
+    table.insert(children, ui.row({ width = 22 }, {}))
+  elseif pendingDelete == row.id then
     table.insert(children, ui.button({
       glyph = "trash",
       variant = "destructive",
@@ -205,6 +222,7 @@ local function intervalRow(row, fmt)
       tooltip = `Delete interval @{row.id} — this cannot be undone`,
       onClick = function()
         pendingDelete = nil
+        revealed = nil
         sendCommand({ action = "delete", id = row.id })
         render()
       end,
@@ -218,6 +236,7 @@ local function intervalRow(row, fmt)
       tooltip = "Keep it",
       onClick = function()
         pendingDelete = nil
+        revealed = nil
         render()
       end,
     }))
@@ -307,6 +326,7 @@ local function intervalSection(fmt)
         selectedDate = nil
         editing = nil
         pendingDelete = nil
+        revealed = nil
         render()
       end,
     }))
@@ -398,6 +418,7 @@ local function dayRow(day, fmt)
       selectedDate = (selectedDate == date or date == todayDate()) and nil or date
       editing = nil
       pendingDelete = nil
+      revealed = nil
       render()
     end,
   }, {
@@ -504,6 +525,7 @@ function onOpen(context)
   -- on the day it means.
   editing = nil
   pendingDelete = nil
+  revealed = nil
   selectedDate = nil
   if type(context) == "string" and context:match("^%d%d%d%d%-%d%d%-%d%d$") then
     selectedDate = context
