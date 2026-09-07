@@ -44,6 +44,12 @@
       "label": "Icon size",
       "description": "Bar display size of the Timewarrior logo, in pixels."
     },
+    "interval_precision": {
+      "label": "Interval time precision",
+      "description": "How today's interval start and end times are shown, and the precision an edit of one defaults to.",
+      "minutes": "Minutes (HH:MM)",
+      "seconds": "Seconds (HH:MM:SS)"
+    },
     "visibility": {
       "label": "Show in the bar",
       "description": "When the widget occupies its bar slot while nothing is tracked. A running interval is always shown.",

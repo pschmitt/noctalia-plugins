@@ -69,8 +69,8 @@ leaves the widget telling the truth.
 
 The panel's **Today** section lists every interval tracked today as
 `@id  start → end  duration`. The boundaries read as plain labels; clicking one
-turns that single cell into a focused text field. Type `HH:MM` (seconds
-optional) and press Enter, and the plugin runs
+turns that single cell into a focused text field. Type `HH:MM` (or `HH:MM:SS`)
+and press Enter, and the plugin runs
 `timew modify start|end @<id> <time>` for that interval; the ✕ beside the field
 leaves it unchanged. The running interval shows "running" instead of an end
 field — closing it is what Stop is for.
@@ -79,6 +79,11 @@ A rejected time (bad format, or `timew` refusing the change, e.g. an end before
 the start) shows as an error line under the toggle and as a toast; the fields
 re-seed from the next poll, so the panel never shows a value Timewarrior didn't
 accept.
+
+`interval_precision` picks how the boundaries are rendered — `minutes`
+(`HH:MM`, the default) or `seconds` (`HH:MM:SS`). Because the edit field seeds
+from what is displayed, it is also the precision an edit defaults to: applying
+a `HH:MM` value zeroes the seconds Timewarrior had stored for that boundary.
 
 Interval ids are positional — `@1` is the newest — so they shift whenever an
 interval is added. The panel re-renders on every poll, which keeps the window

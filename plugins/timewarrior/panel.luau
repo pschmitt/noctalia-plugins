@@ -79,16 +79,34 @@ end
 -- `focus = true` seeds keyboard focus once, at creation, so the field is ready
 -- to type in. There is no blur callback in the plugin UI vocabulary, hence the
 -- explicit cancel button rather than click-away-to-dismiss.
-local TIME_CELL_WIDTH = 84
 local TIME_FONT_SIZE = 13
 
+-- `timew` stores seconds, so both precisions are just a rendering of the same
+-- epoch. The edit field seeds from the rendered value, which means the choice
+-- here is also the precision an edit is expressed in.
+local function secondsPrecision()
+  return noctalia.getConfig("interval_precision") == "seconds"
+end
+
+local function clockText(epoch)
+  if epoch == nil then
+    return ""
+  end
+  return noctalia.formatTime(secondsPrecision() and "%H:%M:%S" or "%H:%M", epoch)
+end
+
+local function timeCellWidth()
+  return secondsPrecision() and 104 or 84
+end
+
 local function timeCell(row, field, value)
+  local cellWidth = timeCellWidth()
   if editing ~= nil and editing.id == row.id and editing.field == field then
     return ui.row({ gap = 2, align = "center" }, {
       ui.input({
         key = `edit-{field}-{row.id}`,
         value = value,
-        width = TIME_CELL_WIDTH,
+        width = cellWidth,
         fontSize = TIME_FONT_SIZE,
         focus = true,
         submitOnEnter = true,
@@ -115,7 +133,7 @@ local function timeCell(row, field, value)
 
   return ui.row({
     key = `show-{field}-{row.id}`,
-    width = TIME_CELL_WIDTH,
+    width = cellWidth,
     justify = "center",
     padding = 3,
     onClick = function()
@@ -130,18 +148,18 @@ end
 local function intervalRow(row, fmt)
   local children = {
     ui.label({ text = `@{row.id}`, fontSize = 11, color = "on_surface_variant", width = 24 }),
-    timeCell(row, "start", row.start),
+    timeCell(row, "start", clockText(row.startEpoch)),
     ui.label({ text = "→", fontSize = 12, color = "on_surface_variant" }),
   }
 
   -- The open interval has no end to edit: setting one is what Stop is for,
   -- and `timew modify end` on an open interval is an error anyway.
   if row.open then
-    table.insert(children, ui.row({ width = TIME_CELL_WIDTH, justify = "center" }, {
+    table.insert(children, ui.row({ width = timeCellWidth(), justify = "center" }, {
       ui.label({ text = "running", fontSize = TIME_FONT_SIZE, color = "primary" }),
     }))
   else
-    table.insert(children, timeCell(row, "end", row.stop))
+    table.insert(children, timeCell(row, "end", clockText(row.endEpoch)))
   end
 
   table.insert(children, ui.row({ justify = "end", flexGrow = 1 }, {
@@ -253,6 +271,12 @@ noctalia.state.watch("tw_today", function(val)
     render()
   end
 end)
+
+-- The precision setting is read at render time, so a change in Settings only
+-- needs a re-render to show up.
+function onConfigChanged()
+  render()
+end
 
 function onOpen(_context)
   -- A panel reopened later should read, not sit in whatever cell was left

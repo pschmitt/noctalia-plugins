@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.12.0"
+version = "0.13.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -64,6 +64,22 @@ options = [
   { value = "tracking", label_key = "settings.visibility.tracking" },
   { value = "always", label_key = "settings.visibility.always" },
   { value = "workdays", label_key = "settings.visibility.workdays" },
+]
+
+# How precise the panel renders today's interval boundaries — and, because the
+# edit field seeds from what is displayed, the precision an edit defaults to.
+# `timew` itself always stores seconds, and a HH:MM edit is applied as :00, so
+# "minutes" can quietly zero a second-precision boundary; that is the trade for
+# a list that reads cleanly.
+[[setting]]
+key = "interval_precision"
+type = "select"
+label_key = "settings.interval_precision.label"
+description_key = "settings.interval_precision.description"
+default = "minutes"
+options = [
+  { value = "minutes", label_key = "settings.interval_precision.minutes" },
+  { value = "seconds", label_key = "settings.interval_precision.seconds" },
 ]
 
 # ── Start/stop hooks ──

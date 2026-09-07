@@ -165,9 +165,11 @@ local function refreshSummary()
   end)
 end
 
--- Today's intervals, in the shape the panel's editable rows need: local
--- HH:MM boundaries plus the `timew` id to address them by. The open interval
--- carries no end, and is flagged rather than given a placeholder time.
+-- Today's intervals, in the shape the panel's editable rows need: raw
+-- boundary epochs plus the `timew` id to address them by. Formatting is the
+-- panel's business (it owns the interval_precision setting), so the snapshot
+-- stays precision-agnostic and a setting change needs no re-poll. The open
+-- interval carries no end, and is flagged rather than given a placeholder.
 local function todayRows(intervals, now)
   local rows = {}
   for _, interval in ipairs(intervals) do
@@ -177,8 +179,7 @@ local function todayRows(intervals, now)
       table.insert(rows, {
         id = tonumber(interval.id) or 0,
         startEpoch = start,
-        start = noctalia.formatTime("%H:%M", start),
-        stop = finish and noctalia.formatTime("%H:%M", finish) or "",
+        endEpoch = finish,
         open = finish == nil,
         duration = formatDuration((finish or now) - start),
       })
