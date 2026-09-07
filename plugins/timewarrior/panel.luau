@@ -36,31 +36,44 @@ local function currentFormat()
   return formats.get("panel_time_format")
 end
 
+-- Every command runs through the same "tw_action" state, and this button is
+-- the panel's only place to say something is in flight — so it has to name the
+-- command that is actually running. It used to read the tracking state
+-- instead, which meant a sync (or an edit, or a delete) announced itself as
+-- "Starting…".
+local BUSY_STATES = {
+  start = { text = "Starting…", glyph = "player-play", variant = "primary" },
+  stop = { text = "Stopping…", glyph = "player-stop", variant = "destructive" },
+  sync = { text = "Syncing…", glyph = "refresh", variant = "secondary" },
+  modify = { text = "Saving…", glyph = "pencil", variant = "secondary" },
+  delete = { text = "Deleting…", glyph = "trash", variant = "secondary" },
+}
+
 -- The panel's headline control: one big button that starts or stops tracking
 -- depending on the current state, plus the running interval beside it.
 local function toggle()
   local active = status.active == true
-  local busy = action ~= nil and action.running == true
+  local busy = nil
+  if action ~= nil and action.running == true then
+    busy = BUSY_STATES[action.action]
+  end
+
   -- Just the verb: the subtitle above already says whether anything is being
   -- tracked, so "Stop tracking" on the button was saying it twice. The tooltip
   -- keeps the long form.
-  local label
-  if busy then
-    label = active and "Stopping…" or "Starting…"
-  else
-    label = active and "Stop" or "Start"
-  end
+  local label = busy and busy.text or (active and "Stop" or "Start")
 
   return ui.column({ gap = 4 }, {
     ui.button({
       text = label,
-      glyph = active and "player-stop" or "player-play",
+      glyph = busy and busy.glyph or (active and "player-stop" or "player-play"),
       glyphSize = 18,
       -- "destructive" is the error-colored button variant, so stopping reads
       -- red the way it does in the rest of the shell; starting is the primary
-      -- accent.
-      variant = active and "destructive" or "primary",
-      enabled = not busy,
+      -- accent. A command that is neither takes the neutral accent while it
+      -- runs, rather than borrowing the colour of a state it isn't changing.
+      variant = busy and busy.variant or (active and "destructive" or "primary"),
+      enabled = busy == nil,
       height = 44,
       flexGrow = 1,
       tooltip = active and "Stop tracking" or "Start tracking",
