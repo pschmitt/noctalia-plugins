@@ -1,6 +1,6 @@
 id = "pschmitt/ha-ai-usage"
 name = "Home Assistant AI Usage"
-version = "0.10.0"
+version = "0.10.1"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -38,6 +38,8 @@ type = "int"
 label_key = "settings.refresh_interval.label"
 description_key = "settings.refresh_interval.description"
 default = 60
+min = 10
+max = 3600
 
 [[setting]]
 key = "dashboard_path"
@@ -45,8 +47,6 @@ type = "string"
 label_key = "settings.dashboard_path.label"
 description_key = "settings.dashboard_path.description"
 default = "/"
-min = 10
-max = 3600
 
 # ── Bar content ──────────────────────────────────────────────────────────────
 
