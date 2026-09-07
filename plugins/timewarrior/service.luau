@@ -15,10 +15,18 @@ local function pollMs()
   return (tonumber(noctalia.getConfig("poll_interval")) or 5) * 1000
 end
 
+local function databasePath()
+  local configured = noctalia.string.trim(noctalia.getConfig("database_path") or "")
+  if configured == "" then
+    configured = noctalia.getenv("TIMEWARRIORDB") or "~/.config/timewarrior"
+  end
+  return noctalia.expandPath(configured)
+end
+
 local summary = { week = "0:00", month = "0:00", year = "0:00", days = {} }
 
 local function runTimew(args, callback)
-  local argv = { "timew" }
+  local argv = { "env", "TIMEWARRIORDB=" .. databasePath(), "timew" }
   for _, arg in ipairs(args) do
     table.insert(argv, arg)
   end

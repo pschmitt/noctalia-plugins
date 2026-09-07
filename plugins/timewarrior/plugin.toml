@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.7.0"
+version = "0.8.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -8,12 +8,19 @@ author = "pschmitt"
 license = "GPL-3.0-only"
 # `timew` is the Timewarrior CLI. JSON is decoded with noctalia.json, so jq is
 # deliberately not a runtime dependency.
-dependencies = ["timew"]
+dependencies = ["timew", "env"]
 tags = ["bar", "productivity", "time-tracking"]
 icon = "clock-hour-3"
 description = "Currently tracked Timewarrior task duration, ported from the DMS/Waybar widget."
 
 # ── Plugin-level settings (shared by every entry, edited in Settings -> Plugins) ──
+
+[[setting]]
+key = "database_path"
+type = "string"
+label_key = "settings.database_path.label"
+description_key = "settings.database_path.description"
+default = ""
 
 [[setting]]
 key = "poll_interval"

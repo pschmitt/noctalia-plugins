@@ -17,6 +17,8 @@ neither `jq` nor the former `timew-status` Nix helper.
 ## Setup
 
 Enable `pschmitt/timewarrior` and add `pschmitt/timewarrior:bar` to a bar.
-Configure polling, overtime threshold, and display formats in **Settings →
-Plugins → Timewarrior**. By default the widget hides when no interval is
-active; disable `hide_when_inactive` to keep the slot visible.
+Configure the database path, polling, overtime threshold, and display formats
+in **Settings → Plugins → Timewarrior**. Leave the database path empty to use
+`TIMEWARRIORDB` or Timewarrior's default `~/.config/timewarrior` directory. By
+default the widget hides when no interval is active; disable
+`hide_when_inactive` to keep the slot visible.

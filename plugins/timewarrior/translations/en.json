@@ -1,5 +1,9 @@
 {
   "settings": {
+    "database_path": {
+      "label": "Timewarrior database path",
+      "description": "Directory containing Timewarrior's data files. Leave empty to use TIMEWARRIORDB or ~/.config/timewarrior."
+    },
     "poll_interval": {
       "label": "Poll interval (seconds)",
       "description": "How often to refresh the tracked duration and week/month/year totals."
