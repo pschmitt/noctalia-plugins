@@ -37,7 +37,10 @@ local function toggle()
       text = label,
       glyph = active and "player-stop" or "player-play",
       glyphSize = 18,
-      variant = active and "outline" or "primary",
+      -- "destructive" is the error-colored button variant, so stopping reads
+      -- red the way it does in the rest of the shell; starting is the primary
+      -- accent.
+      variant = active and "destructive" or "primary",
       enabled = not busy,
       height = 44,
       flexGrow = 1,
