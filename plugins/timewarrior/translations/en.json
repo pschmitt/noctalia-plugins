@@ -96,7 +96,8 @@
       "interval": "Running interval",
       "day": "Today's total",
       "week": "This week's total",
-      "month": "This month's total"
+      "month": "This month's total",
+      "icon": "Icon only"
     },
     "bar_metric_stopped": {
       "label": "Bar shows while stopped",

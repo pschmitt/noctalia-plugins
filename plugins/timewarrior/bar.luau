@@ -73,6 +73,9 @@ end
 -- that gets asked most, and unlike the running interval it still says
 -- something once the timer stops.
 local METRICS = {
+  -- No figure at all: the icon carries the state (logo vs pause, or whichever
+  -- glyphs are configured) and the hover carries the numbers.
+  icon = { source = "none", label = "icon only", overtime = false },
   interval = { source = "interval", label = "running interval", overtime = true },
   day = { source = "day", label = "today", overtime = true },
   week = { source = "week", label = "this week", overtime = false },
@@ -96,7 +99,9 @@ local function metric(active)
 end
 
 local function metricValue(spec)
-  if spec.source == "interval" then
+  if spec.source == "none" then
+    return ""
+  elseif spec.source == "interval" then
     return state.duration or ""
   elseif spec.source == "day" then
     return state.today or ""

@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.27.0"
+version = "0.28.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -80,6 +80,7 @@ options = [
   { value = "day", label_key = "settings.bar_metric.day" },
   { value = "week", label_key = "settings.bar_metric.week" },
   { value = "month", label_key = "settings.bar_metric.month" },
+  { value = "icon", label_key = "settings.bar_metric.icon" },
 ]
 
 # And what it shows while stopped, for the states where the slot survives an
@@ -100,6 +101,7 @@ options = [
   { value = "day", label_key = "settings.bar_metric.day" },
   { value = "week", label_key = "settings.bar_metric.week" },
   { value = "month", label_key = "settings.bar_metric.month" },
+  { value = "icon", label_key = "settings.bar_metric.icon" },
 ]
 
 # Whether the bar slot exists at all while nothing is tracked. This is

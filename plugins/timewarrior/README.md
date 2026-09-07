@@ -35,7 +35,9 @@ agrees with the panel.
 
 `bar_metric` decides what the bar widget shows: `day` (today's total, the
 default), `interval` (the running interval — the original behaviour, and the
-only figure that disappears when the timer stops), `week` or `month`. The
+only figure that disappears when the timer stops), `week`, `month`, or `icon`
+for no figure at all, leaving the state to the icon and the numbers to the
+hover. The
 overtime colouring applies to the interval and day figures; week and month
 totals keep the plain label colour, since they would otherwise sit permanently
 above any sane daily threshold.
