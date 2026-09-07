@@ -104,6 +104,10 @@
       "description": "Which figure the bar widget displays when nothing is tracked, for the visibility modes that keep the slot. Defaults to whatever the tracking state shows.",
       "same": "Same as while tracking"
     },
+    "working_days": {
+      "label": "Working days",
+      "description": "Days the \"workdays\" visibility keeps the widget, as ISO weekday numbers (1 = Monday, 7 = Sunday). Ranges and lists both work: \"1-5\", \"1-4,6\", \"7,1-4\"."
+    },
     "working_hours_start": {
       "label": "Working hours start",
       "description": "First hour of the day the widget stays in the bar while nothing is tracked (24h clock)."

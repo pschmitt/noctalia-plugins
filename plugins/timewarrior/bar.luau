@@ -59,9 +59,48 @@ local function visibility()
   return VISIBILITY_MODES[value] and value or "tracking"
 end
 
+-- Which days count as working days, as ISO weekday numbers (1 = Monday,
+-- 7 = Sunday) in a comma-separated list of numbers and ranges: "1-5" is the
+-- default, "1-4,6" a four-day week plus Saturday, "7,1-4" a week that starts
+-- on Sunday. Mon-Fri used to be hardcoded, which is only most people's week.
+local DEFAULT_WORKING_DAYS = "1-5"
+
+local function workingDays()
+  local raw = noctalia.string.trim(noctalia.getConfig("working_days") or "")
+  if raw == "" then
+    raw = DEFAULT_WORKING_DAYS
+  end
+
+  local days = {}
+  for part in raw:gmatch("[^,]+") do
+    local first, last = part:match("^%s*(%d)%s*%-%s*(%d)%s*$")
+    if first ~= nil then
+      -- A reversed range is a typo, not a wrap-around: 5-1 and 1-5 are the
+      -- same set of days, and guessing otherwise would silently include the
+      -- weekend.
+      local from = math.min(tonumber(first), tonumber(last))
+      local to = math.max(tonumber(first), tonumber(last))
+      for day = from, to do
+        days[day] = true
+      end
+    else
+      local day = tonumber(part:match("^%s*(%d)%s*$"))
+      if day ~= nil then
+        days[day] = true
+      end
+    end
+  end
+
+  if next(days) == nil then
+    noctalia.log(`timewarrior: could not read working_days ("{raw}"), falling back to {DEFAULT_WORKING_DAYS}`)
+    return { [1] = true, [2] = true, [3] = true, [4] = true, [5] = true }
+  end
+  return days
+end
+
 -- %u is the ISO weekday, 1 (Monday) to 7 (Sunday), formatted in the user's
 -- local timezone — so this flips at local midnight rather than UTC's. An
--- unparsable weekday counts as a workday: showing the widget on a Saturday is
+-- unreadable weekday counts as a workday: showing the widget on a Saturday is
 -- a much smaller failure than hiding the start button on a Monday.
 local function isWorkday()
   local weekday = tonumber(noctalia.formatTime("%u", math.floor(noctalia.nowMs() / 1000)))
@@ -69,7 +108,7 @@ local function isWorkday()
     noctalia.log("timewarrior: could not read the local weekday, assuming a workday")
     return true
   end
-  return weekday <= 5
+  return workingDays()[weekday] == true
 end
 
 -- Inclusive start, exclusive end, in local hours. start > end wraps around

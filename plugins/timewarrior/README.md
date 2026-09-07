@@ -53,7 +53,7 @@ is the case where falling back to a total beats an icon on its own.
 | --- | --- |
 | `tracking` (default) | the slot appears and disappears with the timer |
 | `always` | the slot stays, showing a pause icon while idle |
-| `workdays` | the slot stays Mon-Fri, and vanishes on the weekend while idle |
+| `workdays` | the slot stays on `working_days` (`1-5`, i.e. Mon-Fri, by default) and vanishes on the other days while idle |
 | `working_hours` | the slot stays between `working_hours_start` and `working_hours_end` (06:00-20:00 by default, exclusive end; set the end below the start to cross midnight) |
 
 A running interval is always shown, whatever the setting. This is a
