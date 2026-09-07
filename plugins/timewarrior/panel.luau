@@ -438,10 +438,13 @@ end
 local function header()
   local active = status.active == true
   return ui.row({ gap = 8, align = "center" }, {
+    -- Sized against the title and subtitle stacked beside it (16px + 11px
+    -- plus the column gap), so the logo reads as the panel's mark rather than
+    -- a small icon in front of the text.
     ui.image({
       path = "assets/timewarrior-logo.svg",
-      width = 28,
-      height = 28,
+      width = 34,
+      height = 34,
       fit = "contain",
     }),
     -- The tracking state belongs next to the title, not under the button: it
