@@ -1132,6 +1132,10 @@ watchProperty(
 -- this stream simply never fires and poll_interval picks the change up.
 watchProperty("net.hadess.PowerProfiles", "/net/hadess/PowerProfiles", "ActiveProfile")
 
+-- Logind inhibitor changes (e.g. Noctalia Caffeine toggled via CLI, panel, or other tools).
+watchProperty("org.freedesktop.login1", "/org/freedesktop/login1", "BlockInhibited")
+watchProperty("org.freedesktop.login1", "/org/freedesktop/login1", "NCurrentInhibitors")
+
 -- The no-upower path: without the daemon none of the D-Bus streams above
 -- ever fire, and the kernel's own power_supply uevents (emitted for both the
 -- AC and battery devices on a plug/unplug) still give the same edge.
@@ -1151,3 +1155,11 @@ function update()
   noctalia.setUpdateInterval(settings().pollMs)
   poll()
 end
+
+function onIpc(event)
+  if event == "refresh" or event == "caffeine" then
+    poll()
+  end
+end
+
+noctalia.setUpdateInterval(settings().pollMs)

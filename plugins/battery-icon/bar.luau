@@ -66,7 +66,7 @@ end
 
 local function render()
   if state == nil or state.path == nil then
-    barWidget.setVisible(false)
+    if barWidget then barWidget.setVisible(false) end
     return
   end
 
@@ -85,9 +85,10 @@ local function render()
     ui.image({ path = state.path, width = width, height = height, fit = "contain" })
   )
 
-  barWidget.setVisible(true)
-  barWidget.render(ui.row({ gap = 4, align = "center" }, children))
-  barWidget.setTooltip(tooltipRows())
+  if barWidget then barWidget.setVisible(true) end
+  local renderer = barWidget or desktopWidget
+  if renderer then renderer.render(ui.row({ gap = 4, align = "center" }, children)) end
+  if barWidget then barWidget.setTooltip(tooltipRows()) end
 end
 
 noctalia.state.watch("battery_icon", function(val)

@@ -1,6 +1,6 @@
 id = "pschmitt/battery-icon"
 name = "Battery Icon"
-version = "0.5.17"
+version = "0.5.18"
 plugin_api = 26 # noctalia.getSetting() and noctalia.openSettings()
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -312,3 +312,7 @@ height = 520
 placement = "attached"
 position = "auto"
 open_near_click = true
+
+[[desktop_widget]]
+id = "lockscreen"
+entry = "bar.luau"
