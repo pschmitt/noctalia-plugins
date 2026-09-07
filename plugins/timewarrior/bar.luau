@@ -40,15 +40,23 @@ local function icon(active, color)
 end
 
 -- Whether the slot survives an idle timer: "tracking" (vanish, the
--- long-standing default), "always", or "workdays" (Mon-Fri only — a time
--- tracker means nothing on a Sunday). getConfig returns nil for a setting the
--- user has never touched, so anything unrecognised falls back to "tracking".
+-- long-standing default), "always", "workdays" (Mon-Fri only — a time tracker
+-- means nothing on a Sunday) or "working_hours" (a configurable stretch of the
+-- day). getConfig returns nil for a setting the user has never touched, so
+-- anything unrecognised falls back to "tracking".
+--
+-- None of these can hide a running timer: render() only consults them while
+-- nothing is tracked. Tracking at 23:00 on a Sunday is exactly when you want
+-- to see that you are.
+local VISIBILITY_MODES = {
+  always = true,
+  workdays = true,
+  working_hours = true,
+}
+
 local function visibility()
   local value = noctalia.getConfig("visibility")
-  if value == "always" or value == "workdays" then
-    return value
-  end
-  return "tracking"
+  return VISIBILITY_MODES[value] and value or "tracking"
 end
 
 -- %u is the ISO weekday, 1 (Monday) to 7 (Sunday), formatted in the user's
@@ -64,9 +72,38 @@ local function isWorkday()
   return weekday <= 5
 end
 
+-- Inclusive start, exclusive end, in local hours. start > end wraps around
+-- midnight (22 to 6 being the obvious case), and start == end reads as "all
+-- day" rather than "never" — a zero-length window would make the setting a
+-- way to hide the widget entirely, which "always" and "tracking" already
+-- cover better.
+local function withinWorkingHours()
+  local startHour = math.clamp(math.floor(tonumber(noctalia.getConfig("working_hours_start")) or 6), 0, 23)
+  local endHour = math.clamp(math.floor(tonumber(noctalia.getConfig("working_hours_end")) or 20), 1, 24)
+  local hour = tonumber(noctalia.formatTime("%H", math.floor(noctalia.nowMs() / 1000)))
+  if hour == nil then
+    noctalia.log("timewarrior: could not read the local hour, assuming working hours")
+    return true
+  end
+  if startHour == endHour then
+    return true
+  end
+  if startHour < endHour then
+    return hour >= startHour and hour < endHour
+  end
+  return hour >= startHour or hour < endHour
+end
+
 local function keepSlotWhileIdle()
   local mode = visibility()
-  return mode == "always" or (mode == "workdays" and isWorkday())
+  if mode == "always" then
+    return true
+  elseif mode == "workdays" then
+    return isWorkday()
+  elseif mode == "working_hours" then
+    return withinWorkingHours()
+  end
+  return false
 end
 
 -- Which figure to show. Defaults to today's total: it answers the question

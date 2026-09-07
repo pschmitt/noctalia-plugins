@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.29.0"
+version = "0.30.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -128,7 +128,30 @@ options = [
   { value = "tracking", label_key = "settings.visibility.tracking" },
   { value = "always", label_key = "settings.visibility.always" },
   { value = "workdays", label_key = "settings.visibility.workdays" },
+  { value = "working_hours", label_key = "settings.visibility.working_hours" },
 ]
+
+# The window "working_hours" keeps the slot in, as local hours: inclusive
+# start, exclusive end. start > end wraps around midnight; start == end means
+# all day. Only consulted by that mode — and by none of them while a timer is
+# running, which is never a moment to hide the widget.
+[[setting]]
+key = "working_hours_start"
+type = "int"
+label_key = "settings.working_hours_start.label"
+description_key = "settings.working_hours_start.description"
+default = 6
+min = 0
+max = 23
+
+[[setting]]
+key = "working_hours_end"
+type = "int"
+label_key = "settings.working_hours_end.label"
+description_key = "settings.working_hours_end.description"
+default = 20
+min = 1
+max = 24
 
 # How far back the panel's day breakdown reaches, in days ending today. The
 # breakdown used to be exactly `:week`, which on a Monday is a single row —
