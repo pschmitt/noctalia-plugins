@@ -303,7 +303,24 @@ local function boxFormat(key)
   return fmt
 end
 
-local function statBox(label, value)
+-- Which week/month/year the figure above is actually about. The totals come
+-- from `timew`'s own :week/:month/:year, so this is only ever the current one —
+-- the ISO week number (Monday-based, like timew's week), the abbreviated month
+-- name, and the year. Rendered in the box's own label to keep the boxes one
+-- line tall, and via noctalia.formatTime, so month names follow the same
+-- locale as the weekday labels in the breakdown.
+local function statContext(kind)
+  local now = math.floor(noctalia.nowMs() / 1000)
+  if kind == "week" then
+    return noctalia.formatTime("%V", now)
+  elseif kind == "month" then
+    return noctalia.formatTime("%b", now)
+  end
+  return noctalia.formatTime("%Y", now)
+end
+
+local function statBox(label, kind, value)
+  local context = statContext(kind)
   return ui.column({
     flexGrow = 1,
     gap = 2,
@@ -313,7 +330,11 @@ local function statBox(label, value)
     radius = 8,
   }, {
     ui.label({ text = value, fontSize = 18, fontWeight = "bold" }),
-    ui.label({ text = label, fontSize = 12, color = "on_surface_variant" }),
+    ui.label({
+      text = context ~= "" and `{label} ({context})` or label,
+      fontSize = 12,
+      color = "on_surface_variant",
+    }),
   })
 end
 
@@ -372,9 +393,9 @@ function render()
     header(),
     toggle(),
     ui.row({ gap = 8 }, {
-      statBox("Week", duration.format(summary.week, boxFormat("week_time_format"))),
-      statBox("Month", duration.format(summary.month, boxFormat("month_time_format"))),
-      statBox("Year", duration.format(summary.year, boxFormat("year_time_format"))),
+      statBox("Week", "week", duration.format(summary.week, boxFormat("week_time_format"))),
+      statBox("Month", "month", duration.format(summary.month, boxFormat("month_time_format"))),
+      statBox("Year", "year", duration.format(summary.year, boxFormat("year_time_format"))),
     }),
     ui.separator({}),
     intervalSection(fmt),

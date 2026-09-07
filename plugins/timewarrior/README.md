@@ -97,6 +97,11 @@ Each day's total is coloured by the same `overtime_hours` threshold and
 `label_color`/`label_overtime_color` pair the bar widget uses, so a long day
 reads the same in the breakdown as it did in the bar while it was worked.
 
+Each stat box names the period it covers — `Week (37)` for the ISO week number,
+`Month (Sep)`, `Year (2026)` — since the totals are always about the current
+one. Month names come from `noctalia.formatTime`, so they follow the same
+locale as the weekday labels in the breakdown.
+
 The section's hint text is deliberately quiet — a pencil glyph, a smaller
 size, the muted colour role. Noctalia's labels cannot request an italic style
 (the renderer never sets a Pango slant), so `italic_font_family` exists for the
