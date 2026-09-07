@@ -12,6 +12,14 @@
       "label": "Overtime threshold (hours)",
       "description": "Hours above which a tracked duration switches to the overtime color, in the bar and in the panel's per-day totals."
     },
+    "sync_enabled": {
+      "label": "Show sync button",
+      "description": "Adds a sync button beside the panel's settings button, running the sync command below."
+    },
+    "sync_command": {
+      "label": "Sync command",
+      "description": "Shell command the sync button runs, e.g. `timewsync`. Runs with TIMEWARRIORDB set and is bounded by the command timeout."
+    },
     "start_command": {
       "label": "Start command",
       "description": "Shell command run by the panel's start button. Leave empty to run `timew start`. Runs with TIMEWARRIORDB set, e.g. `~/bin/zhj tw::work-start`."

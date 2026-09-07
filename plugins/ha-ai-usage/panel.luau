@@ -234,7 +234,24 @@ local function ringLines(metric)
   if metric.used ~= nil then
     lines[#lines + 1] = ui.progress({ progress = metric.used / 100, fill = color, track = "on_surface/0.16", height = 6, radius = 6 })
   end
-  lines[#lines + 1] = ui.label({ text = metric.reset ~= "" and ("Reset " .. shared.resetText(metric.reset)) or "—", fontSize = 11, color = "on_surface_variant", maxLines = 1 })
+  -- A hover-tooltip button (ui.button, the only control that carries one)
+  -- turned out to render worse than the problem it solved: no visible
+  -- tooltip in practice, and the button's own hover fill/padding looked
+  -- broken next to a plain label. Simplest fix -- put the absolute end time
+  -- right on the line instead of hiding it behind a hover: same " · "
+  -- separator the banked-resets line above already uses for a second fact
+  -- tacked onto a countdown.
+  local resetLine = "—"
+  if metric.reset ~= "" then
+    resetLine = "Reset " .. shared.resetText(metric.reset)
+    -- Only worth appending when the row itself is the relative countdown;
+    -- an absolute reset_time_format already shows this and would just repeat
+    -- itself.
+    if shared.config("reset_time_format", "relative") == "relative" then
+      resetLine ..= " · " .. shared.resetAbsoluteText(metric.reset)
+    end
+  end
+  lines[#lines + 1] = ui.label({ text = resetLine, fontSize = 11, color = "on_surface_variant", maxLines = 1 })
   return lines
 end
 

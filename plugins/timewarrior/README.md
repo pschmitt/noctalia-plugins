@@ -137,3 +137,23 @@ a `HH:MM` value zeroes the seconds Timewarrior had stored for that boundary.
 Interval ids are positional — `@1` is the newest — so they shift whenever an
 interval is added. The panel re-renders on every poll, which keeps the window
 for submitting a stale id down to one `poll_interval`.
+
+## Sync
+
+`sync_enabled` (off by default) puts a sync button beside the panel's settings
+button, running `sync_command` — `timewsync` by default, or a wrapper that
+syncs Taskwarrior in the same breath:
+
+```nix
+plugin_settings."pschmitt/timewarrior" = {
+  sync_enabled = true;
+  sync_command = "~/bin/zhj taskwarrior::sync";
+};
+```
+
+Like the start/stop hooks it runs through `/bin/sh -c` with `TIMEWARRIORDB`
+exported and is bounded by `command_timeout`; the button disables itself while
+it runs, failures surface as a toast and an error line, and a poll follows,
+since a sync can bring intervals in as well as out. The service also answers a
+`sync` IPC event, so a keybind can trigger one without opening the panel:
+`noctalia msg plugin pschmitt/timewarrior:poller all sync`.

@@ -328,6 +328,16 @@ function M.resetText(value)
   return string.format("in %dm", math.max(1, minutes))
 end
 
+-- The absolute end time, short form (weekday + time) -- tacked onto the
+-- relative "Reset in 3h 20m" line with a " · " separator so the fixed
+-- timestamp behind the countdown is visible without any hover.
+function M.resetAbsoluteText(value)
+  if not M.validState(value) then return "—" end
+  local epoch = timestamp(value)
+  if not epoch then return value end
+  return os.date("%a %H:%M", epoch)
+end
+
 
 -- Noctalia's own "color" settings (bar.color, capsule fill, ...) accept
 -- either a hex value or a palette role name like "on_primary" -- see

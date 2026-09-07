@@ -55,6 +55,7 @@ local summary = { week = "0:00", month = "0:00", year = "0:00", days = {} }
 -- way to go without re-exporting.
 local tracking = false
 local pending = nil
+local syncing = false
 
 local function runTimew(args, callback, timeoutMs)
   local argv = { "env", "TIMEWARRIORDB=" .. databasePath(), "timew" }
@@ -302,10 +303,13 @@ local FAILURE_TEXT = {
   stop = "Could not stop tracking: ",
   modify = "Could not change the interval: ",
   delete = "Could not delete the interval: ",
+  sync = "Could not sync: ",
 }
 
 local function finishCommand(action, result)
-  pending = nil
+  if action == "start" or action == "stop" then
+    pending = nil
+  end
   if result.exitCode == 0 then
     publishAction(action, false, true, "")
   else
@@ -340,6 +344,34 @@ local function runCommand(action)
   else
     noctalia.runAsync("TIMEWARRIORDB='" .. databasePath() .. "' " .. custom, finish, commandTimeoutMs())
   end
+end
+
+-- ── Sync ─────────────────────────────────────────────────────────────────
+--
+-- Whatever moves the data: `timewsync` by default, or a wrapper that syncs
+-- Taskwarrior alongside it. Same shell/TIMEWARRIORDB/timeout treatment as the
+-- start/stop hooks, and a poll afterwards, since a sync can bring intervals in
+-- as well as out.
+local function syncEnabled()
+  return noctalia.getConfig("sync_enabled") == true
+end
+
+local function runSync()
+  if syncing or not syncEnabled() then
+    return
+  end
+  syncing = true
+  publishAction("sync", true, nil, "")
+
+  local command = trim(noctalia.getConfig("sync_command") or "")
+  if command == "" then
+    command = "timewsync"
+  end
+
+  noctalia.runAsync("TIMEWARRIORDB='" .. databasePath() .. "' " .. command, function(result)
+    syncing = false
+    finishCommand("sync", result)
+  end, commandTimeoutMs())
 end
 
 -- ── Editing today's boundaries ────────────────────────────────────────────
@@ -418,6 +450,8 @@ local function dispatch(cmd)
     modifyInterval(cmd.field, cmd.id, cmd.value)
   elseif action == "delete" then
     deleteInterval(cmd.id)
+  elseif action == "sync" then
+    runSync()
   end
 end
 

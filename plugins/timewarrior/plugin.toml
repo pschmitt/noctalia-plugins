@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.21.0"
+version = "0.22.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -95,6 +95,27 @@ options = [
   { value = "minutes", label_key = "settings.interval_precision.minutes" },
   { value = "seconds", label_key = "settings.interval_precision.seconds" },
 ]
+
+# ── Sync ──
+# Off by default: syncing is a Timewarrior deployment choice, not something
+# every user of this widget has. Enabled, it puts a sync button next to the
+# panel's settings gear; the command is whatever moves your data — `timewsync`
+# for the timew-sync-server client, or a wrapper that syncs Taskwarrior in the
+# same breath. Run through /bin/sh -c with TIMEWARRIORDB exported, like the
+# start/stop hooks, and bounded by the same command_timeout.
+[[setting]]
+key = "sync_enabled"
+type = "bool"
+label_key = "settings.sync_enabled.label"
+description_key = "settings.sync_enabled.description"
+default = false
+
+[[setting]]
+key = "sync_command"
+type = "string"
+label_key = "settings.sync_command.label"
+description_key = "settings.sync_command.description"
+default = "timewsync"
 
 # ── Start/stop hooks ──
 # The panel's toggle button (and the bar's middle click) run these instead of

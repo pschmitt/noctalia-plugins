@@ -433,6 +433,26 @@ local function dayRow(day, fmt)
   })
 end
 
+-- Optional, and off unless sync_enabled says otherwise: a sync is a
+-- Timewarrior deployment choice, not something every user of this widget has.
+-- ui.row with no children is the "render nothing" spelling, since a nil child
+-- would be a hole in the header's child list.
+local function syncButton()
+  if noctalia.getConfig("sync_enabled") ~= true then
+    return ui.row({ visible = false }, {})
+  end
+
+  local busy = action ~= nil and action.action == "sync" and action.running == true
+  return ui.button({
+    glyph = "refresh",
+    variant = "ghost",
+    controlSize = "sm",
+    enabled = not busy,
+    tooltip = busy and "Syncing…" or "Sync now",
+    onClick = "onSync",
+  })
+end
+
 local function header()
   local active = status.active == true
   return ui.row({ gap = 8, align = "center" }, {
@@ -453,6 +473,7 @@ local function header()
         color = active and "primary" or "on_surface_variant",
       }),
     }),
+    syncButton(),
     ui.button({
       glyph = "settings",
       variant = "ghost",
@@ -551,6 +572,14 @@ render()
 
 function onSettings()
   noctalia.openSettings()
+end
+
+function onSync()
+  -- Same optimistic feedback as the toggle: the service publishes its own
+  -- "tw_action" a moment later.
+  action = { action = "sync", running = true, message = "" }
+  render()
+  sendCommand({ action = "sync" })
 end
 
 function onToggle()
