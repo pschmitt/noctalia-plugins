@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.17.2"
+version = "0.18.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -160,6 +160,27 @@ type = "string"
 label_key = "settings.year_time_format.label"
 description_key = "settings.year_time_format.description"
 default = "{hours}h"
+
+# Noctalia's text stack has no slant: labels take a family, a weight and a
+# size, and the renderer never asks Pango for an italic style. So italics are
+# only reachable by naming a family that resolves to an italic face — which no
+# real font family does on its own, since they all ship a Roman face too. A
+# fontconfig alias closes that gap, e.g.
+#
+#   <match target="pattern">
+#     <test name="family" compare="eq"><string>ComicCode Italic</string></test>
+#     <edit name="family" mode="assign" binding="same">
+#       <string>ComicCode Nerd Font</string></edit>
+#     <edit name="slant" mode="assign" binding="same"><const>italic</const></edit>
+#   </match>
+#
+# and then this setting names that alias. Empty keeps the shell font.
+[[setting]]
+key = "italic_font_family"
+type = "string"
+label_key = "settings.italic_font_family.label"
+description_key = "settings.italic_font_family.description"
+default = ""
 
 [[setting]]
 key = "label_color"

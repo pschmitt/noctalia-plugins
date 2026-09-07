@@ -215,6 +215,26 @@ local function weekdayFor(date)
   return ""
 end
 
+-- The hint leans on everything available to say "aside" quietly: a pencil, a
+-- smaller size, the muted role colour — and an italic face when
+-- italic_font_family names one, since a label cannot ask for a slant.
+local function editHint()
+  local family = noctalia.getConfig("italic_font_family")
+  local label = {
+    text = "click a time to edit",
+    fontSize = 10,
+    color = "on_surface_variant",
+  }
+  if family ~= nil and family ~= "" then
+    label.fontFamily = family
+  end
+
+  return ui.row({ gap = 3, align = "center" }, {
+    ui.glyph({ name = "pencil", size = 10, color = "on_surface_variant" }),
+    ui.label(label),
+  })
+end
+
 local function intervalSection(fmt)
   local date = activeDate()
   local isToday = date == todayDate()
@@ -231,7 +251,7 @@ local function intervalSection(fmt)
       -- floating next to the title.
       flexGrow = 1,
     }),
-    ui.label({ text = "click a time to edit", fontSize = 10, color = "on_surface_variant" }),
+    editHint(),
   })
   -- Only offered while looking at another day: the way back is otherwise a
   -- second click on the highlighted breakdown row, which is less obvious.

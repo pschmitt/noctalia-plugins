@@ -44,6 +44,10 @@
       "label": "Year total format",
       "description": "Format of the panel's Year box, hours-only by default. Placeholders: {hours}, {minutes}. Empty uses the panel time format."
     },
+    "italic_font_family": {
+      "label": "Italic font family",
+      "description": "Font family used for the panel's hint text. Noctalia cannot request an italic style, so this must be a family that resolves to an italic face (typically a fontconfig alias that pins slant=italic). Empty uses the shell font."
+    },
     "label_color": {
       "label": "Label color",
       "description": "Duration text color while under the overtime threshold, in the bar and in the panel's per-day totals."

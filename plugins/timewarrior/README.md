@@ -97,6 +97,25 @@ Each day's total is coloured by the same `overtime_hours` threshold and
 `label_color`/`label_overtime_color` pair the bar widget uses, so a long day
 reads the same in the breakdown as it did in the bar while it was worked.
 
+The section's hint text is deliberately quiet — a pencil glyph, a smaller
+size, the muted colour role. Noctalia's labels cannot request an italic style
+(the renderer never sets a Pango slant), so `italic_font_family` exists for the
+one way that is left: name a family that resolves to an italic face. No real
+family does on its own — they all ship a Roman face too — so this wants a
+fontconfig alias:
+
+```xml
+<match target="pattern">
+  <test name="family" compare="eq"><string>ComicCode Italic</string></test>
+  <edit name="family" mode="assign" binding="same"><string>ComicCode Nerd Font</string></edit>
+  <edit name="slant" mode="assign" binding="same"><const>italic</const></edit>
+</match>
+```
+
+```nix
+plugin_settings."pschmitt/timewarrior".italic_font_family = "ComicCode Italic";
+```
+
 `interval_precision` picks how the boundaries are rendered — `minutes`
 (`HH:MM`, the default) or `seconds` (`HH:MM:SS`). Because the edit field seeds
 from what is displayed, it is also the precision an edit defaults to: applying
