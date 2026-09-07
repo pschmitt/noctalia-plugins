@@ -218,8 +218,28 @@ local function otherDevices()
   return ui.column({ gap = 6 }, rows)
 end
 
-local function settingsButton()
-  return ui.row({ justify = "end" }, {
+-- Footer: caffeine on the left, plugin settings on the right. Caffeine is the
+-- one control here that gets toggled rather than read, so it belongs in the
+-- row that stays put while the body scrolls, not buried between the metric
+-- rows. Primary variant marks it active, the same way the power-profile and
+-- fan-mode buttons above mark their selection, and the tooltip names the
+-- action rather than the state.
+local function footer()
+  local caffeine = details.caffeineEnabled == true
+  return ui.row({ gap = 8, align = "center" }, {
+    ui.button({
+      glyph = "coffee",
+      text = `{noctalia.tr("panel.caffeine")} · {noctalia.tr(caffeine and "panel.caffeine_enabled" or "panel.caffeine_disabled")}`,
+      fontSize = 11,
+      glyphSize = 13,
+      variant = caffeine and "primary" or "ghost",
+      controlSize = "sm",
+      tooltip = noctalia.tr(caffeine and "panel.disable_caffeine" or "panel.enable_caffeine"),
+      onClick = function()
+        batteryCommand({ action = "set_caffeine", enabled = not caffeine })
+      end,
+    }),
+    ui.row({ flexGrow = 1 }, {}),
     ui.button({
       glyph = "settings",
       glyphSize = 13,
@@ -269,28 +289,6 @@ local function systemRows()
   return ui.column({ gap = 6 }, {
     metricRow("temperature", noctalia.tr("panel.temperature"), tostring(temperature), "°C", temperature >= temperatureThreshold),
     loadRow,
-  })
-end
-
-local function caffeineControl()
-  local enabled = details.caffeineEnabled == true
-  return ui.row({ gap = 8, align = "center" }, {
-    ui.glyph({ name = "coffee", size = 14, color = enabled and "primary" or "on_surface_variant" }),
-    ui.label({ text = noctalia.tr("panel.caffeine"), fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
-    ui.label({
-      text = noctalia.tr(enabled and "panel.caffeine_enabled" or "panel.caffeine_disabled"),
-      fontSize = 12,
-      color = enabled and "primary" or "on_surface_variant",
-    }),
-    ui.button({
-      glyph = "coffee",
-      variant = enabled and "primary" or "ghost",
-      controlSize = "sm",
-      tooltip = noctalia.tr(enabled and "panel.disable_caffeine" or "panel.enable_caffeine"),
-      onClick = function()
-        batteryCommand({ action = "set_caffeine", enabled = not enabled })
-      end,
-    }),
   })
 end
 
@@ -374,8 +372,6 @@ render = function()
     table.insert(scrollChildren, ui.separator({}))
     table.insert(scrollChildren, system)
   end
-  table.insert(scrollChildren, ui.separator({}))
-  table.insert(scrollChildren, caffeineControl())
   local controls = fanControls()
   if controls then
     table.insert(scrollChildren, ui.separator({}))
@@ -383,8 +379,8 @@ render = function()
   end
 
   -- The manifest selects the surface height. Fill that surface so the header
-  -- and settings footer remain anchored while body content scrolls if
-  -- peripheral devices or fan controls expand.
+  -- and the footer remain anchored while body content scrolls if peripheral
+  -- devices or fan controls expand.
   panel.render(ui.column({
     gap = 8,
     padding = PANEL_PADDING,
@@ -393,7 +389,7 @@ render = function()
   }, {
     header(),
     ui.scroll({ flexGrow = 1, gap = 8 }, scrollChildren),
-    settingsButton(),
+    footer(),
   }))
 end
 
