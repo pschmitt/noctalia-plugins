@@ -105,6 +105,12 @@ Each day's total is coloured by the same `overtime_hours` threshold and
 `label_color`/`label_overtime_color` pair the bar widget uses, so a long day
 reads the same in the breakdown as it did in the bar while it was worked.
 
+Every format setting takes `{days}`, `{hours}` and `{minutes}`. `{days}`
+splits the hours by `hours_per_day` (default 8 — a work day; 24 for calendar
+days) and leaves `{hours}` as the remainder, which is what makes a year's total
+readable: `{days}d {hours}h` renders 1195 tracked hours as `149d 3h`. A format
+without `{days}` counts whole hours exactly as before.
+
 Each stat box names the period it covers — `Week (37)` for the ISO week number,
 `Month (Sep)`, `Year (2026)` — since the totals are always about the current
 one. Month names come from `noctalia.formatTime`, so they follow the same

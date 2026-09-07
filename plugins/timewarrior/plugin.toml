@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.22.0"
+version = "0.23.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -155,6 +155,19 @@ type = "string"
 label_key = "settings.panel_time_format.label"
 description_key = "settings.panel_time_format.description"
 default = "{hours}h {minutes}m"
+
+# How many hours count as a day wherever a format uses {days}: 8 for work days
+# (the point of {days} — "149d 3h" of tracked time reads far better than
+# "1195h"), 24 for calendar days. Only consulted by formats that mention
+# {days}; everything else keeps counting in whole hours.
+[[setting]]
+key = "hours_per_day"
+type = "int"
+label_key = "settings.hours_per_day.label"
+description_key = "settings.hours_per_day.description"
+default = 8
+min = 1
+max = 24
 
 # The three stat boxes get their own formats, because they are read very
 # differently: the week figure is something you compare against a target to the

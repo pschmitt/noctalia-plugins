@@ -34,23 +34,27 @@
     },
     "panel_time_format": {
       "label": "Panel time format",
-      "description": "Format of the panel's week/month/year/day totals. Placeholders: {hours}, {minutes}."
+      "description": "Fallback format for the panel's day rows and interval durations. Placeholders: {days}, {hours}, {minutes}."
     },
     "bar_time_format": {
       "label": "Bar time format",
-      "description": "Format of the tracked duration shown in the bar. Placeholders: {hours}, {minutes}."
+      "description": "Format of the tracked duration shown in the bar. Placeholders: {days}, {hours}, {minutes}."
+    },
+    "hours_per_day": {
+      "label": "Hours per day",
+      "description": "How long a day is wherever a format uses {days} — 8 for work days, 24 for calendar days."
     },
     "week_time_format": {
       "label": "Week total format",
-      "description": "Format of the panel's Week box. Placeholders: {hours}, {minutes}. Empty uses the panel time format."
+      "description": "Format of the panel's Week box. Placeholders: {days}, {hours}, {minutes}. Empty uses the panel time format."
     },
     "month_time_format": {
       "label": "Month total format",
-      "description": "Format of the panel's Month box, hours-only by default. Placeholders: {hours}, {minutes}. Empty uses the panel time format."
+      "description": "Format of the panel's Month box, hours-only by default. Placeholders: {days}, {hours}, {minutes}. Empty uses the panel time format."
     },
     "year_time_format": {
       "label": "Year total format",
-      "description": "Format of the panel's Year box, hours-only by default. Placeholders: {hours}, {minutes}. Empty uses the panel time format."
+      "description": "Format of the panel's Year box, hours-only by default. Placeholders: {days}, {hours}, {minutes}. Empty uses the panel time format."
     },
     "italic_font_family": {
       "label": "Italic font family",
