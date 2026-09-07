@@ -3,8 +3,9 @@
 --
 -- Declarative render (barWidget.render, not the imperative setGlyph/setText
 -- API) so the Timewarrior project logo can sit next to the tracked duration.
--- While nothing is tracked the widget hides by default or, with
--- hide_when_inactive off, keeps its place showing a pause icon.
+-- While nothing is tracked the widget hides by default or, depending on the
+-- `visibility` setting, keeps its place showing a pause icon — see
+-- visibility() below.
 
 local duration = require("./lib/duration.luau")
 
@@ -32,15 +33,34 @@ local function icon(active)
   })
 end
 
--- Defaults to true, matching the long-standing behaviour of vanishing while
--- nothing is tracked. getConfig returns nil for a setting the user has never
--- touched, which must not read as false.
-local function hideWhenInactive()
-  local value = noctalia.getConfig("hide_when_inactive")
-  if value == nil then
+-- Whether the slot survives an idle timer: "tracking" (vanish, the
+-- long-standing default), "always", or "workdays" (Mon-Fri only — a time
+-- tracker means nothing on a Sunday). getConfig returns nil for a setting the
+-- user has never touched, so anything unrecognised falls back to "tracking".
+local function visibility()
+  local value = noctalia.getConfig("visibility")
+  if value == "always" or value == "workdays" then
+    return value
+  end
+  return "tracking"
+end
+
+-- %u is the ISO weekday, 1 (Monday) to 7 (Sunday), formatted in the user's
+-- local timezone — so this flips at local midnight rather than UTC's. An
+-- unparsable weekday counts as a workday: showing the widget on a Saturday is
+-- a much smaller failure than hiding the start button on a Monday.
+local function isWorkday()
+  local weekday = tonumber(noctalia.formatTime("%u", math.floor(noctalia.nowMs() / 1000)))
+  if weekday == nil then
+    noctalia.log("timewarrior: could not read the local weekday, assuming a workday")
     return true
   end
-  return value == true
+  return weekday <= 5
+end
+
+local function keepSlotWhileIdle()
+  local mode = visibility()
+  return mode == "always" or (mode == "workdays" and isWorkday())
 end
 
 local function render()
@@ -49,7 +69,7 @@ local function render()
   local labelColor = noctalia.getConfig("label_color") or "on_surface"
 
   if not active then
-    if hideWhenInactive() then
+    if not keepSlotWhileIdle() then
       barWidget.setVisible(false)
       return
     end

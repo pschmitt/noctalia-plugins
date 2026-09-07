@@ -44,9 +44,12 @@
       "label": "Icon size",
       "description": "Bar display size of the Timewarrior logo, in pixels."
     },
-    "hide_when_inactive": {
-      "label": "Hide when not tracking",
-      "description": "Remove the widget from the bar while no time is being tracked. When off, it stays in place and shows a pause icon instead."
+    "visibility": {
+      "label": "Show in the bar",
+      "description": "When the widget occupies its bar slot while nothing is tracked. A running interval is always shown.",
+      "tracking": "Only while tracking",
+      "always": "Always",
+      "workdays": "Always on workdays (Mon-Fri)"
     }
   }
 }

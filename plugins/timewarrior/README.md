@@ -19,9 +19,22 @@ neither `jq` nor the former `timew-status` Nix helper.
 Enable `pschmitt/timewarrior` and add `pschmitt/timewarrior:bar` to a bar.
 Configure the database path, polling, overtime threshold, and display formats
 in **Settings → Plugins → Timewarrior**. Leave the database path empty to use
-`TIMEWARRIORDB` or Timewarrior's default `~/.config/timewarrior` directory. By
-default the widget hides when no interval is active; disable
-`hide_when_inactive` to keep the slot visible.
+`TIMEWARRIORDB` or Timewarrior's default `~/.config/timewarrior` directory.
+
+`visibility` decides whether the bar slot exists while nothing is tracked:
+
+| value | behaviour |
+| --- | --- |
+| `tracking` (default) | the slot appears and disappears with the timer |
+| `always` | the slot stays, showing a pause icon while idle |
+| `workdays` | the slot stays Mon-Fri, and vanishes on the weekend while idle |
+
+A running interval is always shown, whatever the setting. This is a
+plugin-level setting rather than a per-widget one (it began as the
+`hide_when_inactive` bool): a bar entry inside a `capsule_group` is a bare
+`author/plugin:entry` id with nowhere to hang widget settings, and a
+Nix-managed `config.toml` is read-only, so the per-widget settings UI cannot
+persist one either.
 
 ## Starting and stopping
 
@@ -38,6 +51,7 @@ displays:
 
 ```nix
 programs.noctalia.settings.plugin_settings."pschmitt/timewarrior" = {
+  visibility = "workdays";
   start_command = "~/bin/zhj tw::work-start";
   stop_command = "~/bin/zhj tw::work-stop";
 };

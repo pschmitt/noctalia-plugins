@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.9.0"
+version = "0.10.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -39,6 +39,32 @@ description_key = "settings.overtime_hours.description"
 default = 7
 min = 1
 max = 24
+
+# Whether the bar slot exists at all while nothing is tracked. This is
+# plugin-scoped rather than widget-scoped (which is where it started life as
+# the `hide_when_inactive` bool) because a bar entry declared inside a
+# capsule_group is a bare "author/plugin:entry" id with nowhere to hang widget
+# settings, and a Nix-managed config.toml is a read-only symlink, so Noctalia's
+# per-widget settings UI can never persist one either. Same reasoning as
+# ha-ai-usage's display settings.
+#
+# "tracking" is the long-standing behaviour (the DMS module's
+# setVisibilityOverride(false)): the slot appears and disappears with the
+# timer. The other two keep it in place showing assets/pause.svg instead of the
+# logo — "always", or only Mon-Fri, for a widget that only means anything on a
+# work day. Tracking always wins: an interval running on a Sunday is still
+# shown.
+[[setting]]
+key = "visibility"
+type = "select"
+label_key = "settings.visibility.label"
+description_key = "settings.visibility.description"
+default = "tracking"
+options = [
+  { value = "tracking", label_key = "settings.visibility.tracking" },
+  { value = "always", label_key = "settings.visibility.always" },
+  { value = "workdays", label_key = "settings.visibility.workdays" },
+]
 
 # ── Start/stop hooks ──
 # The panel's toggle button (and the bar's middle click) run these instead of
@@ -109,18 +135,6 @@ entry = "bar.luau"
   default = 16
   min = 12
   max = 32
-
-  # The widget has always vanished entirely while nothing is tracked (the
-  # DMS module's setVisibilityOverride(false) behaviour), which is still the
-  # default. Turning this off keeps it in the bar showing assets/pause.svg
-  # instead of the logo, so the slot doesn't appear and disappear as the
-  # timer starts and stops.
-  [[widget.setting]]
-  key = "hide_when_inactive"
-  type = "bool"
-  label_key = "settings.hide_when_inactive.label"
-  description_key = "settings.hide_when_inactive.description"
-  default = true
 
   # "{hours}:{minutes}" reproduces the plain "H:MM" text the bar showed
   # before the logo/time_format change (state.duration passed straight to
