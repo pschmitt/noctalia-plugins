@@ -301,6 +301,7 @@ local FAILURE_TEXT = {
   start = "Could not start tracking: ",
   stop = "Could not stop tracking: ",
   modify = "Could not change the interval: ",
+  delete = "Could not delete the interval: ",
 }
 
 local function finishCommand(action, result)
@@ -390,6 +391,22 @@ local function modifyInterval(field, id, value)
   end, commandTimeoutMs())
 end
 
+-- `timew delete @<id>` is destructive and irreversible, so the panel asks
+-- first — this end only checks that it is being told about a real id.
+-- rc.confirmation=off is the same reason as in modify: nobody can answer a
+-- terminal prompt from a bar panel.
+local function deleteInterval(id)
+  local intervalId = math.floor(tonumber(id) or 0)
+  if intervalId < 1 then
+    return
+  end
+
+  publishAction("delete", true, nil, "")
+  runTimew({ "rc.confirmation=off", "delete", `@{intervalId}` }, function(result)
+    finishCommand("delete", result)
+  end, commandTimeoutMs())
+end
+
 local function dispatch(cmd)
   local action = cmd.action
   if action == "toggle" then
@@ -399,6 +416,8 @@ local function dispatch(cmd)
     runCommand(action)
   elseif action == "modify" then
     modifyInterval(cmd.field, cmd.id, cmd.value)
+  elseif action == "delete" then
+    deleteInterval(cmd.id)
   end
 end
 

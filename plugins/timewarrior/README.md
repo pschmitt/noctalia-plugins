@@ -75,6 +75,13 @@ and press Enter, and the plugin runs
 leaves it unchanged. The running interval shows "running" instead of an end
 field — closing it is what Stop is for.
 
+Each row ends in a trash button. It does not delete anything on its own: the
+first click arms the row (the button turns into the destructive red variant,
+with a ✕ beside it to back out), and only a second click on it runs
+`timew delete @<id>`. Arming an edit, switching days, or reopening the panel
+disarms it. There is no undo — `timew delete` is final — which is exactly why
+it takes two clicks.
+
 A rejected time (bad format, or `timew` refusing the change, e.g. an end before
 the start) shows as an error line under the toggle and as a toast; the fields
 re-seed from the next poll, so the panel never shows a value Timewarrior didn't

@@ -18,6 +18,10 @@ local action = nil
 -- Which boundary is currently being edited, as { id, field }, or nil while the
 -- list is just being read. Only one cell is ever an input at a time.
 local editing = nil
+-- Which interval is one click away from being deleted, as its id, or nil.
+-- Deleting is irreversible, so the trash button only arms the confirmation and
+-- a second, deliberately different control commits it.
+local pendingDelete = nil
 -- Which day the interval list is showing, as YYYY-MM-DD, or nil for today.
 -- Set by clicking a row in the weekly breakdown.
 local selectedDate = nil
@@ -157,6 +161,7 @@ local function timeCell(row, field, value)
     padding = 3,
     onClick = function()
       editing = { id = row.id, field = field }
+      pendingDelete = nil
       render()
     end,
   }, {
@@ -190,6 +195,47 @@ local function intervalRow(row, fmt)
   table.insert(children, ui.row({ justify = "end", flexGrow = 1 }, {
     ui.label({ text = duration.format(row.duration, fmt), fontSize = 12 }),
   }))
+
+  if pendingDelete == row.id then
+    table.insert(children, ui.button({
+      glyph = "trash",
+      variant = "destructive",
+      controlSize = "sm",
+      glyphSize = 12,
+      tooltip = `Delete interval @{row.id} — this cannot be undone`,
+      onClick = function()
+        pendingDelete = nil
+        sendCommand({ action = "delete", id = row.id })
+        render()
+      end,
+    }))
+    table.insert(children, ui.button({
+      glyph = "x",
+      variant = "ghost",
+      width = 22,
+      height = 22,
+      glyphSize = 11,
+      tooltip = "Keep it",
+      onClick = function()
+        pendingDelete = nil
+        render()
+      end,
+    }))
+  else
+    table.insert(children, ui.button({
+      glyph = "trash",
+      variant = "ghost",
+      width = 22,
+      height = 22,
+      glyphSize = 11,
+      tooltip = "Delete interval",
+      onClick = function()
+        pendingDelete = row.id
+        editing = nil
+        render()
+      end,
+    }))
+  end
 
   return ui.row({ key = `interval-{row.id}`, gap = 6, align = "center" }, children)
 end
@@ -260,6 +306,7 @@ local function intervalSection(fmt)
       onClick = function()
         selectedDate = nil
         editing = nil
+        pendingDelete = nil
         render()
       end,
     }))
@@ -350,6 +397,7 @@ local function dayRow(day, fmt)
     onClick = function()
       selectedDate = (selectedDate == date or date == todayDate()) and nil or date
       editing = nil
+      pendingDelete = nil
       render()
     end,
   }, {
@@ -455,6 +503,7 @@ function onOpen(context)
   -- `noctalia msg panel-open pschmitt/timewarrior:panel 2026-09-01` can land
   -- on the day it means.
   editing = nil
+  pendingDelete = nil
   selectedDate = nil
   if type(context) == "string" and context:match("^%d%d%d%d%-%d%d%-%d%d$") then
     selectedDate = context
