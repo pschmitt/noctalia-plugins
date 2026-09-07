@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.26.1"
+version = "0.27.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -76,6 +76,26 @@ label_key = "settings.bar_metric.label"
 description_key = "settings.bar_metric.description"
 default = "day"
 options = [
+  { value = "interval", label_key = "settings.bar_metric.interval" },
+  { value = "day", label_key = "settings.bar_metric.day" },
+  { value = "week", label_key = "settings.bar_metric.week" },
+  { value = "month", label_key = "settings.bar_metric.month" },
+]
+
+# And what it shows while stopped, for the states where the slot survives an
+# idle timer (see visibility). "same" — the default — means whatever
+# bar_metric says, which is the sensible carry-over for a day/week/month
+# figure. It is worth splitting because "interval" has nothing to show once the
+# timer stops: that is the case where falling back to a total beats an icon on
+# its own.
+[[setting]]
+key = "bar_metric_stopped"
+type = "select"
+label_key = "settings.bar_metric_stopped.label"
+description_key = "settings.bar_metric_stopped.description"
+default = "same"
+options = [
+  { value = "same", label_key = "settings.bar_metric_stopped.same" },
   { value = "interval", label_key = "settings.bar_metric.interval" },
   { value = "day", label_key = "settings.bar_metric.day" },
   { value = "week", label_key = "settings.bar_metric.week" },

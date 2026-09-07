@@ -79,8 +79,20 @@ local METRICS = {
   month = { source = "month", label = "this month", overtime = false },
 }
 
-local function metric()
-  return METRICS[noctalia.getConfig("bar_metric")] or METRICS.day
+-- The stopped state gets its own choice, defaulting to "same" — whatever the
+-- tracking state shows. A day/week/month figure carries over sensibly, while
+-- "interval" has nothing to show once the timer stops, which is exactly when
+-- someone might want the bar to fall back to a total instead of just the icon.
+local function metric(active)
+  if active then
+    return METRICS[noctalia.getConfig("bar_metric")] or METRICS.day
+  end
+
+  local stopped = noctalia.getConfig("bar_metric_stopped")
+  if stopped == nil or stopped == "" or stopped == "same" then
+    stopped = noctalia.getConfig("bar_metric")
+  end
+  return METRICS[stopped] or METRICS.day
 end
 
 local function metricValue(spec)
@@ -102,7 +114,7 @@ end
 --
 -- Each figure keeps the format its own setting gives it, so the tooltip agrees
 -- with the panel rather than inventing a third rendering.
-local function tooltipRows(active, spec)
+local function tooltipRows(active)
   local rows = {
     { key = "Timewarrior", value = active and "tracking" or "not tracking" },
   }
@@ -127,9 +139,6 @@ local function tooltipRows(active, spec)
     table.insert(rows, { key = "Month", value = duration.format(summary.month, formats.get("month_time_format")) })
   end
 
-  -- Say which of them the bar itself is showing, since that is configurable
-  -- and the icon alone doesn't reveal it.
-  table.insert(rows, { key = "Bar shows", value = spec.label })
   return rows
 end
 
@@ -142,7 +151,7 @@ local function render()
     return
   end
 
-  local spec = metric()
+  local spec = metric(active)
   local value = metricValue(spec)
   -- The running interval is the one figure that stops existing when the timer
   -- does; the totals stay worth showing.
@@ -163,7 +172,7 @@ local function render()
 
   barWidget.setVisible(true)
   barWidget.render(container({ gap = 5, align = "center" }, children))
-  barWidget.setTooltip(tooltipRows(active, spec))
+  barWidget.setTooltip(tooltipRows(active))
 end
 
 noctalia.state.watch("tw_status", function(val)

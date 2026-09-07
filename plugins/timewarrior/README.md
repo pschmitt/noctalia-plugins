@@ -30,15 +30,20 @@ can't do.
 
 Hovering the widget shows a small table rather than a sentence: the tracking
 state, when the running interval started, the interval, today, this week and
-this month, and which of those the bar itself is displaying. Each figure keeps
-the format its own setting gives it, so the hover agrees with the panel.
+this month. Each figure keeps the format its own setting gives it, so the hover
+agrees with the panel.
 
 `bar_metric` decides what the bar widget shows: `day` (today's total, the
 default), `interval` (the running interval — the original behaviour, and the
 only figure that disappears when the timer stops), `week` or `month`. The
 overtime colouring applies to the interval and day figures; week and month
 totals keep the plain label colour, since they would otherwise sit permanently
-above any sane daily threshold. The tooltip always names what the figure is.
+above any sane daily threshold.
+
+`bar_metric_stopped` is the same choice for when nothing is tracked, plus
+`same` (the default) meaning "whatever `bar_metric` says". Splitting them
+matters for `interval`, which has nothing to show once the timer stops — that
+is the case where falling back to a total beats an icon on its own.
 
 `visibility` decides whether the bar slot exists while nothing is tracked:
 

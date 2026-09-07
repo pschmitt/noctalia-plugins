@@ -98,6 +98,11 @@
       "week": "This week's total",
       "month": "This month's total"
     },
+    "bar_metric_stopped": {
+      "label": "Bar shows while stopped",
+      "description": "Which figure the bar widget displays when nothing is tracked, for the visibility modes that keep the slot. Defaults to whatever the tracking state shows.",
+      "same": "Same as while tracking"
+    },
     "visibility": {
       "label": "Show in the bar",
       "description": "When the widget occupies its bar slot while nothing is tracked. A running interval is always shown.",
