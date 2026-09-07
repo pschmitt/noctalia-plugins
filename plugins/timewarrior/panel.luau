@@ -55,13 +55,6 @@ local function toggle()
       tooltip = active and "Stop tracking" or "Start tracking",
       onClick = "onToggle",
     }),
-    ui.row({ justify = "center" }, {
-      ui.label({
-        text = active and ("Tracking for " .. duration.format(status.duration, currentFormat())) or "Not tracking",
-        fontSize = 12,
-        color = active and "primary" or "on_surface_variant",
-      }),
-    }),
     ui.row({ justify = "center", visible = action ~= nil and (action.message or "") ~= "" }, {
       ui.label({
         text = action and action.message or "",
@@ -369,6 +362,7 @@ local function dayRow(day, fmt)
 end
 
 local function header()
+  local active = status.active == true
   return ui.row({ gap = 8, align = "center" }, {
     ui.image({
       path = "assets/timewarrior-logo.svg",
@@ -376,7 +370,17 @@ local function header()
       height = 28,
       fit = "contain",
     }),
-    ui.label({ text = "Timewarrior", fontSize = 16, fontWeight = "bold", flexGrow = 1 }),
+    -- The tracking state belongs next to the title, not under the button: it
+    -- says what the plugin is doing, while the button says what a click will
+    -- do to it.
+    ui.column({ gap = 1, flexGrow = 1 }, {
+      ui.label({ text = "Timewarrior", fontSize = 16, fontWeight = "bold" }),
+      ui.label({
+        text = active and ("Tracking for " .. duration.format(status.duration, currentFormat())) or "Not tracking",
+        fontSize = 11,
+        color = active and "primary" or "on_surface_variant",
+      }),
+    }),
     ui.button({
       glyph = "settings",
       variant = "ghost",
