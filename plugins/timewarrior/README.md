@@ -28,6 +28,11 @@ symbol while stopped. Naming a glyph replaces that one state's icon and tints
 it like the figure beside it (including the overtime colour), which the SVGs
 can't do.
 
+Hovering the widget shows a small table rather than a sentence: the tracking
+state, when the running interval started, the interval, today, this week and
+this month, and which of those the bar itself is displaying. Each figure keeps
+the format its own setting gives it, so the hover agrees with the panel.
+
 `bar_metric` decides what the bar widget shows: `day` (today's total, the
 default), `interval` (the running interval — the original behaviour, and the
 only figure that disappears when the timer stops), `week` or `month`. The

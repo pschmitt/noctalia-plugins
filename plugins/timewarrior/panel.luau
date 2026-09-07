@@ -9,6 +9,7 @@
 -- back through "tw_action".
 
 local duration = require("./lib/duration.luau")
+local formats = require("./lib/formats.luau")
 local overtime = require("./lib/overtime.luau")
 
 local summary = noctalia.state.get("tw_summary") or { week = "0:00", month = "0:00", year = "0:00", days = {} }
@@ -32,8 +33,7 @@ local selectedDate = nil
 local render
 
 local function currentFormat()
-  local fmt = noctalia.getConfig("panel_time_format")
-  return (fmt and fmt ~= "") and fmt or "{hours}h {minutes}m"
+  return formats.get("panel_time_format")
 end
 
 -- The panel's headline control: one big button that starts or stops tracking
@@ -348,24 +348,6 @@ local function intervalSection(fmt)
   return ui.column({ gap = 4 }, children)
 end
 
--- Each stat box has its own format setting; an unset or empty one falls back
--- to panel_time_format, which is what the day rows and interval durations use.
--- getConfig returns nil for a setting the user has never touched, so the
--- manifest defaults are mirrored here.
-local BOX_FORMAT_DEFAULTS = {
-  week_time_format = "{hours}h {minutes}m",
-  month_time_format = "{hours}h",
-  year_time_format = "{hours}h",
-}
-
-local function boxFormat(key)
-  local fmt = noctalia.getConfig(key)
-  if fmt == nil or fmt == "" then
-    return BOX_FORMAT_DEFAULTS[key]
-  end
-  return fmt
-end
-
 -- Which week/month/year the figure above is actually about. The totals come
 -- from `timew`'s own :week/:month/:year, so this is only ever the current one —
 -- the ISO week number (Monday-based, like timew's week), the abbreviated month
@@ -490,9 +472,9 @@ function render()
     header(),
     toggle(),
     ui.row({ gap = 8 }, {
-      statBox("Week", "week", duration.format(summary.week, boxFormat("week_time_format"))),
-      statBox("Month", "month", duration.format(summary.month, boxFormat("month_time_format"))),
-      statBox("Year", "year", duration.format(summary.year, boxFormat("year_time_format"))),
+      statBox("Week", "week", duration.format(summary.week, formats.get("week_time_format"))),
+      statBox("Month", "month", duration.format(summary.month, formats.get("month_time_format"))),
+      statBox("Year", "year", duration.format(summary.year, formats.get("year_time_format"))),
     }),
     ui.separator({}),
     intervalSection(fmt),

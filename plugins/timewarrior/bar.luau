@@ -9,9 +9,10 @@
 -- icon — see visibility().
 
 local duration = require("./lib/duration.luau")
+local formats = require("./lib/formats.luau")
 local overtime = require("./lib/overtime.luau")
 
-local state = noctalia.state.get("tw_status") or { active = false, duration = "", today = "" }
+local state = noctalia.state.get("tw_status") or { active = false, duration = "", today = "", since = "" }
 local summary = noctalia.state.get("tw_summary") or { week = "", month = "" }
 
 local LOGO_TRACKING = "assets/timewarrior-logo.svg"
@@ -93,6 +94,45 @@ local function metricValue(spec)
   return summary.month or ""
 end
 
+-- setTooltip takes key/value rows as well as a plain string, which is what
+-- the shell's own widgets use — so the hover reads as a small table of the
+-- figures instead of one crowded sentence. Rows are built around what is
+-- actually known: the running interval and its start only exist while
+-- tracking, and the week/month totals only once the summary has landed.
+--
+-- Each figure keeps the format its own setting gives it, so the tooltip agrees
+-- with the panel rather than inventing a third rendering.
+local function tooltipRows(active, spec)
+  local rows = {
+    { key = "Timewarrior", value = active and "tracking" or "not tracking" },
+  }
+
+  if active then
+    if (state.since or "") ~= "" then
+      table.insert(rows, { key = "Started", value = state.since })
+    end
+    table.insert(rows, {
+      key = "Interval",
+      value = duration.format(state.duration, formats.get("panel_time_format")),
+    })
+  end
+
+  if (state.today or "") ~= "" then
+    table.insert(rows, { key = "Today", value = duration.format(state.today, formats.get("panel_time_format")) })
+  end
+  if (summary.week or "") ~= "" then
+    table.insert(rows, { key = "Week", value = duration.format(summary.week, formats.get("week_time_format")) })
+  end
+  if (summary.month or "") ~= "" then
+    table.insert(rows, { key = "Month", value = duration.format(summary.month, formats.get("month_time_format")) })
+  end
+
+  -- Say which of them the bar itself is showing, since that is configurable
+  -- and the icon alone doesn't reveal it.
+  table.insert(rows, { key = "Bar shows", value = spec.label })
+  return rows
+end
+
 local function render()
   local active = state.active == true
   local container = barWidget.isVertical() and ui.column or ui.row
@@ -110,11 +150,6 @@ local function render()
     value = ""
   end
 
-  local fmt = noctalia.getConfig("bar_time_format")
-  if fmt == nil or fmt == "" then
-    fmt = "{hours}:{minutes}"
-  end
-
   -- An hours threshold means something for an interval or a day; a week or a
   -- month total would sit permanently above any sane one, so those keep the
   -- plain label colour. The icon follows the figure when it is a glyph.
@@ -123,15 +158,12 @@ local function render()
 
   local children = { icon(active, color) }
   if value ~= "" then
-    table.insert(children, ui.label({ text = duration.format(value, fmt), color = color }))
+    table.insert(children, ui.label({ text = duration.format(value, formats.get("bar_time_format")), color = color }))
   end
 
   barWidget.setVisible(true)
   barWidget.render(container({ gap = 5, align = "center" }, children))
-  barWidget.setTooltip(
-    (active and "Timewarrior: tracking" or "Timewarrior: not tracking")
-      .. (value ~= "" and ` — {spec.label} {duration.format(value, "{hours}h {minutes}m")}` or "")
-  )
+  barWidget.setTooltip(tooltipRows(active, spec))
 end
 
 noctalia.state.watch("tw_status", function(val)

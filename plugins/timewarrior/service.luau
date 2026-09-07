@@ -248,10 +248,19 @@ local function poll()
     end
 
     tracking = open ~= nil
+    local since = ""
+    if open ~= nil then
+      local startEpoch = utcEpoch(open.start or "")
+      if startEpoch ~= nil then
+        since = noctalia.formatTime("%H:%M", startEpoch)
+      end
+    end
+
     noctalia.state.set("tw_status", {
       active = tracking,
       duration = open ~= nil and formatDuration(intervalDuration(open, now)) or "",
       today = formatDuration(today),
+      since = since,
     })
     refreshSummary()
   end)
