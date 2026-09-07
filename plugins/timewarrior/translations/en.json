@@ -82,6 +82,14 @@
       "minutes": "Minutes (HH:MM)",
       "seconds": "Seconds (HH:MM:SS)"
     },
+    "bar_metric": {
+      "label": "Bar shows",
+      "description": "Which figure the bar widget displays. The running interval disappears when the timer stops; the totals do not.",
+      "interval": "Running interval",
+      "day": "Today's total",
+      "week": "This week's total",
+      "month": "This month's total"
+    },
     "visibility": {
       "label": "Show in the bar",
       "description": "When the widget occupies its bar slot while nothing is tracked. A running interval is always shown.",

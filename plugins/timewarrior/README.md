@@ -22,6 +22,13 @@ Configure the database path, polling, overtime threshold, and display formats
 in **Settings → Plugins → Timewarrior**. Leave the database path empty to use
 `TIMEWARRIORDB` or Timewarrior's default `~/.config/timewarrior` directory.
 
+`bar_metric` decides what the bar widget shows: `day` (today's total, the
+default), `interval` (the running interval — the original behaviour, and the
+only figure that disappears when the timer stops), `week` or `month`. The
+overtime colouring applies to the interval and day figures; week and month
+totals keep the plain label colour, since they would otherwise sit permanently
+above any sane daily threshold. The tooltip always names what the figure is.
+
 `visibility` decides whether the bar slot exists while nothing is tracked:
 
 | value | behaviour |

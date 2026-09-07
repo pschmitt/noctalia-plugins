@@ -2,15 +2,17 @@
 -- Timewarrior bar widget entry.
 --
 -- Declarative render (barWidget.render, not the imperative setGlyph/setText
--- API) so the Timewarrior project logo can sit next to the tracked duration.
--- While nothing is tracked the widget hides by default or, depending on the
--- `visibility` setting, keeps its place showing a pause icon — see
--- visibility() below.
+-- API) so the Timewarrior project logo can sit next to the figure. Which
+-- figure that is comes from `bar_metric` (today's total by default, see
+-- metric() below), and while nothing is tracked the widget hides by default
+-- or, depending on the `visibility` setting, keeps its place showing a pause
+-- icon — see visibility().
 
 local duration = require("./lib/duration.luau")
 local overtime = require("./lib/overtime.luau")
 
-local state = noctalia.state.get("tw_status") or { active = false, duration = "" }
+local state = noctalia.state.get("tw_status") or { active = false, duration = "", today = "" }
+local summary = noctalia.state.get("tw_summary") or { week = "", month = "" }
 
 local LOGO_TRACKING = "assets/timewarrior-logo.svg"
 local LOGO_STOPPED = "assets/pause.svg"
@@ -55,40 +57,82 @@ local function keepSlotWhileIdle()
   return mode == "always" or (mode == "workdays" and isWorkday())
 end
 
+-- Which figure to show. Defaults to today's total: it answers the question
+-- that gets asked most, and unlike the running interval it still says
+-- something once the timer stops.
+local METRICS = {
+  interval = { source = "interval", label = "running interval", overtime = true },
+  day = { source = "day", label = "today", overtime = true },
+  week = { source = "week", label = "this week", overtime = false },
+  month = { source = "month", label = "this month", overtime = false },
+}
+
+local function metric()
+  return METRICS[noctalia.getConfig("bar_metric")] or METRICS.day
+end
+
+local function metricValue(spec)
+  if spec.source == "interval" then
+    return state.duration or ""
+  elseif spec.source == "day" then
+    return state.today or ""
+  elseif spec.source == "week" then
+    return summary.week or ""
+  end
+  return summary.month or ""
+end
+
 local function render()
   local active = state.active == true
   local container = barWidget.isVertical() and ui.column or ui.row
 
-  if not active then
-    if not keepSlotWhileIdle() then
-      barWidget.setVisible(false)
-      return
-    end
-    -- The service publishes duration = "" when the timer is off, so there is
-    -- no figure to put beside the icon.
-    barWidget.setVisible(true)
-    barWidget.render(container({ gap = 5, align = "center" }, { icon(false) }))
-    barWidget.setTooltip("Timewarrior: not tracking")
+  if not active and not keepSlotWhileIdle() then
+    barWidget.setVisible(false)
     return
   end
 
-  local color = overtime.color(state.duration)
+  local spec = metric()
+  local value = metricValue(spec)
+  -- The running interval is the one figure that stops existing when the timer
+  -- does; the totals stay worth showing.
+  if spec.source == "interval" and not active then
+    value = ""
+  end
+
   local fmt = noctalia.getConfig("bar_time_format")
   if fmt == nil or fmt == "" then
     fmt = "{hours}:{minutes}"
   end
 
+  local children = { icon(active) }
+  if value ~= "" then
+    -- An hours threshold means something for an interval or a day; a week or a
+    -- month total would sit permanently above any sane one, so those keep the
+    -- plain label colour.
+    local color = spec.overtime and overtime.color(value) or (noctalia.getConfig("label_color") or "on_surface")
+    table.insert(children, ui.label({ text = duration.format(value, fmt), color = color }))
+  end
+
   barWidget.setVisible(true)
-  barWidget.render(container({ gap = 5, align = "center" }, {
-    icon(true),
-    ui.label({ text = duration.format(state.duration, fmt), color = color }),
-  }))
-  barWidget.setTooltip("Timewarrior: tracking")
+  barWidget.render(container({ gap = 5, align = "center" }, children))
+  barWidget.setTooltip(
+    (active and "Timewarrior: tracking" or "Timewarrior: not tracking")
+      .. (value ~= "" and ` — {spec.label} {duration.format(value, "{hours}h {minutes}m")}` or "")
+  )
 end
 
 noctalia.state.watch("tw_status", function(val)
   if type(val) == "table" then
     state = val
+    render()
+  end
+end)
+
+-- The week and month figures live in the summary snapshot, so the bar follows
+-- it too whenever one of those is what it is showing.
+noctalia.state.watch("tw_summary", function(val)
+  if type(val) == "table" then
+    summary = val
     render()
   end
 end)

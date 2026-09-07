@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.23.0"
+version = "0.24.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -39,6 +39,29 @@ description_key = "settings.overtime_hours.description"
 default = 7
 min = 1
 max = 24
+
+# What figure the bar widget shows. The running interval was the only thing it
+# ever displayed, which answers "how long have I been at this?" but not the
+# question actually being asked most of the time — "how much have I put in
+# today?" — and it has nothing to say at all once the timer stops. Day is the
+# default for that reason; interval is the old behaviour.
+#
+# Overtime colouring (see overtime_hours) applies to the interval and day
+# figures, where a threshold in hours means something; week and month totals
+# use the plain label colour, since they would otherwise sit permanently over
+# any sane daily threshold.
+[[setting]]
+key = "bar_metric"
+type = "select"
+label_key = "settings.bar_metric.label"
+description_key = "settings.bar_metric.description"
+default = "day"
+options = [
+  { value = "interval", label_key = "settings.bar_metric.interval" },
+  { value = "day", label_key = "settings.bar_metric.day" },
+  { value = "week", label_key = "settings.bar_metric.week" },
+  { value = "month", label_key = "settings.bar_metric.month" },
+]
 
 # Whether the bar slot exists at all while nothing is tracked. This is
 # plugin-scoped rather than widget-scoped (which is where it started life as

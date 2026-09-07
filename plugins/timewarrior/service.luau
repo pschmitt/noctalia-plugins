@@ -235,20 +235,24 @@ local function poll()
     local intervals = parseExport(r)
     local now = math.floor(noctalia.nowMs() / 1000)
 
+    -- Today's total goes out with the status, not the summary: the bar can be
+    -- set to show it, and it has to tick with the running interval rather than
+    -- with the wider week/month exports.
+    local today = 0
+    local open = nil
     for _, interval in ipairs(intervals) do
+      today += intervalDuration(interval, now)
       if interval["end"] == nil then
-        tracking = true
-        noctalia.state.set("tw_status", {
-          active = true,
-          duration = formatDuration(intervalDuration(interval, now)),
-        })
-        refreshSummary()
-        return
+        open = interval
       end
     end
 
-    tracking = false
-    noctalia.state.set("tw_status", { active = false, duration = "" })
+    tracking = open ~= nil
+    noctalia.state.set("tw_status", {
+      active = tracking,
+      duration = open ~= nil and formatDuration(intervalDuration(open, now)) or "",
+      today = formatDuration(today),
+    })
     refreshSummary()
   end)
 end
