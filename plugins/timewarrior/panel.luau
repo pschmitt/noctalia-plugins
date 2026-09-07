@@ -417,10 +417,25 @@ local function dayRow(day, fmt)
       render()
     end,
   }, {
-    ui.label({
-      text = (day.dow or "") .. " " .. date,
-      color = selected and "on_surface" or "on_surface_variant",
-      fontSize = 13,
+    ui.row({ align = "center", gap = 6 }, {
+      ui.label({
+        text = (day.dow or "") .. " " .. date,
+        color = selected and "on_surface" or "on_surface_variant",
+        fontSize = 13,
+      }),
+      -- Today is the one date in a fortnight worth recognising without
+      -- reading it, and unlike the selection highlight this stays put when
+      -- another day is being inspected. Hidden rather than omitted on the
+      -- other rows, so every row lays its date and duration out identically.
+      ui.row({
+        visible = date == todayDate(),
+        fill = "primary/0.18",
+        radius = 5,
+        paddingH = 5,
+        paddingV = 1,
+      }, {
+        ui.label({ text = "TODAY", fontSize = 9, fontWeight = "bold", color = "primary" }),
+      }),
     }),
     -- Same overtime threshold and colours the bar widget uses, so a long day
     -- reads the same here as it did in the bar while it was being worked.
