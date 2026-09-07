@@ -14,6 +14,10 @@ local summary = noctalia.state.get("tw_summary") or { week = "0:00", month = "0:
 local status = noctalia.state.get("tw_status") or { active = false, duration = "" }
 local today = noctalia.state.get("tw_today") or {}
 local action = nil
+-- Which boundary is currently being edited, as { id, field }, or nil while the
+-- list is just being read. Only one cell is ever an input at a time.
+local editing = nil
+local render
 
 local function currentFormat()
   local fmt = noctalia.getConfig("panel_time_format")
@@ -70,40 +74,74 @@ local function sendCommand(cmd)
   noctalia.state.set("tw_cmd", cmd)
 end
 
--- One row per interval tracked today: id, start, end, duration. Both
--- boundaries are plain text fields — type HH:MM, press Enter, and the service
--- runs `timew modify` for that interval. The fields are uncontrolled (the host
--- owns the buffer, `value` only seeds it), and `key` keeps each field tied to
--- its interval across re-renders so a poll can't overwrite half-typed input.
-local function intervalRow(row, fmt)
-  local timeField = function(field, value)
-    return ui.input({
-      key = `{field}-{row.id}`,
-      value = value,
-      width = 62,
-      fontSize = 12,
-      submitOnEnter = true,
-      textAlign = "center",
-      onSubmit = function(entered)
-        sendCommand({ action = "modify", field = field, id = row.id, value = entered })
-      end,
+-- One row per interval tracked today: id, start, end, duration. The
+-- boundaries read as plain labels and become an input only when clicked —
+-- `focus = true` seeds keyboard focus once, at creation, so the field is ready
+-- to type in. There is no blur callback in the plugin UI vocabulary, hence the
+-- explicit cancel button rather than click-away-to-dismiss.
+local TIME_CELL_WIDTH = 84
+local TIME_FONT_SIZE = 13
+
+local function timeCell(row, field, value)
+  if editing ~= nil and editing.id == row.id and editing.field == field then
+    return ui.row({ gap = 2, align = "center" }, {
+      ui.input({
+        key = `edit-{field}-{row.id}`,
+        value = value,
+        width = TIME_CELL_WIDTH,
+        fontSize = TIME_FONT_SIZE,
+        focus = true,
+        submitOnEnter = true,
+        onSubmit = function(entered)
+          editing = nil
+          sendCommand({ action = "modify", field = field, id = row.id, value = entered })
+          render()
+        end,
+      }),
+      ui.button({
+        glyph = "x",
+        variant = "ghost",
+        width = 20,
+        height = 20,
+        glyphSize = 11,
+        tooltip = "Cancel",
+        onClick = function()
+          editing = nil
+          render()
+        end,
+      }),
     })
   end
 
+  return ui.row({
+    key = `show-{field}-{row.id}`,
+    width = TIME_CELL_WIDTH,
+    justify = "center",
+    padding = 3,
+    onClick = function()
+      editing = { id = row.id, field = field }
+      render()
+    end,
+  }, {
+    ui.label({ text = value, fontSize = TIME_FONT_SIZE }),
+  })
+end
+
+local function intervalRow(row, fmt)
   local children = {
     ui.label({ text = `@{row.id}`, fontSize = 11, color = "on_surface_variant", width = 24 }),
-    timeField("start", row.start),
+    timeCell(row, "start", row.start),
     ui.label({ text = "→", fontSize = 12, color = "on_surface_variant" }),
   }
 
   -- The open interval has no end to edit: setting one is what Stop is for,
   -- and `timew modify end` on an open interval is an error anyway.
   if row.open then
-    table.insert(children, ui.row({ width = 62, justify = "center" }, {
-      ui.label({ text = "running", fontSize = 12, color = "primary" }),
+    table.insert(children, ui.row({ width = TIME_CELL_WIDTH, justify = "center" }, {
+      ui.label({ text = "running", fontSize = TIME_FONT_SIZE, color = "primary" }),
     }))
   else
-    table.insert(children, timeField("end", row.stop))
+    table.insert(children, timeCell(row, "end", row.stop))
   end
 
   table.insert(children, ui.row({ justify = "end", flexGrow = 1 }, {
@@ -117,7 +155,7 @@ local function todaySection(fmt)
   local children = {
     ui.row({ align = "center", gap = 6 }, {
       ui.label({ text = "Today", fontSize = 14, fontWeight = "bold", flexGrow = 1 }),
-      ui.label({ text = "HH:MM, Enter to apply", fontSize = 10, color = "on_surface_variant" }),
+      ui.label({ text = "click a time to edit", fontSize = 10, color = "on_surface_variant" }),
     }),
   }
 
@@ -172,7 +210,7 @@ local function header()
   })
 end
 
-local function render()
+function render()
   local fmt = currentFormat()
   local content = {
     header(),
@@ -215,6 +253,13 @@ noctalia.state.watch("tw_today", function(val)
     render()
   end
 end)
+
+function onOpen(_context)
+  -- A panel reopened later should read, not sit in whatever cell was left
+  -- mid-edit when it was dismissed.
+  editing = nil
+  render()
+end
 
 noctalia.state.watch("tw_status", function(val)
   if type(val) == "table" then

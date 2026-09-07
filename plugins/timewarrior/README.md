@@ -68,10 +68,12 @@ leaves the widget telling the truth.
 ## Editing today's intervals
 
 The panel's **Today** section lists every interval tracked today as
-`@id  start → end  duration`. Both boundaries are text fields: type `HH:MM`
-(seconds optional) and press Enter, and the plugin runs
-`timew modify start|end @<id> <time>` for that interval. The running interval
-shows "running" instead of an end field — closing it is what Stop is for.
+`@id  start → end  duration`. The boundaries read as plain labels; clicking one
+turns that single cell into a focused text field. Type `HH:MM` (seconds
+optional) and press Enter, and the plugin runs
+`timew modify start|end @<id> <time>` for that interval; the ✕ beside the field
+leaves it unchanged. The running interval shows "running" instead of an end
+field — closing it is what Stop is for.
 
 A rejected time (bad format, or `timew` refusing the change, e.g. an end before
 the start) shows as an error line under the toggle and as a toast; the fields
