@@ -2,11 +2,12 @@
   lib,
   stdenvNoCC,
   imagemagick,
+  findutils,
 }:
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-ha-ai-usage";
-  version = "0.10.2";
+  version = "0.11.0";
 
   src = lib.fileset.toSource {
     root = ../../plugins/ha-ai-usage;
@@ -36,7 +37,17 @@ stdenvNoCC.mkDerivation {
     # panel.luau renders its reset-countdown rings with ImageMagick at
     # runtime (Noctalia's Luau UI has no native circular progress control),
     # so its @magick@ placeholder needs the store path baked in here.
-    substitute panel.luau "$dest"/panel.luau --subst-var-by magick ${imagemagick}/bin/magick
+    #
+    # The rendered PNGs are cached in the plugin's data dir, which outlives
+    # any single build, so they are namespaced by this derivation's output
+    # hash: every rebuild is a new cache generation, and panel.luau deletes
+    # the older ones on load. Without that, a geometry, cap or colour change
+    # keeps being served from PNGs the previous version drew.
+    cacheKey=$(basename "$out" | cut -c1-8)
+    substitute panel.luau "$dest"/panel.luau \
+      --subst-var-by magick ${imagemagick}/bin/magick \
+      --subst-var-by find ${findutils}/bin/find \
+      --subst-var-by cacheKey "$cacheKey"
 
     runHook postInstall
   '';

@@ -1,6 +1,6 @@
 id = "pschmitt/ha-ai-usage"
 name = "Home Assistant AI Usage"
-version = "0.10.2"
+version = "0.11.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -159,6 +159,30 @@ key = "critical_color"
 type = "color"
 label_key = "settings.critical_color.label"
 description_key = "settings.critical_color.description"
+default = "error"
+
+# The ring counts the window down, so it gets its own colours rather than
+# reusing the usage ones: no shipped palette has an orange role (Indigo's
+# tertiary is lavender), hence the literal hex default.
+[[setting]]
+key = "ring_normal_color"
+type = "color"
+label_key = "settings.ring_normal_color.label"
+description_key = "settings.ring_normal_color.description"
+default = "primary"
+
+[[setting]]
+key = "ring_warning_color"
+type = "color"
+label_key = "settings.ring_warning_color.label"
+description_key = "settings.ring_warning_color.description"
+default = "#F5A97F"
+
+[[setting]]
+key = "ring_critical_color"
+type = "color"
+label_key = "settings.ring_critical_color.label"
+description_key = "settings.ring_critical_color.description"
 default = "error"
 
 [[setting]]
