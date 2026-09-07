@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.24.0"
+version = "0.25.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -39,6 +39,25 @@ description_key = "settings.overtime_hours.description"
 default = 7
 min = 1
 max = 24
+
+# The bar icon per state. Empty means the bundled artwork — the Timewarrior
+# project logo while tracking, a pause symbol while stopped — which is what
+# this widget has always drawn. Naming a glyph swaps that state's icon for it,
+# tinted like the figure beside it, for anyone who would rather the bar stayed
+# in one icon language than carry a project logo.
+[[setting]]
+key = "tracking_glyph"
+type = "glyph"
+label_key = "settings.tracking_glyph.label"
+description_key = "settings.tracking_glyph.description"
+default = ""
+
+[[setting]]
+key = "stopped_glyph"
+type = "glyph"
+label_key = "settings.stopped_glyph.label"
+description_key = "settings.stopped_glyph.description"
+default = ""
 
 # What figure the bar widget shows. The running interval was the only thing it
 # ever displayed, which answers "how long have I been at this?" but not the

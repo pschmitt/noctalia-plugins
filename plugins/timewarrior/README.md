@@ -22,6 +22,12 @@ Configure the database path, polling, overtime threshold, and display formats
 in **Settings → Plugins → Timewarrior**. Leave the database path empty to use
 `TIMEWARRIORDB` or Timewarrior's default `~/.config/timewarrior` directory.
 
+`tracking_glyph` and `stopped_glyph` set the bar icon per state. Left empty
+they keep the bundled artwork — the Timewarrior logo while tracking, a pause
+symbol while stopped. Naming a glyph replaces that one state's icon and tints
+it like the figure beside it (including the overtime colour), which the SVGs
+can't do.
+
 `bar_metric` decides what the bar widget shows: `day` (today's total, the
 default), `interval` (the running interval — the original behaviour, and the
 only figure that disappears when the timer stops), `week` or `month`. The

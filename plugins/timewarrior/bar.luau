@@ -17,8 +17,19 @@ local summary = noctalia.state.get("tw_summary") or { week = "", month = "" }
 local LOGO_TRACKING = "assets/timewarrior-logo.svg"
 local LOGO_STOPPED = "assets/pause.svg"
 
-local function icon(active)
+-- The bundled artwork is the default for both states; a glyph setting replaces
+-- it for that state alone, so tracking can be a glyph while stopped stays the
+-- pause image, or the other way round. A glyph takes the colour of the figure
+-- beside it, which an SVG can't, so the two aren't interchangeable in style —
+-- that is the point of the setting.
+local function icon(active, color)
   local size = tonumber(noctalia.getConfig("icon_size")) or 16
+  local glyph = noctalia.string.trim(noctalia.getConfig(active and "tracking_glyph" or "stopped_glyph") or "")
+
+  if glyph ~= "" then
+    return ui.glyph({ name = glyph, size = size, color = color })
+  end
+
   return ui.image({
     path = active and LOGO_TRACKING or LOGO_STOPPED,
     width = size,
@@ -104,12 +115,14 @@ local function render()
     fmt = "{hours}:{minutes}"
   end
 
-  local children = { icon(active) }
+  -- An hours threshold means something for an interval or a day; a week or a
+  -- month total would sit permanently above any sane one, so those keep the
+  -- plain label colour. The icon follows the figure when it is a glyph.
+  local color = (spec.overtime and value ~= "") and overtime.color(value)
+    or (noctalia.getConfig("label_color") or "on_surface")
+
+  local children = { icon(active, color) }
   if value ~= "" then
-    -- An hours threshold means something for an interval or a day; a week or a
-    -- month total would sit permanently above any sane one, so those keep the
-    -- plain label colour.
-    local color = spec.overtime and overtime.color(value) or (noctalia.getConfig("label_color") or "on_surface")
     table.insert(children, ui.label({ text = duration.format(value, fmt), color = color }))
   end
 

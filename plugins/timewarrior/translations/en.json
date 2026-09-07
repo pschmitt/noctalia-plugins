@@ -82,6 +82,14 @@
       "minutes": "Minutes (HH:MM)",
       "seconds": "Seconds (HH:MM:SS)"
     },
+    "tracking_glyph": {
+      "label": "Tracking icon",
+      "description": "Glyph shown in the bar while tracking. Empty uses the bundled Timewarrior logo."
+    },
+    "stopped_glyph": {
+      "label": "Stopped icon",
+      "description": "Glyph shown in the bar while nothing is tracked. Empty uses the bundled pause symbol."
+    },
     "bar_metric": {
       "label": "Bar shows",
       "description": "Which figure the bar widget displays. The running interval disappears when the timer stops; the totals do not.",
