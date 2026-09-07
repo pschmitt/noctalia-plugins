@@ -1,161 +1,17 @@
 --!nonstrict
 
+local ring = require("./ring.luau")
 local shared = require("./shared.luau")
+
+-- One cache generation per build; drop the others.
+ring.prune()
 local items = noctalia.state.get("ha_ai_usage.items") or {}
 local errorMessage = noctalia.state.get("ha_ai_usage.error") or ""
 local panelOpen = false
-local render -- forward-declared: the ring renderer below re-triggers it once a PNG finishes
 
 local function providerIcon(card, size, color)
   if card.image then return ui.image({ path = card.image, width = size, height = size, fit = "contain" }) end
   return ui.glyph({ name = card.glyph, size = size, color = color })
-end
-
--- Home Assistant only gives us each window's reset target, never when it
--- started, so the ring's sweep is an approximation: remaining-time fraction
--- of the fixed cadence every supported integration's session/weekly windows
--- actually run on (see shared.windowSeconds), not a measured elapsed time.
--- Noctalia's Luau UI has no native circular/donut progress control (only
--- ui.progress, a linear bar), so the ring itself is a PNG rendered on demand
--- with ImageMagick and cached by pluginDataDir()+geometry+fraction
--- bucket+color -- the same technique pschmitt/battery-icon uses for its
--- rendered bitmap. Geometry is part of the cache key specifically so a
--- stroke-width tweak like this one doesn't silently keep serving PNGs
--- rendered with the old radii.
-local RING_SIZE = 88
-local RING_CENTER = RING_SIZE / 2
-local RING_OUTER_R = 39
-local RING_INNER_R = 21
-local RING_BUCKETS = 50 -- 2%-wide steps: enough to look smooth, few enough files to cache
--- Substituted with this build's output hash (see pkgs/noctalia-ha-ai-usage):
--- it namespaces the on-disk PNGs so a new plugin build never serves rings
--- drawn by the previous one, whatever changed -- radii, caps or colours.
-local RING_CACHE_KEY = "@cacheKey@"
-local RING_MID_R = (RING_OUTER_R + RING_INNER_R) / 2
-local RING_CAP_R = (RING_OUTER_R - RING_INNER_R) / 2 -- a cap is exactly as wide as the stroke
-
-local pendingRings = {}
-
--- Drop every generation but this build's, once, when the panel script loads.
--- Nothing else prunes this directory, so without it each plugin version
--- leaves its rings behind forever.
-local function pruneRingCache()
-  local dataDir = noctalia.pluginDataDir()
-  if dataDir == nil then return end
-  local cmd = "@find@ '" .. dataDir .. "' -maxdepth 1 -type f -name 'ring-*.png' "
-    .. "-not -name 'ring-" .. RING_CACHE_KEY .. "-*' -delete"
-  noctalia.runAsync(cmd, function(result)
-    if result.exitCode ~= 0 then
-      noctalia.log("ha-ai-usage: ring cache prune failed: " .. shared.trim(result.stderr))
-    end
-  end, 5000)
-end
-
-pruneRingCache()
-
-local function sanitizeColor(hex) return (hex:gsub("#", "")) end
-
-local function ringPoint(angleDeg)
-  local rad = math.rad(angleDeg)
-  return RING_CENTER + RING_OUTER_R * math.cos(rad), RING_CENTER + RING_OUTER_R * math.sin(rad)
-end
-
-local function midPoint(angleDeg)
-  local rad = math.rad(angleDeg)
-  return RING_CENTER + RING_MID_R * math.cos(rad), RING_CENTER + RING_MID_R * math.sin(rad)
-end
-
--- A filled circle minus a smaller filled circle (DstOut) turns into a flat
--- ring; the same trick applied to a center-to-edge pie wedge instead turns
--- it into a ring-shaped arc segment. Ported from pschmitt/battery-icon's
--- body/fill compositing, which punches shapes out the same way.
-local function ringLayer(fillColor, path)
-  return "\\( -size "
-    .. RING_SIZE .. "x" .. RING_SIZE
-    .. " xc:none -fill '" .. fillColor .. "' -draw 'path \"" .. path .. "\"' "
-    .. "\\( -size " .. RING_SIZE .. "x" .. RING_SIZE .. " xc:none -fill white -draw 'circle "
-    .. RING_CENTER .. "," .. RING_CENTER .. " " .. RING_CENTER .. "," .. (RING_CENTER - RING_INNER_R) .. "' \\) "
-    .. "-compose DstOut -composite \\) -compose Over -composite "
-end
-
--- MVG has no stroke-linecap for a filled path, so round the arc's ends by
--- hand: a disc of half the stroke width centred on the mid-radius at each
--- end angle covers exactly the square corners the wedge leaves behind. It
--- has to composite *after* the annulus punch above -- the inner-circle
--- DstOut would otherwise bite the inner half out of each cap.
-local function capCircle(x, y)
-  return "circle " .. x .. "," .. y .. " " .. x .. "," .. (y - RING_CAP_R)
-end
-
-local function capLayer(fillColor, fraction)
-  local startX, startY = midPoint(-90)
-  local endX, endY = midPoint(-90 + fraction * 360)
-  return "\\( -size "
-    .. RING_SIZE .. "x" .. RING_SIZE
-    .. " xc:none -fill '" .. fillColor .. "' "
-    .. "-draw '" .. capCircle(startX, startY) .. "' "
-    .. "-draw '" .. capCircle(endX, endY) .. "' \\) -compose Over -composite "
-end
-
--- MVG (like SVG) can't express a full 360deg sweep as one arc command --
--- identical start/end points are degenerate -- so trace it as two clean
--- semicircle arcs (top-to-bottom, then back) instead.
-local function fullRingPath()
-  local topX, topY = RING_CENTER, RING_CENTER - RING_OUTER_R
-  local bottomX, bottomY = RING_CENTER, RING_CENTER + RING_OUTER_R
-  return "M " .. topX .. "," .. topY
-    .. " A " .. RING_OUTER_R .. "," .. RING_OUTER_R .. " 0 0,1 " .. bottomX .. "," .. bottomY
-    .. " A " .. RING_OUTER_R .. "," .. RING_OUTER_R .. " 0 0,1 " .. topX .. "," .. topY
-    .. " Z"
-end
-
-local function arcWedgePath(fraction)
-  local startX, startY = ringPoint(-90)
-  local endX, endY = ringPoint(-90 + fraction * 360)
-  local largeArc = fraction > 0.5 and 1 or 0
-  return "M " .. RING_CENTER .. "," .. RING_CENTER
-    .. " L " .. startX .. "," .. startY
-    .. " A " .. RING_OUTER_R .. "," .. RING_OUTER_R .. " 0 " .. largeArc .. ",1 " .. endX .. "," .. endY
-    .. " Z"
-end
-
-local function ringCommand(fraction, trackColor, fillColor, outPath)
-  local cmd = "@magick@ -size " .. RING_SIZE .. "x" .. RING_SIZE .. " xc:none "
-  cmd ..= ringLayer(trackColor, fullRingPath())
-  if fraction > 0.004 then
-    if fraction >= 0.996 then
-      cmd ..= ringLayer(fillColor, fullRingPath())
-    else
-      cmd ..= ringLayer(fillColor, arcWedgePath(fraction))
-      cmd ..= capLayer(fillColor, fraction)
-    end
-  end
-  cmd ..= "'" .. outPath .. "'"
-  return cmd
-end
-
--- Returns the cached ring PNG's path if it is already rendered; otherwise
--- kicks off (at most one in-flight) render and returns nil for this frame --
--- the next state change once it lands calls render() again.
-local function ensureRing(fraction, fillColor)
-  local dataDir = noctalia.pluginDataDir()
-  if dataDir == nil then return nil end
-  fraction = math.clamp(fraction, 0, 1)
-  local bucket = math.floor(fraction * RING_BUCKETS + 0.5)
-  local trackColor = shared.resolveColor("on_surface", "#9AA0A6") .. "29" -- ~16% alpha, matches the linear progress track
-  local outPath = dataDir .. "/ring-" .. RING_CACHE_KEY .. "-" .. bucket .. "-" .. sanitizeColor(fillColor) .. ".png"
-  if noctalia.fileExists(outPath) then return outPath end
-  if pendingRings[outPath] then return nil end
-  pendingRings[outPath] = true
-  noctalia.runAsync(ringCommand(bucket / RING_BUCKETS, trackColor, fillColor, outPath), function(result)
-    pendingRings[outPath] = nil
-    if result.exitCode == 0 then
-      render()
-    else
-      noctalia.log("ha-ai-usage: ring render failed: " .. shared.trim(result.stderr))
-    end
-  end, 5000)
-  return nil
 end
 
 -- The reset-countdown ring on the left, usage percentage on the right (a
@@ -170,24 +26,10 @@ end
 -- the usage colours use for their warning band, is lavender), so the
 -- mid-band default is a literal hex. All three take a palette role name or a
 -- hex, same as every other colour setting here.
-local RING_CRITICAL_REMAINING = 0.10
-local RING_WARNING_REMAINING = 0.25
-
-local function ringColor(fraction, hasWindow)
-  if not hasWindow then return "on_surface_variant" end
-  if fraction <= RING_CRITICAL_REMAINING then return shared.config("ring_critical_color", "error") end
-  if fraction <= RING_WARNING_REMAINING then return shared.config("ring_warning_color", "#F5A97F") end
-  return shared.config("ring_normal_color", "primary")
-end
-
 local function ringVisual(metric, size)
-  local remaining = shared.remainingSeconds(metric.reset)
-  local windowSeconds = shared.windowSeconds(metric.window)
-  local hasWindow = remaining ~= nil and windowSeconds ~= nil
-  local fraction = hasWindow and (remaining / windowSeconds) or 0
-  local color = ringColor(fraction, hasWindow)
-  local fillColor = shared.resolveColor(color, "#9AA0A6")
-  local imagePath = ensureRing(fraction, fillColor)
+  local fraction, hasWindow = ring.fraction(metric)
+  local color = ring.color(fraction, hasWindow)
+  local imagePath = ring.ensure(fraction, ring.fillColor(fraction, hasWindow))
   if imagePath ~= nil then
     return ui.image({ path = imagePath, width = size, height = size, fit = "contain" })
   end
@@ -326,7 +168,7 @@ local function card(card)
   return ui.column({ fill = "surface_variant/0.58", radius = 14, padding = 12, gap = 9 }, sections)
 end
 
-function render()
+local function render()
   if not panelOpen then return end
   local header = ui.row({ align = "center", justify = "space_between" }, {
     ui.row({ align = "center", gap = 10 }, {

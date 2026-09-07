@@ -31,3 +31,22 @@ One authenticated `POST /api/template` request runs at the configured refresh in
 ```sh
 noctalia msg plugin pschmitt/ha-ai-usage:poller all refresh
 ```
+
+## The reset-countdown rings
+
+Noctalia's Luau UI has no circular progress control, so each card's countdown
+ring is an image. It is an SVG — two stroked circles and a dash offset —
+written by `ring.luau` into the plugin's data dir and handed to `ui.image` as a
+path. Files are namespaced by the build's output hash and bucketed to 2% of the
+window, and stale generations are pruned on load.
+
+It used to be a PNG drawn by ImageMagick, which was the wrong tool twice over.
+The shape is parametric, so rasterising it needed a filled wedge, an inner
+circle punched out with `DstOut` and two hand-placed discs to fake what
+`stroke-linecap="round"` says in a word. Worse, a subprocess is asynchronous:
+the panel asked for a ring, got nothing that frame, and drew a placeholder
+glyph. Since the file a row needs drifts with time (a 5h window changes bucket
+every ~6 minutes), a panel opened and dismissed within a second routinely
+showed placeholders instead of rings. `noctalia.writeFile` is synchronous, so
+the path now exists before the render that needs it, and the plugin needs no
+ImageMagick at all.
