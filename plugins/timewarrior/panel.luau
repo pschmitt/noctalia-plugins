@@ -1,14 +1,63 @@
 --!nonstrict
--- Timewarrior panel — week/month/year totals + this week's daily
--- breakdown, ported from the DMS TimewarriorWidget.qml popoutContent.
+-- Timewarrior panel — a start/stop toggle plus week/month/year totals and
+-- this week's daily breakdown, ported from the DMS TimewarriorWidget.qml
+-- popoutContent.
+--
+-- The toggle only publishes a command through "tw_cmd"; service.luau owns
+-- what actually runs (see its start_command/stop_command handling) and
+-- reports back through "tw_action".
 
 local duration = require("./lib/duration.luau")
 
 local summary = noctalia.state.get("tw_summary") or { week = "0:00", month = "0:00", year = "0:00", days = {} }
+local status = noctalia.state.get("tw_status") or { active = false, duration = "" }
+local action = nil
 
 local function currentFormat()
   local fmt = noctalia.getConfig("panel_time_format")
   return (fmt and fmt ~= "") and fmt or "{hours}h {minutes}m"
+end
+
+-- The panel's headline control: one big button that starts or stops tracking
+-- depending on the current state, plus the running interval beside it.
+local function toggle()
+  local active = status.active == true
+  local busy = action ~= nil and action.running == true
+  local label
+  if busy then
+    label = active and "Stopping…" or "Starting…"
+  else
+    label = active and "Stop tracking" or "Start tracking"
+  end
+
+  return ui.column({ gap = 4 }, {
+    ui.button({
+      text = label,
+      glyph = active and "player-stop" or "player-play",
+      glyphSize = 18,
+      variant = active and "outline" or "primary",
+      enabled = not busy,
+      height = 44,
+      flexGrow = 1,
+      tooltip = active and "Stop tracking" or "Start tracking",
+      onClick = "onToggle",
+    }),
+    ui.row({ justify = "center" }, {
+      ui.label({
+        text = active and ("Tracking for " .. duration.format(status.duration, currentFormat())) or "Not tracking",
+        fontSize = 12,
+        color = active and "primary" or "on_surface_variant",
+      }),
+    }),
+    ui.row({ justify = "center", visible = action ~= nil and (action.message or "") ~= "" }, {
+      ui.label({
+        text = action and action.message or "",
+        fontSize = 11,
+        color = "error",
+        maxLines = 2,
+      }),
+    }),
+  })
 end
 
 local function statBox(label, value)
@@ -55,6 +104,7 @@ local function render()
   local fmt = currentFormat()
   local content = {
     header(),
+    toggle(),
     ui.row({ gap = 8 }, {
       statBox("Week", duration.format(summary.week, fmt)),
       statBox("Month", duration.format(summary.month, fmt)),
@@ -85,8 +135,30 @@ noctalia.state.watch("tw_summary", function(val)
   end
 end)
 
+noctalia.state.watch("tw_status", function(val)
+  if type(val) == "table" then
+    status = val
+    render()
+  end
+end)
+
+noctalia.state.watch("tw_action", function(val)
+  if type(val) == "table" then
+    action = val
+    render()
+  end
+end)
+
 render()
 
 function onSettings()
   noctalia.openSettings()
+end
+
+function onToggle()
+  -- Optimistic local feedback: the service publishes its own "tw_action"
+  -- moments later, but the click should look like it landed immediately.
+  action = { action = status.active and "stop" or "start", running = true, message = "" }
+  render()
+  noctalia.state.set("tw_cmd", { n = noctalia.nowMs(), action = "toggle" })
 end

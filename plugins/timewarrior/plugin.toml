@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.8.0"
+version = "0.9.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -39,6 +39,38 @@ description_key = "settings.overtime_hours.description"
 default = 7
 min = 1
 max = 24
+
+# ── Start/stop hooks ──
+# The panel's toggle button (and the bar's middle click) run these instead of
+# `timew start` / `timew stop` when they are set, so a wrapper can own the rest
+# of the ritual — VPN, Taskwarrior task, notifications, sync — while the plugin
+# keeps owning the UI. Shell command lines, not argv: they run through
+# /bin/sh -c with the resolved TIMEWARRIORDB exported.
+
+[[setting]]
+key = "start_command"
+type = "string"
+label_key = "settings.start_command.label"
+description_key = "settings.start_command.description"
+default = ""
+
+[[setting]]
+key = "stop_command"
+type = "string"
+label_key = "settings.stop_command.label"
+description_key = "settings.stop_command.description"
+default = ""
+
+# Wrappers can be slow (shutting a VM down, syncing, closing browser tabs), so
+# the default is far more generous than the 5s the `timew export` polls use.
+[[setting]]
+key = "command_timeout"
+type = "int"
+label_key = "settings.command_timeout.label"
+description_key = "settings.command_timeout.description"
+default = 120
+min = 5
+max = 900
 
 [[setting]]
 key = "panel_time_format"
@@ -107,6 +139,9 @@ entry = "bar.luau"
   # widget's actions.
   [widget.actions]
   left = "panel-toggle pschmitt/timewarrior:panel"
+  # Start/stop without opening the panel. Routed to the service's onIpc, which
+  # is the same code path the panel's toggle button ends up in.
+  middle = "plugin pschmitt/timewarrior:poller all toggle"
 
 [[panel]]
 id = "panel"

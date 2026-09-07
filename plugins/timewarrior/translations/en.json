@@ -12,6 +12,18 @@
       "label": "Overtime threshold (hours)",
       "description": "Tracked hours today above which the widget switches to the overtime color."
     },
+    "start_command": {
+      "label": "Start command",
+      "description": "Shell command run by the panel's start button. Leave empty to run `timew start`. Runs with TIMEWARRIORDB set, e.g. `~/bin/zhj tw::work-start`."
+    },
+    "stop_command": {
+      "label": "Stop command",
+      "description": "Shell command run by the panel's stop button. Leave empty to run `timew stop`."
+    },
+    "command_timeout": {
+      "label": "Command timeout (seconds)",
+      "description": "How long to wait for the start/stop command before giving up. Wrappers that sync or shut things down can take a while."
+    },
     "panel_time_format": {
       "label": "Panel time format",
       "description": "Format of the panel's week/month/year/day totals. Placeholders: {hours}, {minutes}."

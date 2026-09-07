@@ -1,8 +1,8 @@
 # Timewarrior
 
 `pschmitt/timewarrior` shows the running [Timewarrior](https://timewarrior.net/)
-interval in a Noctalia bar and provides a panel with week, month, and year
-totals plus the current week's daily breakdown.
+interval in a Noctalia bar and provides a panel with a start/stop toggle plus
+week, month, and year totals and the current week's daily breakdown.
 
 ## Requirement
 
@@ -22,3 +22,30 @@ in **Settings → Plugins → Timewarrior**. Leave the database path empty to us
 `TIMEWARRIORDB` or Timewarrior's default `~/.config/timewarrior` directory. By
 default the widget hides when no interval is active; disable
 `hide_when_inactive` to keep the slot visible.
+
+## Starting and stopping
+
+The panel's big toggle button starts or stops tracking; middle-clicking the bar
+widget does the same without opening the panel.
+
+By default that runs `timew start` / `timew stop`. Setting `start_command` /
+`stop_command` replaces those with a command of your own, which is where the
+rest of a "start working" ritual belongs — bringing a VPN up, starting the
+matching Taskwarrior task, dismissing a reminder, syncing afterwards. Both are
+shell command lines (run through `/bin/sh -c`) and inherit the resolved
+`TIMEWARRIORDB`, so a wrapper always talks to the same database the widget
+displays:
+
+```nix
+programs.noctalia.settings.plugin_settings."pschmitt/timewarrior" = {
+  start_command = "~/bin/zhj tw::work-start";
+  stop_command = "~/bin/zhj tw::work-stop";
+};
+```
+
+Wrappers that shut VMs down or sync can take a while; `command_timeout`
+(default 120s) bounds the wait. The button shows "Starting…"/"Stopping…" while
+the command runs, and a failure surfaces both as a toast and as an error line
+in the panel. Tracking state itself always comes from `timew` polling, never
+from the command's exit status, so a wrapper that fails halfway through still
+leaves the widget telling the truth.

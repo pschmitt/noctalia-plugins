@@ -6,6 +6,10 @@
 -- helper binaries and no jq dependency. Two snapshots are published:
 -- "tw_status" (current tracking state, for bar.luau) and "tw_summary"
 -- (week/month/year totals + day breakdown, for panel.luau).
+--
+-- It also owns starting and stopping tracking: the panel's toggle button and
+-- the bar's middle click only publish a command through "tw_cmd", and the
+-- outcome comes back through "tw_action".
 
 local function trim(s)
   return noctalia.string.trim(s or "")
@@ -23,14 +27,21 @@ local function databasePath()
   return noctalia.expandPath(configured)
 end
 
-local summary = { week = "0:00", month = "0:00", year = "0:00", days = {} }
+local COMMAND = "tw_cmd"
+local ACTION = "tw_action"
 
-local function runTimew(args, callback)
+local summary = { week = "0:00", month = "0:00", year = "0:00", days = {} }
+-- Mirrors the last published "tw_status", so a "toggle" command knows which
+-- way to go without re-exporting.
+local tracking = false
+local pending = nil
+
+local function runTimew(args, callback, timeoutMs)
   local argv = { "env", "TIMEWARRIORDB=" .. databasePath(), "timew" }
   for _, arg in ipairs(args) do
     table.insert(argv, arg)
   end
-  noctalia.runAsync(argv, callback, 5000)
+  noctalia.runAsync(argv, callback, timeoutMs or 5000)
 end
 
 -- Timewarrior timestamps are UTC in YYYYMMDDTHHMMSSZ form. Convert them to a
@@ -157,6 +168,7 @@ local function poll()
     local now = math.floor(noctalia.nowMs() / 1000)
     for _, interval in ipairs(parseExport(r)) do
       if interval["end"] == nil then
+        tracking = true
         noctalia.state.set("tw_status", {
           active = true,
           duration = formatDuration(intervalDuration(interval, now)),
@@ -166,10 +178,114 @@ local function poll()
       end
     end
 
+    tracking = false
     noctalia.state.set("tw_status", { active = false, duration = "" })
     refreshSummary()
   end)
 end
+
+-- ── Starting and stopping ─────────────────────────────────────────────────
+--
+-- What a start/stop actually runs is configurable. `timew start` / `timew stop`
+-- is only the default: point start_command/stop_command at a wrapper (a shell
+-- function, a script) and it can own the rest of the ritual — bring a VPN up,
+-- dismiss a reminder, start a task in Taskwarrior, sync afterwards — while the
+-- plugin keeps owning the widget, the panel and the polling.
+--
+-- runAsync's string form goes through /bin/sh -c, so a configured command is a
+-- shell command line, not an argv array. It is run with the resolved
+-- TIMEWARRIORDB exported, so a wrapper always talks to the database the widget
+-- is displaying.
+
+local function commandTimeoutMs()
+  return (tonumber(noctalia.getConfig("command_timeout")) or 120) * 1000
+end
+
+local function configuredCommand(action)
+  return trim(noctalia.getConfig(action == "stop" and "stop_command" or "start_command") or "")
+end
+
+local function publishAction(action, running, success, message)
+  noctalia.state.set(ACTION, {
+    n = noctalia.nowMs(),
+    action = action,
+    running = running,
+    success = success,
+    message = message or "",
+  })
+end
+
+-- Wrappers are chatty (sync progress, a closing `timew summary`), and the
+-- panel has room for a line, not a transcript — so only the last non-empty
+-- output line is surfaced, and only when the command failed.
+local function lastLine(text)
+  local result = ""
+  for line in trim(text):gmatch("[^\n]+") do
+    local candidate = trim(line)
+    if candidate ~= "" then
+      result = candidate
+    end
+  end
+  return result
+end
+
+local function finishCommand(action, result)
+  pending = nil
+  if result.exitCode == 0 then
+    publishAction(action, false, true, "")
+  else
+    local message = lastLine(result.stderr or "")
+    if message == "" then
+      message = lastLine(result.stdout or "")
+    end
+    if message == "" then
+      message = "exit code " .. tostring(result.exitCode)
+    end
+    noctalia.log("timewarrior " .. action .. " failed: " .. message)
+    noctalia.notifyError("Timewarrior", "Could not " .. action .. " tracking: " .. message)
+    publishAction(action, false, false, message)
+  end
+  poll()
+end
+
+local function runCommand(action)
+  if pending ~= nil then
+    return
+  end
+  pending = action
+  publishAction(action, true, nil, "")
+
+  local custom = configuredCommand(action)
+  local finish = function(result)
+    finishCommand(action, result)
+  end
+
+  if custom == "" then
+    runTimew({ action }, finish, commandTimeoutMs())
+  else
+    noctalia.runAsync("TIMEWARRIORDB='" .. databasePath() .. "' " .. custom, finish, commandTimeoutMs())
+  end
+end
+
+local function dispatch(action)
+  if action == "toggle" then
+    action = tracking and "stop" or "start"
+  end
+  if action == "start" or action == "stop" then
+    runCommand(action)
+  end
+end
+
+noctalia.state.watch(COMMAND, function(cmd)
+  if type(cmd) == "table" then
+    dispatch(cmd.action)
+  end
+end)
+
+function onIpc(event)
+  dispatch(event)
+end
+
 
 poll()
 
