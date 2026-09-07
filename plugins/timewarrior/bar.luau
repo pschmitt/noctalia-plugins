@@ -8,20 +8,12 @@
 -- visibility() below.
 
 local duration = require("./lib/duration.luau")
+local overtime = require("./lib/overtime.luau")
 
 local state = noctalia.state.get("tw_status") or { active = false, duration = "" }
 
 local LOGO_TRACKING = "assets/timewarrior-logo.svg"
 local LOGO_STOPPED = "assets/pause.svg"
-
-local function isOvertime()
-  if not state.active then
-    return false
-  end
-  local hours = tonumber(string.match(state.duration or "", "^(%d+):"))
-  local threshold = tonumber(noctalia.getConfig("overtime_hours")) or 7
-  return hours ~= nil and hours > threshold
-end
 
 local function icon(active)
   local size = tonumber(noctalia.getConfig("icon_size")) or 16
@@ -66,7 +58,6 @@ end
 local function render()
   local active = state.active == true
   local container = barWidget.isVertical() and ui.column or ui.row
-  local labelColor = noctalia.getConfig("label_color") or "on_surface"
 
   if not active then
     if not keepSlotWhileIdle() then
@@ -81,8 +72,7 @@ local function render()
     return
   end
 
-  local overtime = isOvertime()
-  local color = overtime and (noctalia.getConfig("label_overtime_color") or "error") or labelColor
+  local color = overtime.color(state.duration)
   local fmt = noctalia.getConfig("bar_time_format")
   if fmt == nil or fmt == "" then
     fmt = "{hours}:{minutes}"

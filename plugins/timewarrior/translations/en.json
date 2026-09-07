@@ -10,7 +10,7 @@
     },
     "overtime_hours": {
       "label": "Overtime threshold (hours)",
-      "description": "Tracked hours today above which the widget switches to the overtime color."
+      "description": "Hours above which a tracked duration switches to the overtime color, in the bar and in the panel's per-day totals."
     },
     "start_command": {
       "label": "Start command",
@@ -34,11 +34,11 @@
     },
     "label_color": {
       "label": "Label color",
-      "description": "Duration text color while under the overtime threshold."
+      "description": "Duration text color while under the overtime threshold, in the bar and in the panel's per-day totals."
     },
     "label_overtime_color": {
       "label": "Label overtime color",
-      "description": "Duration text color once today's tracked time passes the overtime threshold."
+      "description": "Duration text color once a tracked duration passes the overtime threshold, in the bar and in the panel's per-day totals."
     },
     "icon_size": {
       "label": "Icon size",

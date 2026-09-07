@@ -9,6 +9,7 @@
 -- back through "tw_action".
 
 local duration = require("./lib/duration.luau")
+local overtime = require("./lib/overtime.luau")
 
 local summary = noctalia.state.get("tw_summary") or { week = "0:00", month = "0:00", year = "0:00", days = {} }
 local status = noctalia.state.get("tw_status") or { active = false, duration = "" }
@@ -274,7 +275,9 @@ local function dayRow(day, fmt)
       color = selected and "on_surface" or "on_surface_variant",
       fontSize = 13,
     }),
-    ui.label({ text = duration.format(day.duration, fmt), fontSize = 13 }),
+    -- Same overtime threshold and colours the bar widget uses, so a long day
+    -- reads the same here as it did in the bar while it was being worked.
+    ui.label({ text = duration.format(day.duration, fmt), fontSize = 13, color = overtime.color(day.duration) }),
   })
 end
 

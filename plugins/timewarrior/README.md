@@ -90,6 +90,10 @@ current week, which on a Monday is one row — nothing to click, and no way to
 fix up last Friday. Days are listed newest first, days with nothing tracked are
 omitted, and the list scrolls inside the panel however long the window is.
 
+Each day's total is coloured by the same `overtime_hours` threshold and
+`label_color`/`label_overtime_color` pair the bar widget uses, so a long day
+reads the same in the breakdown as it did in the bar while it was worked.
+
 `interval_precision` picks how the boundaries are rendered — `minutes`
 (`HH:MM`, the default) or `seconds` (`HH:MM:SS`). Because the edit field seeds
 from what is displayed, it is also the precision an edit defaults to: applying
