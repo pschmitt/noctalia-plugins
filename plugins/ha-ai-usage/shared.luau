@@ -185,6 +185,11 @@ function M.select(cards, limit)
   return selected
 end
 
+-- Ordered by the filter itself, not by provider/label: "Codex, Pro" means
+-- Codex first, then Claude Pro, whatever cardDetails' own ordering would
+-- otherwise have put first. Walking terms in the outer loop and cards in the
+-- inner one puts each card right after the first term that matched it, while
+-- cards sharing a term keep their original relative order among themselves.
 function M.filterCards(cards, filter)
   local terms = {}
   for term in tostring(filter or ""):gmatch("[^,]+") do
@@ -193,12 +198,15 @@ function M.filterCards(cards, filter)
   end
   if #terms == 0 then return cards end
   local filtered = {}
-  for _, card in ipairs(cards) do
-    local value = (card.label .. " " .. card.id):lower()
-    for _, term in ipairs(terms) do
-      if value:find(term, 1, true) then
-        filtered[#filtered + 1] = card
-        break
+  local seen = {}
+  for _, term in ipairs(terms) do
+    for _, card in ipairs(cards) do
+      if not seen[card.id] then
+        local value = (card.label .. " " .. card.id):lower()
+        if value:find(term, 1, true) then
+          filtered[#filtered + 1] = card
+          seen[card.id] = true
+        end
       end
     end
   end
