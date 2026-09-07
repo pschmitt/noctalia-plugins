@@ -213,19 +213,20 @@ local function card(card)
       end
     end
   end
-  local sections = {
-    ui.row({ align = "center", gap = 8 }, {
-      providerIcon(card, 18, shared.colorFor(card.primary.used)),
-      ui.label({ text = card.label, fontSize = 15, fontWeight = "bold", flexGrow = 1 }),
-    }),
+  local titleRow = {
+    providerIcon(card, 18, shared.colorFor(card.primary.used)),
+    ui.label({ text = card.label, fontSize = 15, fontWeight = "bold", flexGrow = 1 }),
   }
   local bankedText = shared.bankedResetsText(card.bankedAvailable, card.bankedExpiry)
   if bankedText ~= nil then
-    sections[#sections + 1] = ui.row({ align = "center", gap = 4 }, {
-      ui.glyph({ name = "ticket-confirmation-outline", size = 11, color = "on_surface_variant" }),
+    titleRow[#titleRow + 1] = ui.row({ align = "center", gap = 4 }, {
+      ui.glyph({ name = "ticket", size = 11, color = "on_surface_variant" }),
       ui.label({ text = bankedText, fontSize = 10, color = "on_surface_variant", maxLines = 1 }),
     })
   end
+  local sections = {
+    ui.row({ align = "center", gap = 8 }, titleRow),
+  }
   if #headline > 0 then
     local rings = {}
     for _, metric in ipairs(headline) do rings[#rings + 1] = ringCard(metric) end
