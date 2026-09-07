@@ -52,7 +52,13 @@ local function segment(card)
       maxLines = 1,
     })
   end
-  if mode == "detailed" and noctalia.getConfig("show_reset") == true and metric.reset ~= "" then
+  -- Unlike display_mode's docstring implies, this used to require
+  -- mode == "detailed" on top of its own toggle -- the only one of the four
+  -- show_* toggles gated by mode, so flipping it while in summary mode (the
+  -- plugin's own default) silently did nothing. Dropped for consistency with
+  -- show_name/show_progress/show_value, which only ever check their own
+  -- toggle plus the icon-mode bail-out above.
+  if noctalia.getConfig("show_reset") == true and metric.reset ~= "" then
     children[#children + 1] = ui.label({ text = "↻ " .. shared.resetText(metric.reset), fontSize = 10, color = "on_surface_variant", maxLines = 1 })
   end
   return ui.row({ align = "center", gap = tonumber(shared.config("spacing", 6)) or 6 }, children)
