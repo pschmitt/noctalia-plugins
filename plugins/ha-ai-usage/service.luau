@@ -33,6 +33,36 @@ local function publishError(message)
   noctalia.state.set("ha_ai_usage.refreshing", false)
 end
 
+-- The runtime only takes a command *line*, so a dynamic argument has to be
+-- shell-quoted by hand: wrap in single quotes and escape embedded ones.
+local function shq(value)
+  local quoted = tostring(value or ""):gsub("'", "'\\''")
+  return "'" .. quoted .. "'"
+end
+
+-- Opens the configured Home Assistant sub-path in the desktop's default
+-- browser. gio, not xdg-open: with XDG_CURRENT_DESKTOP=KDE (set for Qt
+-- theming under niri) but no KDE session, xdg-open takes the kfmclient path
+-- and no-ops with exit 0; gio resolves the x-scheme-handler/http default
+-- directly. Ported from this repo's syncthing plugin, which solved the same
+-- problem for its own "open web GUI" button.
+local function openDashboard()
+  local server, serverErr = readSecret("server_file")
+  if not server then
+    noctalia.state.set("ha_ai_usage.error", "Home Assistant " .. (serverErr or "credentials are unavailable"))
+    return
+  end
+  local path = shared.trim(noctalia.getConfig("dashboard_path"))
+  if path == "" then path = "/" end
+  if path:sub(1, 1) ~= "/" then path = "/" .. path end
+  local url = shq(server:gsub("/+$", "") .. path)
+  noctalia.runAsync("gio open " .. url .. " || xdg-open " .. url, function(result)
+    if result.exitCode ~= 0 then
+      noctalia.log("ha-ai-usage: open dashboard failed: " .. shared.trim(result.stderr))
+    end
+  end, 10000)
+end
+
 local function discoveryTemplate(monitors)
   local encoded = noctalia.json.encode(monitors)
   local template = [[
@@ -167,7 +197,12 @@ local function refresh()
 end
 
 noctalia.state.watch("ha_ai_usage.command", function(command)
-  if type(command) == "table" and command.action == "refresh" then refresh() end
+  if type(command) ~= "table" then return end
+  if command.action == "refresh" then
+    refresh()
+  elseif command.action == "open_dashboard" then
+    openDashboard()
+  end
 end)
 
 function update()

@@ -249,7 +249,18 @@ function render()
       }),
       ui.column({ gap = 1 }, {
         ui.label({ text = "AI usage", fontSize = 17, fontWeight = "bold" }),
-        ui.label({ text = "Home Assistant", fontSize = 11, color = "on_surface_variant" }),
+        ui.row({ align = "center", gap = 4 }, {
+          ui.label({ text = "Home Assistant", fontSize = 11, color = "on_surface_variant" }),
+          ui.button({
+            glyph = "external-link",
+            variant = "ghost",
+            width = 18,
+            height = 18,
+            glyphSize = 11,
+            tooltip = "Open in Home Assistant",
+            onClick = "onOpenHa",
+          }),
+        }),
       }),
     }),
     ui.row({ align = "center", gap = 2 }, {
@@ -287,5 +298,6 @@ function onOpen()
 end
 function onClose() panelOpen = false end
 function onRefresh() noctalia.state.set("ha_ai_usage.command", { action = "refresh" }) end
+function onOpenHa() noctalia.state.set("ha_ai_usage.command", { action = "open_dashboard" }) end
 function onSettings() noctalia.openSettings() end
 function onCloseClicked() panel.close() end
