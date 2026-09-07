@@ -87,8 +87,8 @@ it the export that feeds these lists: every day it shows comes from that single
 export, so browsing days costs no extra `timew` call, and the ids stay valid for
 `timew modify` whichever day they belong to. The default used to be exactly the
 current week, which on a Monday is one row — nothing to click, and no way to
-fix up last Friday. Days are listed newest first, and days with nothing tracked
-are omitted.
+fix up last Friday. Days are listed newest first, days with nothing tracked are
+omitted, and the list scrolls inside the panel however long the window is.
 
 `interval_precision` picks how the boundaries are rendered — `minutes`
 (`HH:MM`, the default) or `seconds` (`HH:MM:SS`). Because the edit field seeds

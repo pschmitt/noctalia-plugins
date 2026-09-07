@@ -82,6 +82,12 @@ end
 -- `focus = true` seeds keyboard focus once, at creation, so the field is ready
 -- to type in. There is no blur callback in the plugin UI vocabulary, hence the
 -- explicit cancel button rather than click-away-to-dismiss.
+-- Must track the [[panel]] height in plugin.toml. A scroll area only bounds
+-- itself when the column it lives in has a real height to divide up: without
+-- one, the day list grows past the panel instead of scrolling inside it.
+local PANEL_HEIGHT = 680
+local PANEL_PADDING = 12
+
 local TIME_FONT_SIZE = 13
 
 -- `timew` stores seconds, so both precisions are just a rendering of the same
@@ -318,7 +324,11 @@ function render()
     table.insert(content, ui.label({ text = "No tracked time in this window", color = "on_surface_variant", fontSize = 13 }))
   end
 
-  panel.render(ui.column({ gap = 8, padding = 12 }, content))
+  panel.render(ui.column({
+    gap = 8,
+    padding = PANEL_PADDING,
+    height = PANEL_HEIGHT - PANEL_PADDING * 2,
+  }, content))
 end
 
 noctalia.state.watch("tw_summary", function(val)
