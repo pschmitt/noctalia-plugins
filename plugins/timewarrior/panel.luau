@@ -226,8 +226,12 @@ local function intervalSection(fmt)
       text = isToday and "Today" or (weekday ~= "" and `{weekday} {date}` or date),
       fontSize = 14,
       fontWeight = "bold",
+      -- The heading takes the slack, so the hint sits against the right edge
+      -- (or against the "Today" button, when that is there) instead of
+      -- floating next to the title.
+      flexGrow = 1,
     }),
-    ui.label({ text = "click a time to edit", fontSize = 10, color = "on_surface_variant", flexGrow = 1 }),
+    ui.label({ text = "click a time to edit", fontSize = 10, color = "on_surface_variant" }),
   })
   -- Only offered while looking at another day: the way back is otherwise a
   -- second click on the highlighted breakdown row, which is less obvious.
