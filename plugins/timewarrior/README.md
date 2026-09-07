@@ -2,8 +2,8 @@
 
 `pschmitt/timewarrior` shows the running [Timewarrior](https://timewarrior.net/)
 interval in a Noctalia bar and provides a panel with a start/stop toggle,
-today's intervals with editable boundaries, week/month/year totals, and the
-current week's daily breakdown.
+editable interval boundaries for any day it lists, week/month/year totals, and
+a per-day breakdown of the last two weeks.
 
 ## Requirement
 
@@ -80,11 +80,15 @@ the start) shows as an error line under the toggle and as a toast; the fields
 re-seed from the next poll, so the panel never shows a value Timewarrior didn't
 accept.
 
-Clicking a day in the weekly breakdown points that section at that day
+Clicking a day in the breakdown points that section at that day
 (clicking it again, or the "Today" button in the section header, comes back).
-Every day of the week comes from the same `:week` export the totals are built
-from, so browsing days costs no extra `timew` call, and the ids stay valid for
-`timew modify` whichever day they belong to.
+`breakdown_days` (default 14) sets how far back the breakdown reaches, and with
+it the export that feeds these lists: every day it shows comes from that single
+export, so browsing days costs no extra `timew` call, and the ids stay valid for
+`timew modify` whichever day they belong to. The default used to be exactly the
+current week, which on a Monday is one row — nothing to click, and no way to
+fix up last Friday. Days are listed newest first, and days with nothing tracked
+are omitted.
 
 `interval_precision` picks how the boundaries are rendered — `minutes`
 (`HH:MM`, the default) or `seconds` (`HH:MM:SS`). Because the edit field seeds

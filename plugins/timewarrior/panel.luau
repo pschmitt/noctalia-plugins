@@ -106,6 +106,11 @@ local function clockText(epoch)
   return noctalia.formatTime(secondsPrecision() and "%H:%M:%S" or "%H:%M", epoch)
 end
 
+local function breakdownTitle()
+  local days = math.floor(tonumber(noctalia.getConfig("breakdown_days")) or 14)
+  return `Last {days} days`
+end
+
 local function timeCellWidth()
   return secondsPrecision() and 104 or 84
 end
@@ -299,7 +304,7 @@ function render()
     ui.separator({}),
     intervalSection(fmt),
     ui.separator({}),
-    ui.label({ text = "This week", fontSize = 14, fontWeight = "bold" }),
+    ui.label({ text = breakdownTitle(), fontSize = 14, fontWeight = "bold" }),
   }
 
   local days = summary.days or {}
@@ -310,7 +315,7 @@ function render()
     end
     table.insert(content, ui.scroll({ flexGrow = 1, gap = 4 }, rows))
   else
-    table.insert(content, ui.label({ text = "No tracked time this week", color = "on_surface_variant", fontSize = 13 }))
+    table.insert(content, ui.label({ text = "No tracked time in this window", color = "on_surface_variant", fontSize = 13 }))
   end
 
   panel.render(ui.column({ gap = 8, padding = 12 }, content))

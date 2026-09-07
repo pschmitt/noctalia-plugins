@@ -44,6 +44,10 @@
       "label": "Icon size",
       "description": "Bar display size of the Timewarrior logo, in pixels."
     },
+    "breakdown_days": {
+      "label": "Breakdown days",
+      "description": "How many days, ending today, the panel's day breakdown lists. Each day can be clicked to inspect and edit its intervals."
+    },
     "interval_precision": {
       "label": "Interval time precision",
       "description": "How today's interval start and end times are shown, and the precision an edit of one defaults to.",

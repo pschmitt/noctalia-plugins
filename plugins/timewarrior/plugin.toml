@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.14.0"
+version = "0.15.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -65,6 +65,20 @@ options = [
   { value = "always", label_key = "settings.visibility.always" },
   { value = "workdays", label_key = "settings.visibility.workdays" },
 ]
+
+# How far back the panel's day breakdown reaches, in days ending today. The
+# breakdown used to be exactly `:week`, which on a Monday is a single row —
+# nothing to click, and no way to fix up last Friday. Every day it lists is
+# clickable and editable, and they all come from one export, so this is also
+# what bounds that export.
+[[setting]]
+key = "breakdown_days"
+type = "int"
+label_key = "settings.breakdown_days.label"
+description_key = "settings.breakdown_days.description"
+default = 14
+min = 2
+max = 62
 
 # How precise the panel renders today's interval boundaries — and, because the
 # edit field seeds from what is displayed, the precision an edit defaults to.

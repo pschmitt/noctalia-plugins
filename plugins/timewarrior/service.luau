@@ -6,9 +6,9 @@
 -- helper binaries and no jq dependency. Two snapshots are published:
 -- "tw_status" (current tracking state, for bar.luau), "tw_summary"
 -- (week/month/year totals + day breakdown, for panel.luau) and
--- "tw_intervals" (this week's intervals grouped by local date, which is what
--- the panel's editable rows are built from — for any day of the week, not just
--- today).
+-- "tw_intervals" (the breakdown window's intervals grouped by local date,
+-- which is what the panel's editable rows are built from — for any day it
+-- lists, not just today).
 --
 -- It also owns starting and stopping tracking, and editing interval
 -- boundaries: the panel's toggle button, the bar's middle click and the
@@ -17,6 +17,22 @@
 
 local function trim(s)
   return noctalia.string.trim(s or "")
+end
+
+-- The breakdown window: `breakdown_days` days ending today. One export covers
+-- it, and both the per-day totals and the per-day interval lists come out of
+-- that one call.
+local function breakdownDays()
+  return math.clamp(math.floor(tonumber(noctalia.getConfig("breakdown_days")) or 14), 2, 62)
+end
+
+-- Only the calendar date is used, so the hour that a DST change adds or drops
+-- to a 86400-second day cannot shift the window by more than the boundary day
+-- itself — and `timew` is given "<date> - tomorrow", which is inclusive of
+-- everything tracked today.
+local function breakdownStartDate()
+  local now = math.floor(noctalia.nowMs() / 1000)
+  return noctalia.formatTime("%Y-%m-%d", now - (breakdownDays() - 1) * 86400)
 end
 
 local function pollMs()
@@ -121,9 +137,9 @@ end
 -- precision-agnostic and a setting change needs no re-poll. The open interval
 -- carries no end, and is flagged rather than given a placeholder.
 --
--- Grouped by local calendar date so the panel can show any day of the week
--- from one export — clicking a day in the breakdown needs no extra query, and
--- the ids stay valid for `timew modify` whichever day they came from.
+-- Grouped by local calendar date so the panel can show any day the breakdown
+-- lists from one export — clicking a day needs no extra query, and the ids
+-- stay valid for `timew modify` whichever day they came from.
 local function intervalsByDate(intervals, now)
   local byDate = {}
   for _, interval in ipairs(intervals) do
@@ -153,7 +169,7 @@ local function intervalsByDate(intervals, now)
   return byDate
 end
 
-local function weekBreakdown(intervals)
+local function dayBreakdown(intervals)
   local now = math.floor(noctalia.nowMs() / 1000)
   local totals = {}
   for _, interval in ipairs(intervals) do
@@ -177,21 +193,29 @@ local function weekBreakdown(intervals)
       duration = formatDuration(entry.seconds),
     })
   end
+  -- Newest first: with a two-week window, today matters more than the oldest
+  -- day in it, and the panel shows this list in a scroll area.
   table.sort(days, function(a, b)
-    return a.date < b.date
+    return a.date > b.date
   end)
   return days
 end
 
 local function refreshSummary()
-  -- One :week export for all three things derived from it (total, per-day
-  -- breakdown, per-day intervals) — it used to be exported twice.
-  runTimew({ "export", ":week" }, function(r)
+  -- One export for both things the breakdown window feeds: the per-day totals
+  -- and the per-day interval lists.
+  runTimew({ "export", breakdownStartDate(), "-", "tomorrow" }, function(r)
     local intervals = parseExport(r)
-    summary.week = totalDuration(intervals)
-    summary.days = weekBreakdown(intervals)
+    summary.days = dayBreakdown(intervals)
     publishSummary()
     noctalia.state.set("tw_intervals", intervalsByDate(intervals, math.floor(noctalia.nowMs() / 1000)))
+  end)
+
+  -- The "Week" figure keeps its own :week export rather than being summed out
+  -- of the window above: `timew` owns where the week starts.
+  runTimew({ "export", ":week" }, function(r)
+    summary.week = totalDuration(parseExport(r))
+    publishSummary()
   end)
 
   runTimew({ "export", ":month" }, function(r)
