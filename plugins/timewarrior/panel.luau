@@ -198,14 +198,32 @@ local function intervalRow(row, fmt)
   return ui.row({ key = `interval-{row.id}`, gap = 6, align = "center" }, children)
 end
 
+-- The weekday the breakdown row was labelled with, so clicking "Fr 2026-09-04"
+-- doesn't drop the "Fr" from the heading it opens. The breakdown is the same
+-- source, with the intervals themselves as the fallback for a day it doesn't
+-- list (an empty day reached through the panel's open context).
+local function weekdayFor(date)
+  for _, day in ipairs(summary.days or {}) do
+    if day.date == date then
+      return day.dow or ""
+    end
+  end
+  local rows = intervals[date]
+  if rows ~= nil and rows[1] ~= nil then
+    return noctalia.formatTime("%a", rows[1].startEpoch)
+  end
+  return ""
+end
+
 local function intervalSection(fmt)
   local date = activeDate()
   local isToday = date == todayDate()
   local rows = intervals[date] or {}
+  local weekday = weekdayFor(date)
 
   local heading = ui.row({ align = "center", gap = 6 }, {
     ui.label({
-      text = isToday and "Today" or date,
+      text = isToday and "Today" or (weekday ~= "" and `{weekday} {date}` or date),
       fontSize = 14,
       fontWeight = "bold",
     }),
