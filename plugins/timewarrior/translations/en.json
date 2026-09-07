@@ -106,11 +106,11 @@
     },
     "working_days": {
       "label": "Working days",
-      "description": "Days the \"workdays\" visibility keeps the widget, as ISO weekday numbers (1 = Monday, 7 = Sunday). Ranges and lists both work: \"1-5\", \"1-4,6\", \"7,1-4\"."
+      "description": "Days the \"workdays\" and \"working hours\" visibility modes count as working days, as ISO weekday numbers (1 = Monday, 7 = Sunday). Ranges and lists both work: \"1-5\", \"1-4,6\", \"7,1-4\"."
     },
     "working_hours_start": {
       "label": "Working hours start",
-      "description": "First hour of the day the widget stays in the bar while nothing is tracked (24h clock)."
+      "description": "First hour of a working day the widget stays in the bar while nothing is tracked (24h clock)."
     },
     "working_hours_end": {
       "label": "Working hours end",
@@ -122,7 +122,7 @@
       "tracking": "Only while tracking",
       "always": "Always",
       "workdays": "Always on workdays (Mon-Fri)",
-      "working_hours": "During working hours"
+      "working_hours": "During working hours (on working days)"
     }
   }
 }

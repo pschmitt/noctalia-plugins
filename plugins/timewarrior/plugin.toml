@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.31.0"
+version = "0.32.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -131,10 +131,11 @@ options = [
   { value = "working_hours", label_key = "settings.visibility.working_hours" },
 ]
 
-# Which days "workdays" means, as ISO weekday numbers (1 = Monday, 7 = Sunday)
-# in a comma-separated list of numbers and ranges. Mon-Fri used to be
-# hardcoded, which is only most people's week: "1-4,6" is a four-day week plus
-# Saturday, "7,1-4" a week that starts on Sunday.
+# Which days count as working days, as ISO weekday numbers (1 = Monday,
+# 7 = Sunday) in a comma-separated list of numbers and ranges. Used by both
+# "workdays" and "working_hours". Mon-Fri used to be hardcoded, which is only
+# most people's week: "1-4,6" is a four-day week plus Saturday, "7,1-4" a week
+# that starts on Sunday.
 [[setting]]
 key = "working_days"
 type = "string"
@@ -142,10 +143,10 @@ label_key = "settings.working_days.label"
 description_key = "settings.working_days.description"
 default = "1-5"
 
-# The window "working_hours" keeps the slot in, as local hours: inclusive
-# start, exclusive end. start > end wraps around midnight; start == end means
-# all day. Only consulted by that mode — and by none of them while a timer is
-# running, which is never a moment to hide the widget.
+# The hours "working_hours" keeps the slot in, on working_days, as local
+# hours: inclusive start, exclusive end. start > end wraps around midnight;
+# start == end means all day. Only consulted by that mode — and by none of
+# them while a timer is running, which is never a moment to hide the widget.
 [[setting]]
 key = "working_hours_start"
 type = "int"

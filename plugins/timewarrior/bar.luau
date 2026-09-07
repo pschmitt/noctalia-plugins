@@ -40,10 +40,11 @@ local function icon(active, color)
 end
 
 -- Whether the slot survives an idle timer: "tracking" (vanish, the
--- long-standing default), "always", "workdays" (Mon-Fri only — a time tracker
--- means nothing on a Sunday) or "working_hours" (a configurable stretch of the
--- day). getConfig returns nil for a setting the user has never touched, so
--- anything unrecognised falls back to "tracking".
+-- long-standing default), "always", "workdays" (working days only — a time
+-- tracker means nothing on a Sunday) or "working_hours" (working days, and
+-- only within the configured hours of them). getConfig returns nil for a
+-- setting the user has never touched, so anything unrecognised falls back to
+-- "tracking".
 --
 -- None of these can hide a running timer: render() only consults them while
 -- nothing is tracked. Tracking at 23:00 on a Sunday is exactly when you want
@@ -140,7 +141,10 @@ local function keepSlotWhileIdle()
   elseif mode == "workdays" then
     return isWorkday()
   elseif mode == "working_hours" then
-    return withinWorkingHours()
+    -- Working *hours*, which only exist on a working day: 09:00 on a Sunday
+    -- is not one. This is the strictest mode, and the difference from
+    -- "workdays" is that it also gives the evening back.
+    return isWorkday() and withinWorkingHours()
   end
   return false
 end
