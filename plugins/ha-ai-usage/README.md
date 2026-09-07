@@ -6,7 +6,7 @@ Home Assistant-backed AI plan usage for the Noctalia bar and an attached detail 
 
 The plugin first reads Home Assistant's integration registry and recognises loaded instances of Claude Usage, OpenAI Usage Monitor (Codex), GitHub Copilot Usage, and Gemini Usage. It then asks Home Assistant only for the correct active metrics for those integrations; it never downloads the complete state registry. Disabled integrations and unavailable entities are ignored automatically.
 
-There is no user-maintained provider or sensor list. Each supported integration has its own appropriate metric and reset handling, while labels and icons come directly from Home Assistant.
+There is no user-maintained provider or sensor list. Each supported integration has its own appropriate metric and reset handling, while labels and icons come directly from Home Assistant. Codex's manually redeemable rate-limit resets ("banked resets") are also surfaced on its panel card when the underlying entity reports any as available, along with the soonest expiry.
 
 ## Usage
 

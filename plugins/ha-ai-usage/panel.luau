@@ -21,8 +21,8 @@ end
 -- the same technique pschmitt/battery-icon uses for its rendered bitmap.
 local RING_SIZE = 88
 local RING_CENTER = RING_SIZE / 2
-local RING_OUTER_R = 38
-local RING_INNER_R = 30
+local RING_OUTER_R = 39
+local RING_INNER_R = 27
 local RING_BUCKETS = 50 -- 2%-wide steps: enough to look smooth, few enough files to cache
 
 local pendingRings = {}
@@ -176,6 +176,13 @@ local function card(card)
       ui.label({ text = card.label, fontSize = 15, fontWeight = "bold", flexGrow = 1 }),
     }),
   }
+  local bankedText = shared.bankedResetsText(card.bankedAvailable, card.bankedExpiry)
+  if bankedText ~= nil then
+    sections[#sections + 1] = ui.row({ align = "center", gap = 4 }, {
+      ui.glyph({ name = "ticket-confirmation-outline", size = 11, color = "on_surface_variant" }),
+      ui.label({ text = bankedText, fontSize = 10, color = "on_surface_variant", maxLines = 1 }),
+    })
+  end
   if #headline > 0 then
     local ringRow = {}
     for _, metric in ipairs(headline) do ringRow[#ringRow + 1] = ringCard(metric) end

@@ -55,7 +55,13 @@ local function discoveryTemplate(monitors)
       {%- if pace_val in ['unknown', 'unavailable', none] and pace_b != '' -%}
         {%- set pace_val = states(pace_b) -%}
       {%- endif -%}
-      {%- set ns.items = ns.items + [{"integration": monitor.id, "entity_id": id, "state": item.state, "name": item.name, "icon": attrs.icon | default('', true), "reset_time": reset.state if monitor.id == 'claude' and reset is not none else attrs.reset_time | default('', true), "resets_at": attrs.resets_at | default('', true), "quota_reset_date_utc": attrs.quota_reset_date_utc | default('', true), "primary_reset_time": attrs.primary_reset_time | default('', true), "secondary_reset_time": attrs.secondary_reset_time | default('', true), "pace": pace_val if pace_val not in ['unknown', 'unavailable', none] else ''}] -%}
+      {%- set banked_ns = namespace(expiry='') -%}
+      {%- for credit in (attrs.reset_credits or []) -%}
+        {%- if credit.status == 'available' and credit.expires_at and (banked_ns.expiry == '' or credit.expires_at < banked_ns.expiry) -%}
+          {%- set banked_ns.expiry = credit.expires_at -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {%- set ns.items = ns.items + [{"integration": monitor.id, "entity_id": id, "state": item.state, "name": item.name, "icon": attrs.icon | default('', true), "reset_time": reset.state if monitor.id == 'claude' and reset is not none else attrs.reset_time | default('', true), "resets_at": attrs.resets_at | default('', true), "quota_reset_date_utc": attrs.quota_reset_date_utc | default('', true), "primary_reset_time": attrs.primary_reset_time | default('', true), "secondary_reset_time": attrs.secondary_reset_time | default('', true), "pace": pace_val if pace_val not in ['unknown', 'unavailable', none] else '', "reset_credits_available": attrs.reset_credits_available | default('', true), "reset_credits_next_expiry": banked_ns.expiry}] -%}
     {%- endif -%}
   {%- endfor -%}
 {%- endfor -%}

@@ -127,6 +127,15 @@ function M.cards(items)
         card = { id = id, label = label, glyph = glyph, image = image, order = order, metrics = {} }
         byId[id] = card
       end
+      -- Codex-only: manually redeemable rate-limit resets ("banked resets")
+      -- that accrue over time and expire; every codex_usage_* entity carries
+      -- these as flattened attributes, so any matched item can supply them.
+      local bankedAvailable = tonumber(item.reset_credits_available)
+      if bankedAvailable ~= nil then
+        card.bankedAvailable = bankedAvailable
+        local bankedExpiry = M.trim(item.reset_credits_next_expiry)
+        if M.validState(bankedExpiry) then card.bankedExpiry = bankedExpiry end
+      end
       local window, metricLabel, secondary = metricDetails(item)
       local pace = tonumber(item.pace)
       card.metrics[#card.metrics + 1] = {
@@ -262,7 +271,18 @@ end
 
 function M.paceText(pace)
   if pace == nil then return "" end
-  return string.format("%+.0f%%/day vs. pace", pace)
+  return string.format("%+.0f%%/day", pace)
+end
+
+-- Codex-only: manually redeemable rate-limit resets ("banked resets") granted
+-- over time, each expiring roughly a month after being granted. `available`
+-- is the count still redeemable; `expiry` (when known) is the soonest of
+-- those expirations, so a lingering unused reset doesn't quietly vanish.
+function M.bankedResetsText(available, expiry)
+  if available == nil or available <= 0 then return nil end
+  local label = available == 1 and "1 banked reset" or (available .. " banked resets")
+  if M.validState(expiry) then label ..= " · expires " .. M.resetText(expiry) end
+  return label
 end
 
 -- Home Assistant gives us only the reset target, never when the current
