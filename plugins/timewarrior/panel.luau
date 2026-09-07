@@ -33,11 +33,14 @@ end
 local function toggle()
   local active = status.active == true
   local busy = action ~= nil and action.running == true
+  -- Just the verb: the subtitle above already says whether anything is being
+  -- tracked, so "Stop tracking" on the button was saying it twice. The tooltip
+  -- keeps the long form.
   local label
   if busy then
     label = active and "Stopping…" or "Starting…"
   else
-    label = active and "Stop tracking" or "Start tracking"
+    label = active and "Stop" or "Start"
   end
 
   return ui.column({ gap = 4 }, {

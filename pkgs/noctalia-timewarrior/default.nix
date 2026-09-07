@@ -5,7 +5,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-timewarrior";
-  version = "0.19.1";
+  version = "0.19.2";
 
   src = lib.fileset.toSource {
     root = ../../plugins/timewarrior;
