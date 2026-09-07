@@ -17,12 +17,15 @@ end
 -- actually run on (see shared.windowSeconds), not a measured elapsed time.
 -- Noctalia's Luau UI has no native circular/donut progress control (only
 -- ui.progress, a linear bar), so the ring itself is a PNG rendered on demand
--- with ImageMagick and cached by pluginDataDir()+fraction bucket+color --
--- the same technique pschmitt/battery-icon uses for its rendered bitmap.
+-- with ImageMagick and cached by pluginDataDir()+geometry+fraction
+-- bucket+color -- the same technique pschmitt/battery-icon uses for its
+-- rendered bitmap. Geometry is part of the cache key specifically so a
+-- stroke-width tweak like this one doesn't silently keep serving PNGs
+-- rendered with the old radii.
 local RING_SIZE = 88
 local RING_CENTER = RING_SIZE / 2
 local RING_OUTER_R = 39
-local RING_INNER_R = 27
+local RING_INNER_R = 21
 local RING_BUCKETS = 50 -- 2%-wide steps: enough to look smooth, few enough files to cache
 
 local pendingRings = {}
@@ -88,7 +91,10 @@ local function ensureRing(fraction, fillColor)
   fraction = math.clamp(fraction, 0, 1)
   local bucket = math.floor(fraction * RING_BUCKETS + 0.5)
   local trackColor = shared.resolveColor("on_surface", "#9AA0A6") .. "29" -- ~16% alpha, matches the linear progress track
-  local outPath = dataDir .. "/ring-" .. bucket .. "-" .. sanitizeColor(fillColor) .. ".png"
+  -- The geometry constants are baked into the filename so a stroke-width
+  -- tweak busts the cache instead of silently reusing an old on-disk PNG
+  -- rendered with the previous radii.
+  local outPath = dataDir .. "/ring-" .. RING_OUTER_R .. "x" .. RING_INNER_R .. "-" .. bucket .. "-" .. sanitizeColor(fillColor) .. ".png"
   if noctalia.fileExists(outPath) then return outPath end
   if pendingRings[outPath] then return nil end
   pendingRings[outPath] = true
@@ -169,7 +175,20 @@ local function metricRow(metric)
       ui.label({ text = shared.paceText(metric.pace), fontSize = 10, color = paceColor, maxLines = 1 }),
     })
   end
-  return ui.column({ gap = 4 }, children)
+  return ui.column({ gap = 4, flexGrow = 1 }, children)
+end
+
+-- Splits a flat list of ui nodes into fixed-size rows so a section reads as
+-- a grid instead of one node per line -- keeps the panel compact regardless
+-- of how many metrics a card has.
+local function gridRows(nodes, perRow)
+  local rows = {}
+  for i = 1, #nodes, perRow do
+    local row = {}
+    for j = i, math.min(i + perRow - 1, #nodes) do row[#row + 1] = nodes[j] end
+    rows[#rows + 1] = ui.row({ gap = 8 }, row)
+  end
+  return rows
 end
 
 local function card(card)
@@ -179,6 +198,19 @@ local function card(card)
       headline[#headline + 1] = metric
     else
       rest[#rest + 1] = metric
+    end
+  end
+  -- Providers with no fixed-length window (Copilot's category quotas) never
+  -- produce a headline metric above, which left their card without a ring
+  -- entirely. Promote the card's primary metric into one ring so every card
+  -- gets at least one, same as Claude/Codex/Gemini.
+  if #headline == 0 and card.primary ~= nil and card.primary.reset ~= "" then
+    headline[#headline + 1] = card.primary
+    for i, metric in ipairs(rest) do
+      if metric == card.primary then
+        table.remove(rest, i)
+        break
+      end
     end
   end
   local sections = {
@@ -195,14 +227,14 @@ local function card(card)
     })
   end
   if #headline > 0 then
-    local ringRow = {}
-    for _, metric in ipairs(headline) do ringRow[#ringRow + 1] = ringCard(metric) end
-    sections[#sections + 1] = ui.row({ gap = 8 }, ringRow)
+    local rings = {}
+    for _, metric in ipairs(headline) do rings[#rings + 1] = ringCard(metric) end
+    for _, row in ipairs(gridRows(rings, 2)) do sections[#sections + 1] = row end
   end
   if #rest > 0 then
-    local rows = {}
-    for _, metric in ipairs(rest) do rows[#rows + 1] = metricRow(metric) end
-    sections[#sections + 1] = ui.column({ gap = 9 }, rows)
+    local bars = {}
+    for _, metric in ipairs(rest) do bars[#bars + 1] = metricRow(metric) end
+    for _, row in ipairs(gridRows(bars, 2)) do sections[#sections + 1] = row end
   end
   return ui.column({ fill = "surface_variant/0.58", radius = 14, padding = 12, gap = 9 }, sections)
 end

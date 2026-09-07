@@ -137,6 +137,12 @@ function M.cards(items)
         if M.validState(bankedExpiry) then card.bankedExpiry = bankedExpiry end
       end
       local window, metricLabel, secondary = metricDetails(item)
+      local reset = M.metricReset(item)
+      -- Category quotas with no fixed session/weekly cadence (Copilot's
+      -- chat/completions/premium) still carry their own reset target
+      -- (quota_reset_date_utc); approximate their window as a month so one
+      -- of them can still get a countdown ring instead of none at all.
+      if window == "other" and M.validState(reset) then window = "monthly" end
       local pace = tonumber(item.pace)
       card.metrics[#card.metrics + 1] = {
         entity = entity,
@@ -144,7 +150,7 @@ function M.cards(items)
         window = window,
         secondary = secondary,
         used = used,
-        reset = M.metricReset(item),
+        reset = reset,
         -- Percentage-points/day versus a flat linear pace to the next reset:
         -- positive means burning faster than budget (quota risks running out
         -- early), negative means under budget. Home Assistant only publishes
@@ -287,11 +293,11 @@ end
 
 -- Home Assistant gives us only the reset target, never when the current
 -- window started, so there's no way to compute an exact elapsed/remaining
--- fraction. These are the fixed cadences every supported integration's
--- session/weekly windows actually run on (5h and 7d); anything else (a
--- provider's monthly category quotas) has no fixed length here and is
--- deliberately left out of M.isHeadline above.
-local WINDOW_SECONDS = { short = 5 * 3600, weekly = 7 * 86400 }
+-- fraction. Short/weekly are the fixed cadences every supported
+-- integration's session/weekly windows actually run on (5h and 7d);
+-- "monthly" is a rough 30-day stand-in for category quotas (Copilot) whose
+-- true window length varies with the calendar.
+local WINDOW_SECONDS = { short = 5 * 3600, weekly = 7 * 86400, monthly = 30 * 86400 }
 
 function M.windowSeconds(window)
   return WINDOW_SECONDS[window]
