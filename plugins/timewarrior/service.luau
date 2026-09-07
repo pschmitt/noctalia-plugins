@@ -7,9 +7,11 @@
 -- "tw_status" (current tracking state, for bar.luau) and "tw_summary"
 -- (week/month/year totals + day breakdown, for panel.luau).
 --
--- It also owns starting and stopping tracking: the panel's toggle button and
--- the bar's middle click only publish a command through "tw_cmd", and the
--- outcome comes back through "tw_action".
+-- It also owns starting and stopping tracking, and editing today's interval
+-- boundaries: the panel's toggle button, the bar's middle click and the
+-- panel's time fields only publish a command through "tw_cmd", and the outcome
+-- comes back through "tw_action". Today's intervals themselves are published
+-- as "tw_today".
 
 local function trim(s)
   return noctalia.string.trim(s or "")
@@ -163,10 +165,38 @@ local function refreshSummary()
   end)
 end
 
+-- Today's intervals, in the shape the panel's editable rows need: local
+-- HH:MM boundaries plus the `timew` id to address them by. The open interval
+-- carries no end, and is flagged rather than given a placeholder time.
+local function todayRows(intervals, now)
+  local rows = {}
+  for _, interval in ipairs(intervals) do
+    local start = utcEpoch(interval.start or "")
+    if start then
+      local finish = utcEpoch(interval["end"] or "")
+      table.insert(rows, {
+        id = tonumber(interval.id) or 0,
+        startEpoch = start,
+        start = noctalia.formatTime("%H:%M", start),
+        stop = finish and noctalia.formatTime("%H:%M", finish) or "",
+        open = finish == nil,
+        duration = formatDuration((finish or now) - start),
+      })
+    end
+  end
+  table.sort(rows, function(a, b)
+    return a.startEpoch < b.startEpoch
+  end)
+  return rows
+end
+
 local function poll()
   runTimew({ "export", ":day" }, function(r)
+    local intervals = parseExport(r)
     local now = math.floor(noctalia.nowMs() / 1000)
-    for _, interval in ipairs(parseExport(r)) do
+    noctalia.state.set("tw_today", todayRows(intervals, now))
+
+    for _, interval in ipairs(intervals) do
       if interval["end"] == nil then
         tracking = true
         noctalia.state.set("tw_status", {
@@ -229,6 +259,12 @@ local function lastLine(text)
   return result
 end
 
+local FAILURE_TEXT = {
+  start = "Could not start tracking: ",
+  stop = "Could not stop tracking: ",
+  modify = "Could not change the interval: ",
+}
+
 local function finishCommand(action, result)
   pending = nil
   if result.exitCode == 0 then
@@ -242,7 +278,7 @@ local function finishCommand(action, result)
       message = "exit code " .. tostring(result.exitCode)
     end
     noctalia.log("timewarrior " .. action .. " failed: " .. message)
-    noctalia.notifyError("Timewarrior", "Could not " .. action .. " tracking: " .. message)
+    noctalia.notifyError("Timewarrior", (FAILURE_TEXT[action] or "Timewarrior failed: ") .. message)
     publishAction(action, false, false, message)
   end
   poll()
@@ -267,23 +303,75 @@ local function runCommand(action)
   end
 end
 
-local function dispatch(action)
+-- ── Editing today's boundaries ────────────────────────────────────────────
+--
+-- `timew modify start|end @<id> <time>` is the whole mechanism. Times are
+-- accepted as HH:MM (or HH:MM:SS) and normalised here rather than in the
+-- panel, so every entry point — panel field, IPC, a future launcher action —
+-- gets the same validation. rc.confirmation=off keeps `timew` from waiting on
+-- a prompt no one can answer from a bar panel.
+--
+-- Interval ids are positional (@1 is the newest), so they shift when an
+-- interval is added. The panel re-renders from each poll, which keeps the
+-- window where a stale id could be submitted down to one poll interval.
+local function normalizeTime(value)
+  local hour, minute, second = value:match("^(%d%d?):(%d%d):(%d%d)$")
+  if hour == nil then
+    hour, minute = value:match("^(%d%d?):(%d%d)$")
+    second = "00"
+  end
+  if hour == nil then
+    return nil
+  end
+  local h, m, sec = tonumber(hour), tonumber(minute), tonumber(second)
+  if h == nil or m == nil or sec == nil or h > 23 or m > 59 or sec > 59 then
+    return nil
+  end
+  return string.format("%02d:%02d:%02d", h, m, sec)
+end
+
+local function modifyInterval(field, id, value)
+  local intervalId = math.floor(tonumber(id) or 0)
+  if field ~= "start" and field ~= "end" then
+    return
+  end
+  if intervalId < 1 then
+    return
+  end
+
+  local raw = trim(tostring(value or ""))
+  local time = normalizeTime(raw)
+  if time == nil then
+    publishAction("modify", false, false, `"{raw}" is not a HH:MM time`)
+    return
+  end
+
+  publishAction("modify", true, nil, "")
+  runTimew({ "rc.confirmation=off", "modify", field, `@{intervalId}`, time }, function(result)
+    finishCommand("modify", result)
+  end, commandTimeoutMs())
+end
+
+local function dispatch(cmd)
+  local action = cmd.action
   if action == "toggle" then
     action = tracking and "stop" or "start"
   end
   if action == "start" or action == "stop" then
     runCommand(action)
+  elseif action == "modify" then
+    modifyInterval(cmd.field, cmd.id, cmd.value)
   end
 end
 
 noctalia.state.watch(COMMAND, function(cmd)
   if type(cmd) == "table" then
-    dispatch(cmd.action)
+    dispatch(cmd)
   end
 end)
 
 function onIpc(event)
-  dispatch(event)
+  dispatch({ action = event })
 end
 
 

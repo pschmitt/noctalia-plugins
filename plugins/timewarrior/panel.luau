@@ -3,14 +3,16 @@
 -- this week's daily breakdown, ported from the DMS TimewarriorWidget.qml
 -- popoutContent.
 --
--- The toggle only publishes a command through "tw_cmd"; service.luau owns
--- what actually runs (see its start_command/stop_command handling) and
--- reports back through "tw_action".
+-- The toggle and the editable time fields only publish commands through
+-- "tw_cmd"; service.luau owns what actually runs (see its
+-- start_command/stop_command handling and `timew modify` wrapper) and reports
+-- back through "tw_action".
 
 local duration = require("./lib/duration.luau")
 
 local summary = noctalia.state.get("tw_summary") or { week = "0:00", month = "0:00", year = "0:00", days = {} }
 local status = noctalia.state.get("tw_status") or { active = false, duration = "" }
+local today = noctalia.state.get("tw_today") or {}
 local action = nil
 
 local function currentFormat()
@@ -58,6 +60,73 @@ local function toggle()
       }),
     }),
   })
+end
+
+local function sendCommand(cmd)
+  cmd.n = noctalia.nowMs()
+  noctalia.state.set("tw_cmd", cmd)
+end
+
+-- One row per interval tracked today: id, start, end, duration. Both
+-- boundaries are plain text fields — type HH:MM, press Enter, and the service
+-- runs `timew modify` for that interval. The fields are uncontrolled (the host
+-- owns the buffer, `value` only seeds it), and `key` keeps each field tied to
+-- its interval across re-renders so a poll can't overwrite half-typed input.
+local function intervalRow(row, fmt)
+  local timeField = function(field, value)
+    return ui.input({
+      key = `{field}-{row.id}`,
+      value = value,
+      width = 62,
+      fontSize = 12,
+      submitOnEnter = true,
+      textAlign = "center",
+      onSubmit = function(entered)
+        sendCommand({ action = "modify", field = field, id = row.id, value = entered })
+      end,
+    })
+  end
+
+  local children = {
+    ui.label({ text = `@{row.id}`, fontSize = 11, color = "on_surface_variant", width = 24 }),
+    timeField("start", row.start),
+    ui.label({ text = "→", fontSize = 12, color = "on_surface_variant" }),
+  }
+
+  -- The open interval has no end to edit: setting one is what Stop is for,
+  -- and `timew modify end` on an open interval is an error anyway.
+  if row.open then
+    table.insert(children, ui.row({ width = 62, justify = "center" }, {
+      ui.label({ text = "running", fontSize = 12, color = "primary" }),
+    }))
+  else
+    table.insert(children, timeField("end", row.stop))
+  end
+
+  table.insert(children, ui.row({ justify = "end", flexGrow = 1 }, {
+    ui.label({ text = duration.format(row.duration, fmt), fontSize = 12 }),
+  }))
+
+  return ui.row({ key = `interval-{row.id}`, gap = 6, align = "center" }, children)
+end
+
+local function todaySection(fmt)
+  local children = {
+    ui.row({ align = "center", gap = 6 }, {
+      ui.label({ text = "Today", fontSize = 14, fontWeight = "bold", flexGrow = 1 }),
+      ui.label({ text = "HH:MM, Enter to apply", fontSize = 10, color = "on_surface_variant" }),
+    }),
+  }
+
+  if #today == 0 then
+    table.insert(children, ui.label({ text = "Nothing tracked today", color = "on_surface_variant", fontSize = 13 }))
+  else
+    for _, row in ipairs(today) do
+      table.insert(children, intervalRow(row, fmt))
+    end
+  end
+
+  return ui.column({ gap = 4 }, children)
 end
 
 local function statBox(label, value)
@@ -111,6 +180,8 @@ local function render()
       statBox("Year", duration.format(summary.year, fmt)),
     }),
     ui.separator({}),
+    todaySection(fmt),
+    ui.separator({}),
     ui.label({ text = "This week", fontSize = 14, fontWeight = "bold" }),
   }
 
@@ -131,6 +202,13 @@ end
 noctalia.state.watch("tw_summary", function(val)
   if type(val) == "table" then
     summary = val
+    render()
+  end
+end)
+
+noctalia.state.watch("tw_today", function(val)
+  if type(val) == "table" then
+    today = val
     render()
   end
 end)
@@ -160,5 +238,5 @@ function onToggle()
   -- moments later, but the click should look like it landed immediately.
   action = { action = status.active and "stop" or "start", running = true, message = "" }
   render()
-  noctalia.state.set("tw_cmd", { n = noctalia.nowMs(), action = "toggle" })
+  sendCommand({ action = "toggle" })
 end

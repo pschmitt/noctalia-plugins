@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.10.0"
+version = "0.11.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -161,7 +161,9 @@ entry = "bar.luau"
 id = "panel"
 entry = "panel.luau"
 width = 460
-height = 560
+# Taller than the original 560: today's editable interval rows sit between the
+# week/month/year boxes and the weekly breakdown.
+height = 680
 placement = "attached"
 position = "auto"
 open_near_click = true

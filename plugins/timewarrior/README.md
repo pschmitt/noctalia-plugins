@@ -1,8 +1,9 @@
 # Timewarrior
 
 `pschmitt/timewarrior` shows the running [Timewarrior](https://timewarrior.net/)
-interval in a Noctalia bar and provides a panel with a start/stop toggle plus
-week, month, and year totals and the current week's daily breakdown.
+interval in a Noctalia bar and provides a panel with a start/stop toggle,
+today's intervals with editable boundaries, week/month/year totals, and the
+current week's daily breakdown.
 
 ## Requirement
 
@@ -63,3 +64,20 @@ the command runs, and a failure surfaces both as a toast and as an error line
 in the panel. Tracking state itself always comes from `timew` polling, never
 from the command's exit status, so a wrapper that fails halfway through still
 leaves the widget telling the truth.
+
+## Editing today's intervals
+
+The panel's **Today** section lists every interval tracked today as
+`@id  start → end  duration`. Both boundaries are text fields: type `HH:MM`
+(seconds optional) and press Enter, and the plugin runs
+`timew modify start|end @<id> <time>` for that interval. The running interval
+shows "running" instead of an end field — closing it is what Stop is for.
+
+A rejected time (bad format, or `timew` refusing the change, e.g. an end before
+the start) shows as an error line under the toggle and as a toast; the fields
+re-seed from the next poll, so the panel never shows a value Timewarrior didn't
+accept.
+
+Interval ids are positional — `@1` is the newest — so they shift whenever an
+interval is added. The panel re-renders on every poll, which keeps the window
+for submitting a stale id down to one `poll_interval`.
