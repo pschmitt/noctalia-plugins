@@ -4,14 +4,16 @@
 -- Calls the `timew` CLI directly and decodes its JSON export with Noctalia's
 -- built-in JSON API. This keeps the plugin self-contained: it has no Nix
 -- helper binaries and no jq dependency. Two snapshots are published:
--- "tw_status" (current tracking state, for bar.luau) and "tw_summary"
--- (week/month/year totals + day breakdown, for panel.luau).
+-- "tw_status" (current tracking state, for bar.luau), "tw_summary"
+-- (week/month/year totals + day breakdown, for panel.luau) and
+-- "tw_intervals" (this week's intervals grouped by local date, which is what
+-- the panel's editable rows are built from — for any day of the week, not just
+-- today).
 --
--- It also owns starting and stopping tracking, and editing today's interval
+-- It also owns starting and stopping tracking, and editing interval
 -- boundaries: the panel's toggle button, the bar's middle click and the
 -- panel's time fields only publish a command through "tw_cmd", and the outcome
--- comes back through "tw_action". Today's intervals themselves are published
--- as "tw_today".
+-- comes back through "tw_action".
 
 local function trim(s)
   return noctalia.string.trim(s or "")
@@ -113,6 +115,44 @@ local function publishSummary()
   noctalia.state.set("tw_summary", summary)
 end
 
+-- Intervals in the shape the panel's editable rows need: raw boundary epochs
+-- plus the `timew` id to address them by. Formatting is the panel's business
+-- (it owns the interval_precision setting), so the snapshot stays
+-- precision-agnostic and a setting change needs no re-poll. The open interval
+-- carries no end, and is flagged rather than given a placeholder.
+--
+-- Grouped by local calendar date so the panel can show any day of the week
+-- from one export — clicking a day in the breakdown needs no extra query, and
+-- the ids stay valid for `timew modify` whichever day they came from.
+local function intervalsByDate(intervals, now)
+  local byDate = {}
+  for _, interval in ipairs(intervals) do
+    local start = utcEpoch(interval.start or "")
+    if start then
+      local finish = utcEpoch(interval["end"] or "")
+      -- Group by the local date of the interval's start, matching how the
+      -- breakdown attributes its totals.
+      local date = noctalia.formatTime("%Y-%m-%d", start)
+      local rows = byDate[date] or {}
+      table.insert(rows, {
+        id = tonumber(interval.id) or 0,
+        startEpoch = start,
+        endEpoch = finish,
+        open = finish == nil,
+        duration = formatDuration((finish or now) - start),
+      })
+      byDate[date] = rows
+    end
+  end
+
+  for _, rows in pairs(byDate) do
+    table.sort(rows, function(a, b)
+      return a.startEpoch < b.startEpoch
+    end)
+  end
+  return byDate
+end
+
 local function weekBreakdown(intervals)
   local now = math.floor(noctalia.nowMs() / 1000)
   local totals = {}
@@ -144,9 +184,14 @@ local function weekBreakdown(intervals)
 end
 
 local function refreshSummary()
+  -- One :week export for all three things derived from it (total, per-day
+  -- breakdown, per-day intervals) — it used to be exported twice.
   runTimew({ "export", ":week" }, function(r)
-    summary.week = totalDuration(parseExport(r))
+    local intervals = parseExport(r)
+    summary.week = totalDuration(intervals)
+    summary.days = weekBreakdown(intervals)
     publishSummary()
+    noctalia.state.set("tw_intervals", intervalsByDate(intervals, math.floor(noctalia.nowMs() / 1000)))
   end)
 
   runTimew({ "export", ":month" }, function(r)
@@ -158,44 +203,12 @@ local function refreshSummary()
     summary.year = totalDuration(parseExport(r))
     publishSummary()
   end)
-
-  runTimew({ "export", ":week" }, function(r)
-    summary.days = weekBreakdown(parseExport(r))
-    publishSummary()
-  end)
-end
-
--- Today's intervals, in the shape the panel's editable rows need: raw
--- boundary epochs plus the `timew` id to address them by. Formatting is the
--- panel's business (it owns the interval_precision setting), so the snapshot
--- stays precision-agnostic and a setting change needs no re-poll. The open
--- interval carries no end, and is flagged rather than given a placeholder.
-local function todayRows(intervals, now)
-  local rows = {}
-  for _, interval in ipairs(intervals) do
-    local start = utcEpoch(interval.start or "")
-    if start then
-      local finish = utcEpoch(interval["end"] or "")
-      table.insert(rows, {
-        id = tonumber(interval.id) or 0,
-        startEpoch = start,
-        endEpoch = finish,
-        open = finish == nil,
-        duration = formatDuration((finish or now) - start),
-      })
-    end
-  end
-  table.sort(rows, function(a, b)
-    return a.startEpoch < b.startEpoch
-  end)
-  return rows
 end
 
 local function poll()
   runTimew({ "export", ":day" }, function(r)
     local intervals = parseExport(r)
     local now = math.floor(noctalia.nowMs() / 1000)
-    noctalia.state.set("tw_today", todayRows(intervals, now))
 
     for _, interval in ipairs(intervals) do
       if interval["end"] == nil then

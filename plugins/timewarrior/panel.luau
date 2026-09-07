@@ -12,11 +12,14 @@ local duration = require("./lib/duration.luau")
 
 local summary = noctalia.state.get("tw_summary") or { week = "0:00", month = "0:00", year = "0:00", days = {} }
 local status = noctalia.state.get("tw_status") or { active = false, duration = "" }
-local today = noctalia.state.get("tw_today") or {}
+local intervals = noctalia.state.get("tw_intervals") or {}
 local action = nil
 -- Which boundary is currently being edited, as { id, field }, or nil while the
 -- list is just being read. Only one cell is ever an input at a time.
 local editing = nil
+-- Which day the interval list is showing, as YYYY-MM-DD, or nil for today.
+-- Set by clicking a row in the weekly breakdown.
+local selectedDate = nil
 local render
 
 local function currentFormat()
@@ -84,6 +87,14 @@ local TIME_FONT_SIZE = 13
 -- `timew` stores seconds, so both precisions are just a rendering of the same
 -- epoch. The edit field seeds from the rendered value, which means the choice
 -- here is also the precision an edit is expressed in.
+local function todayDate()
+  return noctalia.formatTime("%Y-%m-%d", math.floor(noctalia.nowMs() / 1000))
+end
+
+local function activeDate()
+  return selectedDate or todayDate()
+end
+
 local function secondsPrecision()
   return noctalia.getConfig("interval_precision") == "seconds"
 end
@@ -169,18 +180,44 @@ local function intervalRow(row, fmt)
   return ui.row({ key = `interval-{row.id}`, gap = 6, align = "center" }, children)
 end
 
-local function todaySection(fmt)
-  local children = {
-    ui.row({ align = "center", gap = 6 }, {
-      ui.label({ text = "Today", fontSize = 14, fontWeight = "bold", flexGrow = 1 }),
-      ui.label({ text = "click a time to edit", fontSize = 10, color = "on_surface_variant" }),
-    }),
-  }
+local function intervalSection(fmt)
+  local date = activeDate()
+  local isToday = date == todayDate()
+  local rows = intervals[date] or {}
 
-  if #today == 0 then
-    table.insert(children, ui.label({ text = "Nothing tracked today", color = "on_surface_variant", fontSize = 13 }))
+  local heading = ui.row({ align = "center", gap = 6 }, {
+    ui.label({
+      text = isToday and "Today" or date,
+      fontSize = 14,
+      fontWeight = "bold",
+    }),
+    ui.label({ text = "click a time to edit", fontSize = 10, color = "on_surface_variant", flexGrow = 1 }),
+  })
+  -- Only offered while looking at another day: the way back is otherwise a
+  -- second click on the highlighted breakdown row, which is less obvious.
+  if not isToday then
+    table.insert(heading.children, ui.button({
+      text = "Today",
+      glyph = "arrow-back-up",
+      variant = "ghost",
+      controlSize = "sm",
+      onClick = function()
+        selectedDate = nil
+        editing = nil
+        render()
+      end,
+    }))
+  end
+
+  local children = { heading }
+  if #rows == 0 then
+    table.insert(children, ui.label({
+      text = isToday and "Nothing tracked today" or "Nothing tracked that day",
+      color = "on_surface_variant",
+      fontSize = 13,
+    }))
   else
-    for _, row in ipairs(today) do
+    for _, row in ipairs(rows) do
       table.insert(children, intervalRow(row, fmt))
     end
   end
@@ -202,9 +239,30 @@ local function statBox(label, value)
   })
 end
 
+-- Clicking a day swaps the interval list above to that day; clicking the
+-- selected one goes back to today. Every day of the week is already in
+-- "tw_intervals", so this costs no extra `timew` call.
 local function dayRow(day, fmt)
-  return ui.row({ justify = "space_between", padding = 2 }, {
-    ui.label({ text = (day.dow or "") .. " " .. (day.date or ""), color = "on_surface_variant", fontSize = 13 }),
+  local date = day.date or ""
+  local selected = date == activeDate()
+  return ui.row({
+    key = `day-{date}`,
+    justify = "space_between",
+    align = "center",
+    padding = 3,
+    radius = 6,
+    fill = selected and "surface_variant" or "#00000000",
+    onClick = function()
+      selectedDate = (selectedDate == date or date == todayDate()) and nil or date
+      editing = nil
+      render()
+    end,
+  }, {
+    ui.label({
+      text = (day.dow or "") .. " " .. date,
+      color = selected and "on_surface" or "on_surface_variant",
+      fontSize = 13,
+    }),
     ui.label({ text = duration.format(day.duration, fmt), fontSize = 13 }),
   })
 end
@@ -239,7 +297,7 @@ function render()
       statBox("Year", duration.format(summary.year, fmt)),
     }),
     ui.separator({}),
-    todaySection(fmt),
+    intervalSection(fmt),
     ui.separator({}),
     ui.label({ text = "This week", fontSize = 14, fontWeight = "bold" }),
   }
@@ -265,9 +323,9 @@ noctalia.state.watch("tw_summary", function(val)
   end
 end)
 
-noctalia.state.watch("tw_today", function(val)
+noctalia.state.watch("tw_intervals", function(val)
   if type(val) == "table" then
-    today = val
+    intervals = val
     render()
   end
 end)
@@ -279,9 +337,10 @@ function onConfigChanged()
 end
 
 function onOpen(_context)
-  -- A panel reopened later should read, not sit in whatever cell was left
-  -- mid-edit when it was dismissed.
+  -- A panel reopened later should read today, not sit in whatever cell was
+  -- left mid-edit on whichever day was being inspected when it was dismissed.
   editing = nil
+  selectedDate = nil
   render()
 end
 

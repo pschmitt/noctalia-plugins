@@ -65,9 +65,9 @@ in the panel. Tracking state itself always comes from `timew` polling, never
 from the command's exit status, so a wrapper that fails halfway through still
 leaves the widget telling the truth.
 
-## Editing today's intervals
+## Editing intervals
 
-The panel's **Today** section lists every interval tracked today as
+The panel's interval section lists every interval of the selected day as
 `@id  start → end  duration`. The boundaries read as plain labels; clicking one
 turns that single cell into a focused text field. Type `HH:MM` (or `HH:MM:SS`)
 and press Enter, and the plugin runs
@@ -79,6 +79,12 @@ A rejected time (bad format, or `timew` refusing the change, e.g. an end before
 the start) shows as an error line under the toggle and as a toast; the fields
 re-seed from the next poll, so the panel never shows a value Timewarrior didn't
 accept.
+
+Clicking a day in the weekly breakdown points that section at that day
+(clicking it again, or the "Today" button in the section header, comes back).
+Every day of the week comes from the same `:week` export the totals are built
+from, so browsing days costs no extra `timew` call, and the ids stay valid for
+`timew modify` whichever day they belong to.
 
 `interval_precision` picks how the boundaries are rendered — `minutes`
 (`HH:MM`, the default) or `seconds` (`HH:MM:SS`). Because the edit field seeds
