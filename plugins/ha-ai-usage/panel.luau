@@ -103,35 +103,46 @@ local function ensureRing(fraction, fillColor)
   return nil
 end
 
+-- Usage percentage on the left (a linear bar, same as the non-headline
+-- metrics below get via metricRow) paired with the reset-countdown ring on
+-- the right: the bar answers "how much is used", the ring answers "how long
+-- until it's back", and neither substitutes for the other.
 local function ringCard(metric)
   local remaining = shared.remainingSeconds(metric.reset)
   local windowSeconds = shared.windowSeconds(metric.window)
   local fraction = (remaining ~= nil and windowSeconds ~= nil) and (remaining / windowSeconds) or 0
-  local fillColor = shared.resolveColor(shared.colorFor(metric.used), "#9AA0A6")
+  local color = shared.colorFor(metric.used)
+  local fillColor = shared.resolveColor(color, "#9AA0A6")
   local imagePath = ensureRing(fraction, fillColor)
   local visual = imagePath ~= nil
     and ui.image({ path = imagePath, width = 40, height = 40, fit = "contain" })
     or ui.glyph({ name = "chart-donut-3", size = 24, color = "on_surface_variant" })
-  local labels = {
-    ui.label({ text = metric.label .. " reset", fontSize = 13, fontWeight = "bold", maxLines = 1 }),
-    ui.label({ text = metric.reset ~= "" and shared.resetText(metric.reset) or "—", fontSize = 12, color = "on_surface_variant", maxLines = 1 }),
+  local left = {
+    ui.row({ align = "center", justify = "space_between" }, {
+      ui.label({ text = metric.label, fontSize = 13, fontWeight = "bold", maxLines = 1 }),
+      ui.label({ text = shared.displayPercent(metric.used, false), fontSize = 13, fontWeight = "bold", color = color, maxLines = 1 }),
+    }),
   }
+  if metric.used ~= nil then
+    left[#left + 1] = ui.progress({ progress = metric.used / 100, fill = color, track = "on_surface/0.16", height = 6, radius = 6 })
+  end
+  left[#left + 1] = ui.label({ text = metric.reset ~= "" and ("Reset " .. shared.resetText(metric.reset)) or "—", fontSize = 11, color = "on_surface_variant", maxLines = 1 })
   if metric.pace ~= nil then
     local paceColor = shared.paceColor(metric.pace)
-    labels[#labels + 1] = ui.row({ align = "center", gap = 3 }, {
+    left[#left + 1] = ui.row({ align = "center", gap = 3 }, {
       ui.glyph({ name = shared.paceGlyph(metric.pace), size = 10, color = paceColor }),
       ui.label({ text = shared.paceText(metric.pace), fontSize = 10, color = paceColor, maxLines = 1 }),
     })
   end
   return ui.row({
     align = "center",
-    justify = "space_between",
+    gap = 10,
     fill = "surface_variant/0.4",
     radius = 12,
     padding = 10,
     flexGrow = 1,
   }, {
-    ui.column({ gap = 2 }, labels),
+    ui.column({ gap = 4, flexGrow = 1 }, left),
     visual,
   })
 end
