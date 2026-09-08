@@ -1,6 +1,6 @@
 id = "pschmitt/ha-ai-usage"
 name = "Home Assistant AI Usage"
-version = "0.13.0"
+version = "0.13.1"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -264,7 +264,11 @@ entry = "bar.luau"
 id = "panel"
 entry = "panel.luau"
 width = 600
-height = 620
+# Tall enough that Compact panel needs no scrolling for a realistic busy
+# account: 2 Claude accounts + Codex + Copilot + Gemini, ~15 metric rows
+# across 5 cards. Non-compact still scrolls well before this with the same
+# data -- that mode is the verbose one by design.
+height = 1000
 placement = "attached"
 position = "auto"
 open_near_click = true

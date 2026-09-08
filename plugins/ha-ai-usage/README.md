@@ -16,7 +16,7 @@ Add `pschmitt/ha-ai-usage:bar` to a Noctalia bar. Left click opens the attached 
 
 The panel header's link icon opens `server_file`'s URL plus **Home Assistant link path** (default `/`) in the desktop's default browser — point it at a dashboard, e.g. `/mi-casa/data#ai-quotas`.
 
-Enable **Compact panel** to fit more providers in the same panel height: smaller rings, tighter card padding/spacing, and no per-metric pace aside or absolute reset time (the relative countdown stays).
+Enable **Compact panel** to fit more providers in the same panel height: smaller rings, tighter card padding/spacing/fonts, and no absolute reset time -- pace and the relative reset countdown stay, they're the numbers worth a glance.
 
 The default bar is deliberately compact: glyphs plus progress bars, with values and labels kept in the tooltip and panel. The tooltip is the at-a-glance view and ignores **Bar cards**, **Bar metric limit** and **Bar quota window** entirely: it lists every discovered account with one short line per headline quota (`Weekly 21%`) — an account's own session/weekly windows only, never Gemini's 3P side quotas or Copilot's per-category counters, and falling back to the primary quota for providers that expose no time window at all. Lines are kept narrow on purpose — the tooltip ellipsizes wide values — so reset times stay in the panel.
 

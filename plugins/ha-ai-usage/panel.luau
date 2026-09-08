@@ -52,10 +52,10 @@ local function ringSlot(metric, size)
 end
 
 -- The text side of a ring card: headline, bar, reset countdown, pace.
--- Compact mode drops the pace aside and the absolute-reset tack-on so a
--- metric fits in two lines instead of three -- the countdown/pace numbers
--- are still one click away in the bar tooltip, just not worth the vertical
--- cost once the goal is fitting more providers in the same panel height.
+-- Compact mode keeps all four -- pace and the reset countdown are exactly
+-- the numbers worth glancing at, not chrome to shed -- and only shrinks
+-- fonts/gaps and drops the absolute-reset tack-on (redundant with the
+-- relative countdown right next to it) to fit more providers per screen.
 local function ringLines(metric, compact)
   local color = shared.colorFor(metric.used)
   -- Pace sits beside the label rather than on a line of its own: it is a
@@ -64,11 +64,11 @@ local function ringLines(metric, compact)
   local heading = {
     ui.label({ text = metric.label, fontSize = compact and 12 or 13, fontWeight = "bold", maxLines = 1 }),
   }
-  if metric.pace ~= nil and not compact then
+  if metric.pace ~= nil then
     local paceColor = shared.paceColor(metric.pace)
     heading[#heading + 1] = ui.row({ align = "center", gap = 3 }, {
-      ui.glyph({ name = shared.paceGlyph(metric.pace), size = 10, color = paceColor }),
-      ui.label({ text = shared.paceText(metric.pace), fontSize = 10, color = paceColor, maxLines = 1 }),
+      ui.glyph({ name = shared.paceGlyph(metric.pace), size = compact and 9 or 10, color = paceColor }),
+      ui.label({ text = shared.paceText(metric.pace), fontSize = compact and 9 or 10, color = paceColor, maxLines = 1 }),
     })
   end
   local lines = {
@@ -80,7 +80,6 @@ local function ringLines(metric, compact)
   if metric.used ~= nil then
     lines[#lines + 1] = ui.progress({ progress = metric.used / 100, fill = color, track = "on_surface/0.16", height = compact and 4 or 6, radius = 6 })
   end
-  if compact then return lines end
   -- A hover-tooltip button (ui.button, the only control that carries one)
   -- turned out to render worse than the problem it solved: no visible
   -- tooltip in practice, and the button's own hover fill/padding looked
@@ -93,12 +92,13 @@ local function ringLines(metric, compact)
     resetLine = "Reset " .. shared.resetText(metric.reset)
     -- Only worth appending when the row itself is the relative countdown;
     -- an absolute reset_time_format already shows this and would just repeat
-    -- itself.
-    if shared.config("reset_time_format", "relative") == "relative" then
+    -- itself. Compact drops it outright even then -- it is the one line here
+    -- that's a repeat of information already on the row, not new information.
+    if not compact and shared.config("reset_time_format", "relative") == "relative" then
       resetLine ..= " · " .. shared.resetAbsoluteText(metric.reset)
     end
   end
-  lines[#lines + 1] = ui.label({ text = resetLine, fontSize = 11, color = "on_surface_variant", maxLines = 1 })
+  lines[#lines + 1] = ui.label({ text = resetLine, fontSize = compact and 10 or 11, color = "on_surface_variant", maxLines = 1 })
   return lines
 end
 
