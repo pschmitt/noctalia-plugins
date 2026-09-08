@@ -123,6 +123,14 @@
       "always": "Always",
       "workdays": "Always on workdays (Mon-Fri)",
       "working_hours": "During working hours (on working days)"
+    },
+    "clock_out_after": {
+      "label": "Clock out after (intervals)",
+      "description": "How many finished intervals today count as a full day: once that many are done and nothing is tracked, the bar shows the clock-out icon instead of the pause icon. 2 is a morning and an afternoon around a lunch break. 0 disables it."
+    },
+    "clock_out_glyph": {
+      "label": "Clocked-out icon",
+      "description": "Glyph shown in the bar once the day's intervals are done, in place of the stopped icon. Empty keeps the stopped icon."
     }
   }
 }

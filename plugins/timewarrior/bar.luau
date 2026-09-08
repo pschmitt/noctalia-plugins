@@ -6,37 +6,75 @@
 -- figure that is comes from `bar_metric` (today's total by default, see
 -- metric() below), and while nothing is tracked the widget hides by default
 -- or, depending on the `visibility` setting, keeps its place showing a pause
--- icon — see visibility().
+-- icon — see visibility() — or, once the day's stints are done, the clock-out
+-- glyph, see clockedOut().
 
 local duration = require("./lib/duration.luau")
 local formats = require("./lib/formats.luau")
 local overtime = require("./lib/overtime.luau")
 
-local state = noctalia.state.get("tw_status") or { active = false, duration = "", today = "", since = "" }
+local state = noctalia.state.get("tw_status") or { active = false, duration = "", today = "", since = "", closed = 0 }
 local summary = noctalia.state.get("tw_summary") or { week = "", month = "" }
 
 local LOGO_TRACKING = "assets/timewarrior-logo.svg"
 local LOGO_STOPPED = "assets/pause.svg"
 
--- The bundled artwork is the default for both states; a glyph setting replaces
--- it for that state alone, so tracking can be a glyph while stopped stays the
--- pause image, or the other way round. A glyph takes the colour of the figure
--- beside it, which an SVG can't, so the two aren't interchangeable in style —
--- that is the point of the setting.
-local function icon(active, color)
+-- The bundled artwork is the default for both tracking states; a glyph setting
+-- replaces it for that state alone, so tracking can be a glyph while stopped
+-- stays the pause image, or the other way round. A glyph takes the colour of
+-- the figure beside it, which an SVG can't, so the two aren't interchangeable
+-- in style — that is the point of the setting.
+--
+-- The clock-out state has no artwork of its own: it is a glyph (a beer by
+-- default) or nothing, in which case it falls back to the stopped icon — it is
+-- still a stopped tracker, just one that has earned the evening.
+local GLYPH_SETTINGS = {
+  tracking = "tracking_glyph",
+  stopped = "stopped_glyph",
+  clock_out = "clock_out_glyph",
+}
+
+local LOGOS = {
+  tracking = LOGO_TRACKING,
+  stopped = LOGO_STOPPED,
+  clock_out = LOGO_STOPPED,
+}
+
+local function icon(kind, color)
   local size = tonumber(noctalia.getConfig("icon_size")) or 16
-  local glyph = noctalia.string.trim(noctalia.getConfig(active and "tracking_glyph" or "stopped_glyph") or "")
+  local glyph = noctalia.string.trim(noctalia.getConfig(GLYPH_SETTINGS[kind]) or "")
 
   if glyph ~= "" then
     return ui.glyph({ name = glyph, size = size, color = color })
   end
 
   return ui.image({
-    path = active and LOGO_TRACKING or LOGO_STOPPED,
+    path = LOGOS[kind],
     width = size,
     height = size,
     fit = "contain",
   })
+end
+
+-- Feierabend: once the day's stints are behind you, a paused tracker is the
+-- wrong thing for the bar to say. After `clock_out_after` closed intervals
+-- today — 2 being a morning and an afternoon around a lunch break — the
+-- stopped icon becomes the clock-out glyph instead.
+--
+-- Counted in intervals rather than hours because that is what marks the shape
+-- of a day: the second stop is Feierabend whether it lands at 16:00 or 19:00.
+-- 0 (the default) turns the whole thing off; it is a personal rhythm, not a
+-- universal one. And it is only ever an idle state — starting a third interval
+-- puts the tracking icon straight back.
+local function clockedOut(active)
+  if active then
+    return false
+  end
+  local after = math.floor(tonumber(noctalia.getConfig("clock_out_after")) or 0)
+  if after < 1 then
+    return false
+  end
+  return (tonumber(state.closed) or 0) >= after
 end
 
 -- Whether the slot survives an idle timer: "tracking" (vanish, the
@@ -199,9 +237,9 @@ end
 --
 -- Each figure keeps the format its own setting gives it, so the tooltip agrees
 -- with the panel rather than inventing a third rendering.
-local function tooltipRows(active)
+local function tooltipRows(active, clockOut)
   local rows = {
-    { key = "Timewarrior", value = active and "tracking" or "not tracking" },
+    { key = "Timewarrior", value = active and "tracking" or (clockOut and "clocked out" or "not tracking") },
   }
 
   if active then
@@ -217,6 +255,12 @@ local function tooltipRows(active)
   if (state.today or "") ~= "" then
     table.insert(rows, { key = "Today", value = duration.format(state.today, formats.get("panel_time_format")) })
   end
+  -- The count the clock-out threshold is compared against, so a bar showing
+  -- (or stubbornly not showing) the beer explains itself on hover.
+  local closed = tonumber(state.closed) or 0
+  if closed > 0 then
+    table.insert(rows, { key = "Intervals", value = tostring(closed) })
+  end
   if (summary.week or "") ~= "" then
     table.insert(rows, { key = "Week", value = duration.format(summary.week, formats.get("week_time_format")) })
   end
@@ -229,6 +273,7 @@ end
 
 local function render()
   local active = state.active == true
+  local clockOut = clockedOut(active)
   local container = barWidget.isVertical() and ui.column or ui.row
 
   if not active and not keepSlotWhileIdle() then
@@ -250,14 +295,14 @@ local function render()
   local color = (spec.overtime and value ~= "") and overtime.color(value)
     or (noctalia.getConfig("label_color") or "on_surface")
 
-  local children = { icon(active, color) }
+  local children = { icon(active and "tracking" or (clockOut and "clock_out" or "stopped"), color) }
   if value ~= "" then
     table.insert(children, ui.label({ text = duration.format(value, formats.get("bar_time_format")), color = color }))
   end
 
   barWidget.setVisible(true)
   barWidget.render(container({ gap = 5, align = "center" }, children))
-  barWidget.setTooltip(tooltipRows(active))
+  barWidget.setTooltip(tooltipRows(active, clockOut))
 end
 
 noctalia.state.watch("tw_status", function(val)

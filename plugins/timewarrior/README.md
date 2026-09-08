@@ -28,9 +28,19 @@ symbol while stopped. Naming a glyph replaces that one state's icon and tints
 it like the figure beside it (including the overtime colour), which the SVGs
 can't do.
 
+`clock_out_after` is Feierabend: after that many finished intervals today,
+with nothing running, the bar swaps the stopped icon for `clock_out_glyph` (a
+beer by default). 2 is a morning and an afternoon around a lunch break — the
+threshold counts intervals rather than hours because that is what marks the
+shape of a day, whether the second stop lands at 16:00 or 19:00. `0`, the
+default, turns it off. Starting another interval puts the tracking icon back,
+and since this is an idle state it needs a `visibility` mode that keeps the
+slot while idle (see below) to be visible at all.
+
 Hovering the widget shows a small table rather than a sentence: the tracking
-state, when the running interval started, the interval, today, this week and
-this month. Each figure keeps the format its own setting gives it, so the hover
+state (`clocked out` once the threshold is met), when the running interval
+started, the interval, today, the number of finished intervals today, this week
+and this month. Each figure keeps the format its own setting gives it, so the hover
 agrees with the panel.
 
 `bar_metric` decides what the bar widget shows: `day` (today's total, the

@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.32.0"
+version = "0.33.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -58,6 +58,34 @@ type = "glyph"
 label_key = "settings.stopped_glyph.label"
 description_key = "settings.stopped_glyph.description"
 default = ""
+
+# Feierabend. Once `clock_out_after` intervals have been closed today and
+# nothing is running, the bar swaps the stopped icon for `clock_out_glyph` — a
+# beer, by default, which is the whole point of the feature: "the work part of
+# the day is over" is worth a different mark than "the timer happens to be
+# paused".
+#
+# The threshold counts closed intervals, not hours: 2 is a morning and an
+# afternoon around a lunch break, and the second stop is Feierabend whether it
+# lands at 16:00 or at 19:00. 0 — the default — turns it off, since a day's
+# shape is a personal thing. Starting another interval puts the tracking icon
+# back, and the state needs a `visibility` mode that keeps the slot while idle
+# to be visible at all.
+[[setting]]
+key = "clock_out_after"
+type = "int"
+label_key = "settings.clock_out_after.label"
+description_key = "settings.clock_out_after.description"
+default = 0
+min = 0
+max = 12
+
+[[setting]]
+key = "clock_out_glyph"
+type = "glyph"
+label_key = "settings.clock_out_glyph.label"
+description_key = "settings.clock_out_glyph.description"
+default = "beer"
 
 # What figure the bar widget shows. The running interval was the only thing it
 # ever displayed, which answers "how long have I been at this?" but not the

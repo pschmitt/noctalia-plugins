@@ -238,12 +238,19 @@ local function poll()
     -- Today's total goes out with the status, not the summary: the bar can be
     -- set to show it, and it has to tick with the running interval rather than
     -- with the wider week/month exports.
+    -- Closed intervals are counted alongside the total: the bar's clock-out
+    -- state is "the day's stints are done", which is a count of finished
+    -- intervals, not a duration. Counted here rather than in the bar because
+    -- the bar only ever sees this snapshot.
     local today = 0
     local open = nil
+    local closed = 0
     for _, interval in ipairs(intervals) do
       today += intervalDuration(interval, now)
       if interval["end"] == nil then
         open = interval
+      else
+        closed += 1
       end
     end
 
@@ -261,6 +268,7 @@ local function poll()
       duration = open ~= nil and formatDuration(intervalDuration(open, now)) or "",
       today = formatDuration(today),
       since = since,
+      closed = closed,
     })
     refreshSummary()
   end)
