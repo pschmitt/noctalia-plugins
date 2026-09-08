@@ -52,15 +52,19 @@ local function ringSlot(metric, size)
 end
 
 -- The text side of a ring card: headline, bar, reset countdown, pace.
-local function ringLines(metric)
+-- Compact mode drops the pace aside and the absolute-reset tack-on so a
+-- metric fits in two lines instead of three -- the countdown/pace numbers
+-- are still one click away in the bar tooltip, just not worth the vertical
+-- cost once the goal is fitting more providers in the same panel height.
+local function ringLines(metric, compact)
   local color = shared.colorFor(metric.used)
   -- Pace sits beside the label rather than on a line of its own: it is a
   -- two-glyph aside, and a whole row per metric costs more vertical space
   -- than the panel can spare once every metric is stacked in one card.
   local heading = {
-    ui.label({ text = metric.label, fontSize = 13, fontWeight = "bold", maxLines = 1 }),
+    ui.label({ text = metric.label, fontSize = compact and 12 or 13, fontWeight = "bold", maxLines = 1 }),
   }
-  if metric.pace ~= nil then
+  if metric.pace ~= nil and not compact then
     local paceColor = shared.paceColor(metric.pace)
     heading[#heading + 1] = ui.row({ align = "center", gap = 3 }, {
       ui.glyph({ name = shared.paceGlyph(metric.pace), size = 10, color = paceColor }),
@@ -70,12 +74,13 @@ local function ringLines(metric)
   local lines = {
     ui.row({ align = "center", gap = 6 }, {
       ui.row({ align = "center", gap = 6, flexGrow = 1 }, heading),
-      ui.label({ text = shared.displayPercent(metric.used, false), fontSize = 13, fontWeight = "bold", color = color, maxLines = 1 }),
+      ui.label({ text = shared.displayPercent(metric.used, false), fontSize = compact and 12 or 13, fontWeight = "bold", color = color, maxLines = 1 }),
     }),
   }
   if metric.used ~= nil then
-    lines[#lines + 1] = ui.progress({ progress = metric.used / 100, fill = color, track = "on_surface/0.16", height = 6, radius = 6 })
+    lines[#lines + 1] = ui.progress({ progress = metric.used / 100, fill = color, track = "on_surface/0.16", height = compact and 4 or 6, radius = 6 })
   end
+  if compact then return lines end
   -- A hover-tooltip button (ui.button, the only control that carries one)
   -- turned out to render worse than the problem it solved: no visible
   -- tooltip in practice, and the button's own hover fill/padding looked
@@ -105,25 +110,26 @@ end
 -- back to a differently-sized ring in a differently-shaped card next to a
 -- two-window one.
 local RING_DISPLAY_SIZE = 34
+local RING_DISPLAY_SIZE_COMPACT = 22
 
-local function ringCard(metrics)
+local function ringCard(metrics, compact)
   local rows = {}
   for _, metric in ipairs(metrics) do
-    rows[#rows + 1] = ui.row({ align = "center", gap = 10 }, {
-      ringSlot(metric, RING_DISPLAY_SIZE),
-      ui.column({ gap = 3, flexGrow = 1 }, ringLines(metric)),
+    rows[#rows + 1] = ui.row({ align = "center", gap = compact and 7 or 10 }, {
+      ringSlot(metric, compact and RING_DISPLAY_SIZE_COMPACT or RING_DISPLAY_SIZE),
+      ui.column({ gap = 3, flexGrow = 1 }, ringLines(metric, compact)),
     })
   end
   return ui.column({
-    gap = 8,
+    gap = compact and 5 or 8,
     fill = "surface_variant/0.4",
-    radius = 12,
-    padding = 10,
+    radius = compact and 10 or 12,
+    padding = compact and 7 or 10,
     flexGrow = 1,
   }, rows)
 end
 
-local function card(card)
+local function card(card, compact)
   local headline, rest = {}, {}
   for _, metric in ipairs(card.metrics) do
     if shared.isHeadline(metric) then
@@ -146,30 +152,36 @@ local function card(card)
     end
   end
   local titleRow = {
-    providerIcon(card, 18, shared.colorFor(card.primary.used)),
-    ui.label({ text = card.label, fontSize = 15, fontWeight = "bold", flexGrow = 1 }),
+    providerIcon(card, compact and 14 or 18, shared.colorFor(card.primary.used)),
+    ui.label({ text = card.label, fontSize = compact and 13 or 15, fontWeight = "bold", flexGrow = 1 }),
   }
   local bankedText = shared.bankedResetsText(card.bankedAvailable, card.bankedExpiry)
-  if bankedText ~= nil then
+  if bankedText ~= nil and not compact then
     titleRow[#titleRow + 1] = ui.row({ align = "center", gap = 4 }, {
       ui.glyph({ name = "ticket", size = 11, color = "on_surface_variant" }),
       ui.label({ text = bankedText, fontSize = 10, color = "on_surface_variant", maxLines = 1 }),
     })
   end
   local sections = {
-    ui.row({ align = "center", gap = 8 }, titleRow),
+    ui.row({ align = "center", gap = compact and 6 or 8 }, titleRow),
   }
   if #headline > 0 or #rest > 0 then
     local ordered = {}
     for _, metric in ipairs(headline) do ordered[#ordered + 1] = metric end
     for _, metric in ipairs(rest) do ordered[#ordered + 1] = metric end
-    sections[#sections + 1] = ringCard(ordered)
+    sections[#sections + 1] = ringCard(ordered, compact)
   end
-  return ui.column({ fill = "surface_variant/0.58", radius = 14, padding = 12, gap = 9 }, sections)
+  return ui.column({
+    fill = "surface_variant/0.58",
+    radius = compact and 11 or 14,
+    padding = compact and 8 or 12,
+    gap = compact and 6 or 9,
+  }, sections)
 end
 
 local function render()
   if not panelOpen then return end
+  local compact = noctalia.getConfig("compact_panel") == true
   local header = ui.row({ align = "center", justify = "space_between" }, {
     ui.row({ align = "center", gap = 10 }, {
       ui.row({ align = "center", justify = "center", width = 36, height = 36, fill = "primary/0.15", radius = 11 }, {
@@ -198,7 +210,7 @@ local function render()
     }),
   })
   local content = {}
-  for _, item in ipairs(shared.cards(items)) do content[#content + 1] = card(item) end
+  for _, item in ipairs(shared.cards(items)) do content[#content + 1] = card(item, compact) end
   if #content == 0 then content[#content + 1] = ui.label({ text = "No active AI usage metrics were discovered.", color = "on_surface_variant" }) end
   local children = { header }
   if errorMessage ~= "" then
@@ -207,8 +219,8 @@ local function render()
       ui.label({ text = errorMessage, fontSize = 11, color = "error", maxLines = 1 }),
     })
   end
-  children[#children + 1] = ui.scroll({ flexGrow = 1, gap = 10 }, content)
-  panel.render(ui.column({ flexGrow = 1, padding = 14, gap = 10 }, children))
+  children[#children + 1] = ui.scroll({ flexGrow = 1, gap = compact and 6 or 10 }, content)
+  panel.render(ui.column({ flexGrow = 1, padding = compact and 10 or 14, gap = compact and 6 or 10 }, children))
 end
 
 noctalia.state.watch("ha_ai_usage.items", function(value)
@@ -219,6 +231,7 @@ noctalia.state.watch("ha_ai_usage.error", function(value)
   errorMessage = type(value) == "string" and value or ""
   render()
 end)
+function onConfigChanged() render() end
 function onOpen()
   panelOpen = true
   noctalia.state.set("ha_ai_usage.command", { action = "refresh" })

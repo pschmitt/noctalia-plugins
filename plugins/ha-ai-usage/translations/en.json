@@ -15,6 +15,7 @@
     "warning_threshold": { "label": "Warning threshold (%)", "description": "Usage percentage that switches to the warning color." },
     "critical_threshold": { "label": "Critical threshold (%)", "description": "Usage percentage that switches to the critical color." },
     "display_mode": { "label": "Bar display mode", "description": "Icon is the compact icon-only mode; summary and detailed both show discovered metrics per the toggles below.", "icon": "Compact icon only", "summary": "Summary", "detailed": "Detailed" },
+    "compact_panel": { "label": "Compact panel", "description": "Shrink the popup panel's cards -- smaller ring, tighter padding and spacing, no pace aside or absolute reset time -- so more providers fit without scrolling." },
     "metric_limit": { "label": "Bar metric limit", "description": "Maximum number of discovered usage metrics displayed in this bar instance." },
     "card_filter": { "label": "Bar cards", "description": "Optional comma-separated card names or account fragments to show, matched case-insensitively. For example: Pro, Gemini, Codex. Leave empty to show all discovered cards." },
     "metric_window": { "label": "Bar quota window", "description": "Choose the 5h/session or weekly quota displayed in the bar. Providers with category-only quotas remain visible.", "all": "Automatic (first quota)", "short": "5h / session", "weekly": "Weekly" },

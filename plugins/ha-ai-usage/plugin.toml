@@ -1,6 +1,6 @@
 id = "pschmitt/ha-ai-usage"
 name = "Home Assistant AI Usage"
-version = "0.12.0"
+version = "0.13.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -123,6 +123,15 @@ key = "show_remaining"
 type = "bool"
 label_key = "settings.show_remaining.label"
 description_key = "settings.show_remaining.description"
+default = false
+
+# ── Panel ────────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "compact_panel"
+type = "bool"
+label_key = "settings.compact_panel.label"
+description_key = "settings.compact_panel.description"
 default = false
 
 # ── Formatting and colors ────────────────────────────────────────────────────
