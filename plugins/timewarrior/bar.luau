@@ -103,6 +103,11 @@ local function badgeModeIcon(kind, color)
     position = noctalia.getConfig("badge_position") or "bottom_right",
     mainColor = resolveColor.resolve(noctalia.getConfig("label_color") or "on_surface", "#9AA0A6"),
     badgeColor = resolveColor.resolve(color, "#9AA0A6"),
+    -- A fixed backing chip, deliberately not the dynamic state colour: the
+    -- common non-overtime case resolves to a light, low-saturation
+    -- "on_surface" grey, which put the (equally light) glyph on an
+    -- indistinguishable same-colour circle when the circle used it too.
+    badgeBgColor = resolveColor.resolve("surface_variant", "#1E1F27"),
     logoPngPath = LOGO_PNG,
     assetsDir = assetsDir,
   }

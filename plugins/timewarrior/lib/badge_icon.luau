@@ -40,7 +40,6 @@ local BADGE_DIAMETER = 56
 local BADGE_MARGIN = 2
 local BADGE_FONT_SIZE = 32
 local MAIN_FONT_SIZE = 92
-local BADGE_GLYPH_COLOR = "white"
 
 local CACHE_KEY = "@cacheKey@"
 local MAGICK = "@magick@"
@@ -75,8 +74,18 @@ local function path(key)
 end
 
 -- `opts`: mainGlyph, badgeGlyph (both "" for "none"/bundled), position,
--- mainColor, badgeColor (real hex -- resolve_color.luau first), logoPngPath
--- (the build-time-rasterized bundled logo), assetsDir (noctalia_assets_dir).
+-- mainColor, badgeColor, badgeBgColor (real hex -- resolve_color.luau first),
+-- logoPngPath (the build-time-rasterized bundled logo), assetsDir
+-- (noctalia_assets_dir).
+--
+-- badgeColor tints the badge glyph itself, not its circle: it is the same
+-- dynamic state/overtime colour swap mode would have tinted the whole icon
+-- with, and on the built-in palette that is often a light, low-saturation
+-- "on_surface" grey outside of overtime -- putting that on a same-colour
+-- circle (confirmed live: an early version did exactly this) rendered as one
+-- indistinct pale blob. badgeBgColor is a separate, fixed backing colour so
+-- the badge reads as a chip against the main icon regardless of what state
+-- colour lands on it.
 --
 -- Calls `callback(path)` -- synchronously with the cached path when one
 -- already exists for this exact combination, otherwise asynchronously once
@@ -89,6 +98,7 @@ function M.ensure(opts, callback)
     opts.position or "",
     opts.mainColor or "",
     opts.badgeColor or "",
+    opts.badgeBgColor or "",
   }, "|")
   local outPath = path(key)
   if outPath == nil then
@@ -151,13 +161,13 @@ function M.ensure(opts, callback)
     local cx, cy = badgeCenter(opts.position)
     local r = math.floor(BADGE_DIAMETER / 2)
     push("-fill")
-    push(opts.badgeColor)
+    push(opts.badgeBgColor)
     push("-draw")
     push(string.format("circle %d,%d %d,%d", cx, cy, cx + r, cy))
     push("-gravity")
     push("center")
     push("-fill")
-    push(BADGE_GLYPH_COLOR)
+    push(opts.badgeColor)
     push("-font")
     push(font)
     push("-pointsize")
