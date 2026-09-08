@@ -129,12 +129,12 @@ function M.color(fraction, hasWindow)
     return "on_surface_variant"
   end
   if fraction <= CRITICAL_REMAINING then
-    return shared.config("ring_critical_color", "error")
+    return shared.config("panel_ring_critical_color", "error")
   end
   if fraction <= WARNING_REMAINING then
-    return shared.config("ring_warning_color", "#F5A97F")
+    return shared.config("panel_ring_warning_color", "#F5A97F")
   end
-  return shared.config("ring_normal_color", "primary")
+  return shared.config("panel_ring_normal_color", "primary")
 end
 
 function M.fillColor(fraction, hasWindow)

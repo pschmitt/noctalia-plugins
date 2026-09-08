@@ -1,6 +1,6 @@
 id = "pschmitt/ha-ai-usage"
 name = "Home Assistant AI Usage"
-version = "0.15.0"
+version = "0.16.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -44,95 +44,95 @@ max = 3600
 # ── Bar ──────────────────────────────────────────────────────────────────────
 
 [[setting]]
-key = "display_mode"
+key = "bar_display_mode"
 type = "select"
-label_key = "settings.display_mode.label"
-description_key = "settings.display_mode.description"
+label_key = "settings.bar_display_mode.label"
+description_key = "settings.bar_display_mode.description"
 default = "summary"
 options = [
-  { value = "icon", label_key = "settings.display_mode.icon" },
-  { value = "summary", label_key = "settings.display_mode.summary" },
-  { value = "detailed", label_key = "settings.display_mode.detailed" },
+  { value = "icon", label_key = "settings.bar_display_mode.icon" },
+  { value = "summary", label_key = "settings.bar_display_mode.summary" },
+  { value = "detailed", label_key = "settings.bar_display_mode.detailed" },
 ]
 
 [[setting]]
-key = "metric_window"
+key = "bar_metric_window"
 type = "select"
-label_key = "settings.metric_window.label"
-description_key = "settings.metric_window.description"
+label_key = "settings.bar_metric_window.label"
+description_key = "settings.bar_metric_window.description"
 default = "short"
 options = [
-  { value = "all", label_key = "settings.metric_window.all" },
-  { value = "short", label_key = "settings.metric_window.short" },
-  { value = "weekly", label_key = "settings.metric_window.weekly" },
-  { value = "both", label_key = "settings.metric_window.both" },
+  { value = "all", label_key = "settings.bar_metric_window.all" },
+  { value = "short", label_key = "settings.bar_metric_window.short" },
+  { value = "weekly", label_key = "settings.bar_metric_window.weekly" },
+  { value = "both", label_key = "settings.bar_metric_window.both" },
 ]
 
 [[setting]]
-key = "card_filter"
+key = "bar_card_filter"
 type = "string"
-label_key = "settings.card_filter.label"
-description_key = "settings.card_filter.description"
+label_key = "settings.bar_card_filter.label"
+description_key = "settings.bar_card_filter.description"
 default = ""
 
 [[setting]]
-key = "metric_limit"
+key = "bar_metric_limit"
 type = "int"
-label_key = "settings.metric_limit.label"
-description_key = "settings.metric_limit.description"
+label_key = "settings.bar_metric_limit.label"
+description_key = "settings.bar_metric_limit.description"
 default = 3
 min = 1
 max = 20
 
 [[setting]]
-key = "show_name"
+key = "bar_show_name"
 type = "bool"
-label_key = "settings.show_name.label"
-description_key = "settings.show_name.description"
+label_key = "settings.bar_show_name.label"
+description_key = "settings.bar_show_name.description"
 default = false
 
 [[setting]]
-key = "show_value"
+key = "bar_show_value"
 type = "bool"
-label_key = "settings.show_value.label"
-description_key = "settings.show_value.description"
+label_key = "settings.bar_show_value.label"
+description_key = "settings.bar_show_value.description"
 default = false
 
 [[setting]]
-key = "show_progress"
+key = "bar_show_progress"
 type = "bool"
-label_key = "settings.show_progress.label"
-description_key = "settings.show_progress.description"
+label_key = "settings.bar_show_progress.label"
+description_key = "settings.bar_show_progress.description"
 default = true
 
 [[setting]]
-key = "show_reset"
+key = "bar_show_reset"
 type = "bool"
-label_key = "settings.show_reset.label"
-description_key = "settings.show_reset.description"
+label_key = "settings.bar_show_reset.label"
+description_key = "settings.bar_show_reset.description"
 default = false
 
 [[setting]]
-key = "show_remaining"
+key = "bar_show_remaining"
 type = "bool"
-label_key = "settings.show_remaining.label"
-description_key = "settings.show_remaining.description"
+label_key = "settings.bar_show_remaining.label"
+description_key = "settings.bar_show_remaining.description"
 default = false
 
 # ── Panel ────────────────────────────────────────────────────────────────────
 
 [[setting]]
-key = "dashboard_path"
+key = "panel_dashboard_path"
 type = "string"
-label_key = "settings.dashboard_path.label"
-description_key = "settings.dashboard_path.description"
+label_key = "settings.panel_dashboard_path.label"
+description_key = "settings.panel_dashboard_path.description"
 default = "/"
 
 [[setting]]
-key = "compact_panel"
+key = "panel_compact"
 type = "bool"
-label_key = "settings.compact_panel.label"
-description_key = "settings.compact_panel.description"
+label_key = "settings.panel_compact.label"
+description_key = "settings.panel_compact.description"
 default = false
 
 [[setting]]
@@ -146,24 +146,24 @@ default = true
 # reusing the usage ones: no shipped palette has an orange role (Indigo's
 # tertiary is lavender), hence the literal hex default.
 [[setting]]
-key = "ring_normal_color"
+key = "panel_ring_normal_color"
 type = "color"
-label_key = "settings.ring_normal_color.label"
-description_key = "settings.ring_normal_color.description"
+label_key = "settings.panel_ring_normal_color.label"
+description_key = "settings.panel_ring_normal_color.description"
 default = "primary"
 
 [[setting]]
-key = "ring_warning_color"
+key = "panel_ring_warning_color"
 type = "color"
-label_key = "settings.ring_warning_color.label"
-description_key = "settings.ring_warning_color.description"
+label_key = "settings.panel_ring_warning_color.label"
+description_key = "settings.panel_ring_warning_color.description"
 default = "#F5A97F"
 
 [[setting]]
-key = "ring_critical_color"
+key = "panel_ring_critical_color"
 type = "color"
-label_key = "settings.ring_critical_color.label"
-description_key = "settings.ring_critical_color.description"
+label_key = "settings.panel_ring_critical_color.label"
+description_key = "settings.panel_ring_critical_color.description"
 default = "error"
 
 # ── Shared (bar + panel) ─────────────────────────────────────────────────────
@@ -229,37 +229,37 @@ id = "bar"
 entry = "bar.luau"
 
   [[widget.setting]]
-  key = "icon_size"
+  key = "bar_icon_size"
   type = "int"
-  label_key = "settings.icon_size.label"
-  description_key = "settings.icon_size.description"
+  label_key = "settings.bar_icon_size.label"
+  description_key = "settings.bar_icon_size.description"
   default = 16
   min = 10
   max = 48
 
   [[widget.setting]]
-  key = "progress_width"
+  key = "bar_progress_width"
   type = "int"
-  label_key = "settings.progress_width.label"
-  description_key = "settings.progress_width.description"
+  label_key = "settings.bar_progress_width.label"
+  description_key = "settings.bar_progress_width.description"
   default = 26
   min = 4
   max = 200
 
   [[widget.setting]]
-  key = "progress_height"
+  key = "bar_progress_height"
   type = "int"
-  label_key = "settings.progress_height.label"
-  description_key = "settings.progress_height.description"
+  label_key = "settings.bar_progress_height.label"
+  description_key = "settings.bar_progress_height.description"
   default = 5
   min = 2
   max = 32
 
   [[widget.setting]]
-  key = "spacing"
+  key = "bar_spacing"
   type = "int"
-  label_key = "settings.spacing.label"
-  description_key = "settings.spacing.description"
+  label_key = "settings.bar_spacing.label"
+  description_key = "settings.bar_spacing.description"
   default = 6
   min = 0
   max = 48

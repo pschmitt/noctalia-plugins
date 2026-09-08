@@ -10,15 +10,15 @@ local function providerIcon(card, size, color)
 end
 
 local function selectedCards()
-  local limit = math.max(1, math.min(20, tonumber(shared.config("metric_limit", 3)) or 3))
-  local cards = shared.filterCards(shared.cards(items), shared.config("card_filter", ""))
-  return shared.selectWindow(cards, shared.config("metric_window", "short"), limit)
+  local limit = math.max(1, math.min(20, tonumber(shared.config("bar_metric_limit", 3)) or 3))
+  local cards = shared.filterCards(shared.cards(items), shared.config("bar_card_filter", ""))
+  return shared.selectWindow(cards, shared.config("bar_metric_window", "short"), limit)
 end
 
 local function metricText(metric)
   return (metric.label or "Usage") .. " " .. shared.displayPercent(
     metric.used,
-    noctalia.getConfig("show_remaining") == true
+    noctalia.getConfig("bar_show_remaining") == true
   )
 end
 
@@ -27,17 +27,17 @@ end
 -- window can stack two of these in a column instead of laying them out flat.
 local function metricNodes(metric)
   local nodes = {}
-  if noctalia.getConfig("show_progress") ~= false and metric.used ~= nil then
+  if noctalia.getConfig("bar_show_progress") ~= false and metric.used ~= nil then
     nodes[#nodes + 1] = ui.progress({
       progress = metric.used / 100,
       fill = shared.colorFor(metric.used),
       track = "on_surface/0.16",
-      width = tonumber(shared.config("progress_width", 26)) or 26,
-      height = tonumber(shared.config("progress_height", 5)) or 5,
+      width = tonumber(shared.config("bar_progress_width", 26)) or 26,
+      height = tonumber(shared.config("bar_progress_height", 5)) or 5,
       radius = 6,
     })
   end
-  if noctalia.getConfig("show_value") == true then
+  if noctalia.getConfig("bar_show_value") == true then
     nodes[#nodes + 1] = ui.label({
       text = metricText(metric),
       fontSize = 11,
@@ -46,13 +46,13 @@ local function metricNodes(metric)
       maxLines = 1,
     })
   end
-  -- Unlike display_mode's docstring implies, this used to require
+  -- Unlike bar_display_mode's docstring implies, this used to require
   -- mode == "detailed" on top of its own toggle -- the only one of the four
   -- show_* toggles gated by mode, so flipping it while in summary mode (the
   -- plugin's own default) silently did nothing. Dropped for consistency with
-  -- show_name/show_progress/show_value, which only ever check their own
-  -- toggle plus the icon-mode bail-out above.
-  if noctalia.getConfig("show_reset") == true and metric.reset ~= "" then
+  -- bar_show_name/bar_show_progress/bar_show_value, which only ever check
+  -- their own toggle plus the icon-mode bail-out above.
+  if noctalia.getConfig("bar_show_reset") == true and metric.reset ~= "" then
     nodes[#nodes + 1] = ui.label({ text = "↻ " .. shared.resetText(metric.reset, true), fontSize = 10, color = "on_surface_variant", maxLines = 1 })
   end
   return nodes
@@ -71,18 +71,18 @@ local function windowMetrics(card)
 end
 
 local function segment(card)
-  local mode = shared.config("display_mode", "summary")
-  local window = shared.config("metric_window", "short")
+  local mode = shared.config("bar_display_mode", "summary")
+  local window = shared.config("bar_metric_window", "short")
   local metrics = window == "both" and windowMetrics(card) or { shared.metricForWindow(card, window) or card.primary }
-  local iconSize = tonumber(shared.config("icon_size", 16)) or 16
+  local iconSize = tonumber(shared.config("bar_icon_size", 16)) or 16
   local children = {
     providerIcon(card, iconSize, shared.colorFor(metrics[1].used)),
   }
   if mode == "icon" then return ui.row({ align = "center" }, children) end
-  if noctalia.getConfig("show_name") == true then
+  if noctalia.getConfig("bar_show_name") == true then
     children[#children + 1] = ui.label({ text = card.label, fontSize = 11, fontWeight = "semibold", maxLines = 1 })
   end
-  local gap = tonumber(shared.config("spacing", 6)) or 6
+  local gap = tonumber(shared.config("bar_spacing", 6)) or 6
   if #metrics > 1 then
     local rows = {}
     for _, metric in ipairs(metrics) do
@@ -96,9 +96,10 @@ local function segment(card)
 end
 
 -- Every discovered account, whatever the bar itself is showing: the tooltip is
--- the "everything at a glance" view, so it deliberately ignores card_filter,
--- metric_limit and metric_window. One quota per line, each kept short ("Weekly
--- 21%") — the tooltip ellipsizes wide values, so reset times stay in the panel.
+-- the "everything at a glance" view, so it deliberately ignores
+-- bar_card_filter, bar_metric_limit and bar_metric_window. One quota per
+-- line, each kept short ("Weekly 21%") — the tooltip ellipsizes wide values,
+-- so reset times stay in the panel.
 --
 -- Only the headline quotas make it in: an account's own session/weekly windows,
 -- never Gemini's 3P side quotas or Copilot's per-category counters. Providers
@@ -126,10 +127,10 @@ local function render()
     children[#children + 1] = segment(card)
   end
   if #children == 0 then
-    children[#children + 1] = ui.glyph({ name = "chart-donut-3", size = tonumber(shared.config("icon_size", 16)) or 16, color = "on_surface_variant" })
+    children[#children + 1] = ui.glyph({ name = "chart-donut-3", size = tonumber(shared.config("bar_icon_size", 16)) or 16, color = "on_surface_variant" })
   end
   if errorMessage ~= "" then children[#children + 1] = ui.glyph({ name = "alert-circle", size = 12, color = "error" }) end
-  local gap = tonumber(shared.config("spacing", 6)) or 6
+  local gap = tonumber(shared.config("bar_spacing", 6)) or 6
   barWidget.render(ui.row({ align = "center", gap = gap * 2 }, children))
   barWidget.setTooltip(tooltip(shared.cards(items)))
 end

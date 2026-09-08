@@ -187,7 +187,7 @@ end
 
 local function render()
   if not panelOpen then return end
-  local compact = noctalia.getConfig("compact_panel") == true
+  local compact = noctalia.getConfig("panel_compact") == true
   local allMetrics = noctalia.getConfig("panel_all_metrics") ~= false
   local header = ui.row({ align = "center", justify = "space_between" }, {
     ui.row({ align = "center", gap = 10 }, {

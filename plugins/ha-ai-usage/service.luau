@@ -52,7 +52,7 @@ local function openDashboard()
     noctalia.state.set("ha_ai_usage.error", "Home Assistant " .. (serverErr or "credentials are unavailable"))
     return
   end
-  local path = shared.trim(noctalia.getConfig("dashboard_path"))
+  local path = shared.trim(noctalia.getConfig("panel_dashboard_path"))
   if path == "" then path = "/" end
   if path:sub(1, 1) ~= "/" then path = "/" .. path end
   local url = shq(server:gsub("/+$", "") .. path)
