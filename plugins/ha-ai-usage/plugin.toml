@@ -1,6 +1,6 @@
 id = "pschmitt/ha-ai-usage"
 name = "Home Assistant AI Usage"
-version = "0.17.1"
+version = "0.18.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -48,10 +48,9 @@ key = "bar_display_mode"
 type = "select"
 label_key = "settings.bar_display_mode.label"
 description_key = "settings.bar_display_mode.description"
-default = "summary"
+default = "detailed"
 options = [
   { value = "icon", label_key = "settings.bar_display_mode.icon" },
-  { value = "summary", label_key = "settings.bar_display_mode.summary" },
   { value = "detailed", label_key = "settings.bar_display_mode.detailed" },
 ]
 

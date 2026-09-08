@@ -14,7 +14,7 @@ There is no user-maintained provider or sensor list. Each supported integration 
 
 ## Usage
 
-Add `pschmitt/ha-ai-usage:bar` to a Noctalia bar. Left click opens the attached panel; right click refreshes Home Assistant data immediately. Set **Bar: Display mode** to **Compact icon only** for the requested compact mode: the bar shows only discovered metric icons while retaining the tooltip, refresh action, and full detail panel.
+Add `pschmitt/ha-ai-usage:bar` to a Noctalia bar. Left click opens the attached panel; right click refreshes Home Assistant data immediately. Set **Bar: Display mode** to **Icon(s) only** for the requested compact mode: the bar shows only discovered metric icons while retaining the tooltip, refresh action, and full detail panel.
 
 Settings are prefixed by what they affect -- **Connection:** (server/token/refresh), **Bar:** (bar-widget-only), **Panel:** (popup-panel-only), or **Shared:** (both) -- so it's clear at a glance which surface a given toggle changes.
 

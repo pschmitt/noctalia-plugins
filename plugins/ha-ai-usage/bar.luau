@@ -51,12 +51,10 @@ local function metricNodes(metric, stacked)
       maxLines = 1,
     })
   end
-  -- Unlike bar_display_mode's docstring implies, this used to require
-  -- mode == "detailed" on top of its own toggle -- the only one of the four
-  -- show_* toggles gated by mode, so flipping it while in summary mode (the
-  -- plugin's own default) silently did nothing. Dropped for consistency with
-  -- bar_show_name/bar_show_progress/bar_show_value, which only ever check
-  -- their own toggle plus the icon-mode bail-out above.
+  -- Only checks its own toggle plus the icon-mode bail-out above, same as
+  -- bar_show_name/bar_show_progress/bar_show_value -- it used to also
+  -- require mode == "detailed", which was redundant now that "detailed" is
+  -- the only non-icon mode.
   if noctalia.getConfig("bar_show_reset") == true and metric.reset ~= "" then
     nodes[#nodes + 1] = ui.label({ text = "↻ " .. shared.resetText(metric.reset, true), fontSize = stacked and 8 or 10, color = "on_surface_variant", maxLines = 1 })
   end
@@ -76,7 +74,7 @@ local function windowMetrics(card)
 end
 
 local function segment(card)
-  local mode = shared.config("bar_display_mode", "summary")
+  local mode = shared.config("bar_display_mode", "detailed")
   local window = shared.config("bar_metric_window", "short")
   local metrics = window == "both" and windowMetrics(card) or { shared.metricForWindow(card, window) or card.primary }
   local iconSize = tonumber(shared.config("bar_icon_size", 16)) or 16
