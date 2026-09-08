@@ -175,11 +175,10 @@ local function render()
     ui.button({
       glyph = "player-stop",
       text = stopping and "Stopping…" or "Stop sharing",
-      variant = "outline",
-      -- Tints the button's own text/glyph ink only, leaving the outline
-      -- variant's border/background/hover animation alone (see
-      -- overlays/patches/noctalia/0004-button-content-color.patch).
-      color = "error",
+      -- The error-filled variant (same one timewarrior's own Stop uses), not
+      -- outline + a content-color tint: that only reddened the text/glyph,
+      -- leaving the background/border neutral.
+      variant = "destructive",
       enabled = state.active and not stopping,
       flexGrow = 1,
       onClick = "onStop",
