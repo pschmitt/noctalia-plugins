@@ -4,13 +4,21 @@
 
 id = "pschmitt/screencast"
 name = "Screencast Indicator"
-version = "0.6.0"
+version = "0.6.1"
 plugin_api = 24 # argument-array runAsync() keeps the pw-cli calls shell-free
 author = "pschmitt"
 license = "GPL-3.0-only"
 tags = ["bar", "indicator", "utility"]
 icon = "screen-share"
 description = "Red dot + REC bar indicator while portal-based screensharing is active."
+# hyprctl is Hyprland-only and used opportunistically (click-to-focus a
+# sharing client in panel.luau) -- every other runAsync target here is either
+# this declared-dependencies PATH lookup (see other plugins' own
+# `dependencies`) or a build-time substituted absolute path (pw-cli in
+# service.luau), so an undeclared bare "hyprctl" would not resolve at all.
+# Harmless to declare on non-Hyprland desktops: the focus feature just stays
+# a no-op there, same as it silently is today when hyprctl is missing.
+dependencies = ["hyprctl"]
 
 # ── Plugin-level settings (shared by every entry, edited in Settings -> Plugins) ──
 

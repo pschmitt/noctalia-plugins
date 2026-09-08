@@ -79,6 +79,7 @@ end
 local function focusApp(app)
   noctalia.runAsync({ "hyprctl", "-j", "clients" }, function(result)
     if result.exitCode ~= 0 then
+      noctalia.log("screencast: hyprctl clients failed: " .. noctalia.string.trim(result.stderr or "unknown error"))
       return
     end
     local clients = noctalia.json.decode(result.stdout or "")
