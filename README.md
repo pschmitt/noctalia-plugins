@@ -9,7 +9,7 @@ Personal [Noctalia](https://github.com/noctalia-dev/noctalia) plugins by
 
 | Plugin | Description |
 | --- | --- |
-| [`pschmitt/battery-icon`](./plugins/battery-icon) | Android-inspired battery indicator with percentage, charging state, and optional sounds. |
+| [`pschmitt/battery-icon`](./plugins/battery-icon) | Android-inspired battery indicator with percentage, charging state, optional sounds, and configurable power controls. |
 | [`pschmitt/fan-control`](./plugins/fan-control) | Fan RPM indicator with manual speed control and a load-average panel. |
 | [`pschmitt/ha-ai-usage`](./plugins/ha-ai-usage) | Dynamically discovered AI plan quotas (Claude, Codex, Copilot, Gemini) sourced from Home Assistant. |
 | [`pschmitt/osd`](./plugins/osd) | Scriptable, ad-hoc OSD/toast panels. |

@@ -1,6 +1,6 @@
 id = "pschmitt/battery-icon"
 name = "Battery Icon"
-version = "0.6.0"
+version = "0.6.3"
 plugin_api = 26 # noctalia.getSetting() and noctalia.openSettings()
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -150,6 +150,31 @@ type = "bool"
 label_key = "settings.show_fan_controls.label"
 description_key = "settings.show_fan_controls.description"
 default = true
+
+[[setting]]
+key = "show_tdp_controls"
+type = "bool"
+label_key = "settings.show_tdp_controls.label"
+description_key = "settings.show_tdp_controls.description"
+default = false
+
+[[setting]]
+key = "tdp_min_watts"
+type = "int"
+label_key = "settings.tdp_min_watts.label"
+description_key = "settings.tdp_min_watts.description"
+default = 5
+min = 1
+max = 1000
+
+[[setting]]
+key = "tdp_max_watts"
+type = "int"
+label_key = "settings.tdp_max_watts.label"
+description_key = "settings.tdp_max_watts.description"
+default = 28
+min = 1
+max = 1000
 
 [[setting]]
 key = "panel_size"

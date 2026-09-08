@@ -24,6 +24,10 @@ profile selector, charge level/health/thresholds, other UPower battery levels,
 and temperature/load from Fan Control. Fan Auto/Full blast/Manual controls are
 shown by default when Fan Control supports direct control; disable them with
 **Show fan controls** in **Settings → Plugins → Battery Icon**.
+An optional configurable TDP slider is available on supported AMD systems with
+`ryzenadj`; enable it with **Show TDP control** and set its bounds with the TDP
+minimum and maximum settings. Changing the limit authenticates through
+PolicyKit.
 
 The small gear in the popup's lower-right corner opens these plugin settings.
 Use **Other devices icons** to choose device-type glyphs (for example, mouse

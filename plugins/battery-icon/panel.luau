@@ -7,6 +7,7 @@
 local DETAILS = "battery_icon.details"
 local BATTERY_COMMAND = "battery_icon.command"
 local FAN_STATE = "battery_icon.fan"
+local TDP_STATE = "battery_icon.tdp"
 local PANEL_PADDING = 10
 
 local details = noctalia.state.get(DETAILS) or {
@@ -26,8 +27,15 @@ local fan = noctalia.state.get(FAN_STATE) or {
   temp = 0,
   loadAvg = { one = 0, five = 0, fifteen = 0 },
 }
+local tdp = noctalia.state.get(TDP_STATE) or {
+  available = false,
+  watts = 28,
+  minWatts = 5,
+  maxWatts = 28,
+}
 local render
 local fanSliderPreview = nil
+local tdpSliderPreview = nil
 
 local function batteryCommand(payload)
   noctalia.state.set(BATTERY_COMMAND, payload)
@@ -360,6 +368,46 @@ local function fanControls()
   return ui.column({ gap = 6 }, children)
 end
 
+local function tdpControls()
+  if noctalia.getConfig("show_tdp_controls") ~= true then
+    return nil
+  end
+  if not tdp.available then
+    return ui.row({ gap = 8, align = "center" }, {
+      ui.glyph({ name = "bolt", size = 14, color = "on_surface_variant" }),
+      ui.label({ text = noctalia.tr("panel.tdp_unavailable"), fontSize = 11, color = "on_surface_variant" }),
+    })
+  end
+
+  local minimum = tonumber(tdp.minWatts) or 5
+  local maximum = tonumber(tdp.maxWatts) or 28
+  local watts = math.clamp(math.floor(tonumber(tdpSliderPreview or tdp.watts) or minimum), minimum, maximum)
+  return ui.column({ gap = 6 }, {
+    ui.row({ gap = 8, align = "center" }, {
+      ui.glyph({ name = "bolt", size = 14, color = "on_surface_variant" }),
+      ui.label({ text = noctalia.tr("panel.tdp"), fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
+      ui.label({ text = tostring(watts) .. " W", fontSize = 14, fontWeight = "bold" }),
+    }),
+    ui.slider({
+      min = minimum,
+      max = maximum,
+      step = 1,
+      value = watts,
+      controlSize = "sm",
+      width = 230,
+      onChange = function(nextValue)
+        tdpSliderPreview = tonumber(nextValue) or watts
+        render()
+      end,
+      onDragEnd = function(value)
+        local target = tdpSliderPreview or tonumber(value) or watts
+        tdpSliderPreview = nil
+        batteryCommand({ action = "set_tdp", value = target })
+      end,
+    }),
+  })
+end
+
 render = function()
   local scrollChildren = { ui.column({ gap = 6 }, batteryRows()) }
   local others = otherDevices()
@@ -376,6 +424,11 @@ render = function()
   if controls then
     table.insert(scrollChildren, ui.separator({}))
     table.insert(scrollChildren, controls)
+  end
+  local tdp = tdpControls()
+  if tdp then
+    table.insert(scrollChildren, ui.separator({}))
+    table.insert(scrollChildren, tdp)
   end
 
   -- The manifest selects the surface height. Fill that surface so the header
@@ -396,6 +449,7 @@ end
 function onOpen(_context)
   details = noctalia.state.get(DETAILS) or details
   fan = noctalia.state.get(FAN_STATE) or fan
+  tdp = noctalia.state.get(TDP_STATE) or tdp
   batteryIcon = noctalia.state.get("battery_icon") or batteryIcon
   batteryCommand({ action = "refresh" })
   render()
@@ -425,6 +479,16 @@ noctalia.state.watch(FAN_STATE, function(value)
       fanSliderPreview = nil
     end
     fan = value
+    render()
+  end
+end)
+
+noctalia.state.watch(TDP_STATE, function(value)
+  if type(value) == "table" then
+    if value.watts ~= tdp.watts or value.minWatts ~= tdp.minWatts or value.maxWatts ~= tdp.maxWatts then
+      tdpSliderPreview = nil
+    end
+    tdp = value
     render()
   end
 end)

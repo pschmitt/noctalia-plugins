@@ -43,6 +43,7 @@ local soundReady = { charging = false, unplug = false }
 local DETAILS = "battery_icon.details"
 local COMMAND = "battery_icon.command"
 local FAN_STATE = "battery_icon.fan"
+local TDP_STATE = "battery_icon.tdp"
 local POWER_PROFILES = {
   ["power-saver"] = true,
   balanced = true,
@@ -63,6 +64,28 @@ local fanSnapshot = {
   temp = 0,
   loadAvg = { one = 0, five = 0, fifteen = 0 },
 }
+
+local TDP_DEFAULT_MIN_WATTS = 5
+local TDP_DEFAULT_MAX_WATTS = 28
+
+local function tdpRange()
+  local minimum = math.clamp(math.floor(tonumber(noctalia.getConfig("tdp_min_watts")) or TDP_DEFAULT_MIN_WATTS), 1, 1000)
+  local maximum = math.clamp(math.floor(tonumber(noctalia.getConfig("tdp_max_watts")) or TDP_DEFAULT_MAX_WATTS), 1, 1000)
+  if maximum < minimum then
+    maximum = minimum
+  end
+  return minimum, maximum
+end
+
+local tdpMinWatts, tdpMaxWatts = tdpRange()
+local tdpSnapshot = {
+  available = noctalia.getConfig("show_tdp_controls") == true,
+  watts = tdpMaxWatts,
+  minWatts = tdpMinWatts,
+  maxWatts = tdpMaxWatts,
+}
+local tdpReading = false
+local tdpReadDone = false
 
 -- "Is external power connected?", most portable source first.
 --
@@ -833,8 +856,86 @@ local function startCriticalPulse(cfg, percent, charging, powerSaver, dataDir)
   )
 end
 
+local function publishTdp()
+  noctalia.state.set(TDP_STATE, {
+    available = tdpSnapshot.available,
+    watts = tdpSnapshot.watts,
+    minWatts = tdpSnapshot.minWatts,
+    maxWatts = tdpSnapshot.maxWatts,
+  })
+end
+
+local function parseTdp(output)
+  local limits = {}
+  for line in (output or ""):gmatch("[^\n]+") do
+    local name, value = line:match("^|%s*(.-)%s*|%s*([%d%.]+)%s*|")
+    if name and value then
+      limits[name] = tonumber(value)
+    end
+  end
+
+  local current = limits["STAPM LIMIT"] or limits["PPT LIMIT FAST"] or limits["PPT LIMIT SLOW"]
+  if current == nil then
+    return nil
+  end
+  return math.floor(current + 0.5)
+end
+
+local function readTdp()
+  if noctalia.getConfig("show_tdp_controls") ~= true or tdpReading or tdpReadDone then
+    return
+  end
+  tdpReading = true
+  noctalia.runAsync("@pkexec@ @ryzenadj_tdp@ --info", function(result)
+    tdpReading = false
+    tdpReadDone = true
+    local minimum, maximum = tdpRange()
+    local watts = result.exitCode == 0 and parseTdp(result.stdout) or nil
+    if watts == nil then
+      noctalia.log("battery-icon: TDP read failed: " .. trim(result.stderr))
+    else
+      tdpSnapshot.available = true
+      tdpSnapshot.minWatts = minimum
+      tdpSnapshot.maxWatts = maximum
+      tdpSnapshot.watts = math.clamp(watts, minimum, maximum)
+      publishTdp()
+    end
+  end, 5000)
+end
+
+local function setTdp(value)
+  if noctalia.getConfig("show_tdp_controls") ~= true then
+    return
+  end
+  local minimum, maximum = tdpRange()
+  local watts = math.clamp(math.floor(tonumber(value) or tdpSnapshot.watts), minimum, maximum)
+  local milliwatts = tostring(watts * 1000)
+  local command = "@pkexec@ @ryzenadj_tdp@"
+    .. " --stapm-limit="
+    .. milliwatts
+    .. " --fast-limit="
+    .. milliwatts
+    .. " --slow-limit="
+    .. milliwatts
+    .. " --apu-slow-limit="
+    .. milliwatts
+  noctalia.runAsync(command, function(result)
+    if result.exitCode ~= 0 then
+      noctalia.notifyError(noctalia.tr("notify.tdp_error_title"), noctalia.tr("notify.tdp_error_body"))
+      noctalia.log("battery-icon: TDP change failed: " .. trim(result.stderr))
+      return
+    end
+    tdpSnapshot.available = true
+    tdpSnapshot.minWatts = minimum
+    tdpSnapshot.maxWatts = maximum
+    tdpSnapshot.watts = watts
+    publishTdp()
+  end, 5000)
+end
+
 local function poll()
   readFan()
+  readTdp()
   local cfg = settings()
   local statusPath = "/sys/class/power_supply/" .. cfg.device .. "/status"
 
@@ -1049,11 +1150,14 @@ noctalia.state.watch(COMMAND, function(cmd)
     setFan(cmd.mode, cmd.mode == "manual" and 50 or nil)
   elseif cmd.action == "set_fan_percent" then
     setFan("manual", math.clamp(math.floor(tonumber(cmd.value) or 50), 0, 100))
+  elseif cmd.action == "set_tdp" then
+    setTdp(cmd.value)
   elseif cmd.action == "set_caffeine" and type(cmd.enabled) == "boolean" then
     setCaffeine(cmd.enabled)
   end
 end)
 
+publishTdp()
 poll()
 
 -- Everything below is edge-triggered, so poll_interval is only a safety net

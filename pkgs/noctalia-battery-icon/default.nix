@@ -13,7 +13,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-battery-icon";
-  version = "0.6.0";
+  version = "0.6.3";
 
   src = lib.fileset.toSource {
     root = ../../plugins/battery-icon;
@@ -44,7 +44,9 @@ stdenvNoCC.mkDerivation {
     substitute service.luau "$dest"/service.luau \
       --subst-var-by magick ${imagemagick}/bin/magick \
       --subst-var-by font ${roboto}/share/fonts/truetype/Roboto-Bold.ttf \
+      --subst-var-by pkexec /run/wrappers/bin/pkexec \
       --subst-var-by powerprofilesctl ${power-profiles-daemon}/bin/powerprofilesctl \
+      --subst-var-by ryzenadj_tdp /run/current-system/sw/bin/ryzenadj-tdp \
       --subst-var-by udevadm ${systemd}/bin/udevadm \
       --subst-var-by busctl ${systemd}/bin/busctl \
       --subst-var-by systemctl ${systemd}/bin/systemctl \

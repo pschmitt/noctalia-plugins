@@ -4,6 +4,8 @@
     "caffeine_error_title": "Caffeine",
     "fan_error_body": "Could not set the fan mode/speed. Check the Noctalia service log for the driver error.",
     "fan_error_title": "Fan control",
+    "tdp_error_body": "Could not set the TDP limit. Check authentication and the Noctalia service log.",
+    "tdp_error_title": "TDP control",
     "power_profile_error_body": "Could not change the power profile. Check that power-profiles-daemon is running.",
     "power_profile_error_title": "Power profile"
   },
@@ -34,6 +36,8 @@
     "power_saver": "Power saver",
     "rpm": "RPM",
     "temperature": "Temperature",
+    "tdp": "TDP limit",
+    "tdp_unavailable": "TDP control unavailable",
     "time_remaining": "Time remaining",
     "time_to_full": "Time to full",
     "title": "Power control"
@@ -122,6 +126,18 @@
     "show_fan_controls": {
       "label": "Show fan controls",
       "description": "Show fan Auto, Full blast, and Manual controls in the power panel when the Fan Control plugin is available."
+    },
+    "show_tdp_controls": {
+      "label": "Show TDP control",
+      "description": "Show an optional configurable TDP slider when ryzenadj is available. The control uses PolicyKit and is intended for supported AMD handhelds/laptops."
+    },
+    "tdp_min_watts": {
+      "label": "TDP slider minimum (W)",
+      "description": "Lowest wattage exposed by the TDP slider. Defaults to 5 W; supported values are 1–1000 W."
+    },
+    "tdp_max_watts": {
+      "label": "TDP slider maximum (W)",
+      "description": "Highest wattage exposed by the TDP slider. Defaults to 28 W; supported values are 1–1000 W."
     },
     "other_device_icon_mode": {
       "label": "Other devices icons",
