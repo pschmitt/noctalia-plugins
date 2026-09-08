@@ -22,19 +22,13 @@ local function metricText(metric)
   )
 end
 
-local function segment(card)
-  local mode = shared.config("display_mode", "summary")
-  local metric = shared.metricForWindow(card, shared.config("metric_window", "short")) or card.primary
-  local iconSize = tonumber(shared.config("icon_size", 16)) or 16
-  local children = {
-    providerIcon(card, iconSize, shared.colorFor(metric.used)),
-  }
-  if mode == "icon" then return ui.row({ align = "center" }, children) end
-  if noctalia.getConfig("show_name") == true then
-    children[#children + 1] = ui.label({ text = card.label, fontSize = 11, fontWeight = "semibold", maxLines = 1 })
-  end
+-- The progress bar, value and reset label for one metric -- everything
+-- segment() puts beside the icon/name, minus the row wrapper, so the "both"
+-- window can stack two of these in a column instead of laying them out flat.
+local function metricNodes(metric)
+  local nodes = {}
   if noctalia.getConfig("show_progress") ~= false and metric.used ~= nil then
-    children[#children + 1] = ui.progress({
+    nodes[#nodes + 1] = ui.progress({
       progress = metric.used / 100,
       fill = shared.colorFor(metric.used),
       track = "on_surface/0.16",
@@ -44,7 +38,7 @@ local function segment(card)
     })
   end
   if noctalia.getConfig("show_value") == true then
-    children[#children + 1] = ui.label({
+    nodes[#nodes + 1] = ui.label({
       text = metricText(metric),
       fontSize = 11,
       fontWeight = "semibold",
@@ -59,9 +53,46 @@ local function segment(card)
   -- show_name/show_progress/show_value, which only ever check their own
   -- toggle plus the icon-mode bail-out above.
   if noctalia.getConfig("show_reset") == true and metric.reset ~= "" then
-    children[#children + 1] = ui.label({ text = "↻ " .. shared.resetText(metric.reset), fontSize = 10, color = "on_surface_variant", maxLines = 1 })
+    nodes[#nodes + 1] = ui.label({ text = "↻ " .. shared.resetText(metric.reset), fontSize = 10, color = "on_surface_variant", maxLines = 1 })
   end
-  return ui.row({ align = "center", gap = tonumber(shared.config("spacing", 6)) or 6 }, children)
+  return nodes
+end
+
+-- metricForWindow always returns something (it falls back to card.primary),
+-- so a category-only provider like Copilot -- with neither a "short" nor a
+-- "weekly" metric of its own -- would otherwise show the same fallback quota
+-- twice stacked on itself. De-duplicate down to the single row that leaves.
+local function windowMetrics(card)
+  local short = shared.metricForWindow(card, "short")
+  local weekly = shared.metricForWindow(card, "weekly")
+  local metrics = { short }
+  if weekly ~= short then metrics[#metrics + 1] = weekly end
+  return metrics
+end
+
+local function segment(card)
+  local mode = shared.config("display_mode", "summary")
+  local window = shared.config("metric_window", "short")
+  local metrics = window == "both" and windowMetrics(card) or { shared.metricForWindow(card, window) or card.primary }
+  local iconSize = tonumber(shared.config("icon_size", 16)) or 16
+  local children = {
+    providerIcon(card, iconSize, shared.colorFor(metrics[1].used)),
+  }
+  if mode == "icon" then return ui.row({ align = "center" }, children) end
+  if noctalia.getConfig("show_name") == true then
+    children[#children + 1] = ui.label({ text = card.label, fontSize = 11, fontWeight = "semibold", maxLines = 1 })
+  end
+  local gap = tonumber(shared.config("spacing", 6)) or 6
+  if #metrics > 1 then
+    local rows = {}
+    for _, metric in ipairs(metrics) do
+      rows[#rows + 1] = ui.row({ align = "center", gap = gap }, metricNodes(metric))
+    end
+    children[#children + 1] = ui.column({ gap = 1, justify = "center" }, rows)
+  else
+    for _, node in ipairs(metricNodes(metrics[1])) do children[#children + 1] = node end
+  end
+  return ui.row({ align = "center", gap = gap }, children)
 end
 
 -- Every discovered account, whatever the bar itself is showing: the tooltip is

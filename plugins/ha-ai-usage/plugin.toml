@@ -1,6 +1,6 @@
 id = "pschmitt/ha-ai-usage"
 name = "Home Assistant AI Usage"
-version = "0.13.1"
+version = "0.14.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -72,6 +72,7 @@ options = [
   { value = "all", label_key = "settings.metric_window.all" },
   { value = "short", label_key = "settings.metric_window.short" },
   { value = "weekly", label_key = "settings.metric_window.weekly" },
+  { value = "both", label_key = "settings.metric_window.both" },
 ]
 
 [[setting]]
@@ -133,6 +134,13 @@ type = "bool"
 label_key = "settings.compact_panel.label"
 description_key = "settings.compact_panel.description"
 default = false
+
+[[setting]]
+key = "panel_all_metrics"
+type = "bool"
+label_key = "settings.panel_all_metrics.label"
+description_key = "settings.panel_all_metrics.description"
+default = true
 
 # ── Formatting and colors ────────────────────────────────────────────────────
 

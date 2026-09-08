@@ -129,7 +129,7 @@ local function ringCard(metrics, compact)
   }, rows)
 end
 
-local function card(card, compact)
+local function card(card, compact, allMetrics)
   local headline, rest = {}, {}
   for _, metric in ipairs(card.metrics) do
     if shared.isHeadline(metric) then
@@ -165,10 +165,16 @@ local function card(card, compact)
   local sections = {
     ui.row({ align = "center", gap = compact and 6 or 8 }, titleRow),
   }
-  if #headline > 0 or #rest > 0 then
+  -- `rest` is exactly the metrics with no fixed-length window of their own
+  -- (Copilot's Chat/Completions once Premium is promoted above, Gemini's 3P
+  -- session/weekly): the ones panel_all_metrics=false hides, keeping only
+  -- each card's headline windows (or its promoted primary for Copilot).
+  if #headline > 0 or (allMetrics and #rest > 0) then
     local ordered = {}
     for _, metric in ipairs(headline) do ordered[#ordered + 1] = metric end
-    for _, metric in ipairs(rest) do ordered[#ordered + 1] = metric end
+    if allMetrics then
+      for _, metric in ipairs(rest) do ordered[#ordered + 1] = metric end
+    end
     sections[#sections + 1] = ringCard(ordered, compact)
   end
   return ui.column({
@@ -182,6 +188,7 @@ end
 local function render()
   if not panelOpen then return end
   local compact = noctalia.getConfig("compact_panel") == true
+  local allMetrics = noctalia.getConfig("panel_all_metrics") ~= false
   local header = ui.row({ align = "center", justify = "space_between" }, {
     ui.row({ align = "center", gap = 10 }, {
       ui.row({ align = "center", justify = "center", width = 36, height = 36, fill = "primary/0.15", radius = 11 }, {
@@ -210,7 +217,7 @@ local function render()
     }),
   })
   local content = {}
-  for _, item in ipairs(shared.cards(items)) do content[#content + 1] = card(item, compact) end
+  for _, item in ipairs(shared.cards(items)) do content[#content + 1] = card(item, compact, allMetrics) end
   if #content == 0 then content[#content + 1] = ui.label({ text = "No active AI usage metrics were discovered.", color = "on_surface_variant" }) end
   local children = { header }
   if errorMessage ~= "" then
