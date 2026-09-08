@@ -138,7 +138,9 @@ end
 -- (noctalia_assets_dir), size (the widget's icon_size in pixels -- the
 -- output PNG is generated at exactly this size, see SUPERSAMPLE above),
 -- pulseAlpha (optional, 0..1 -- see quantizeAlpha above; nil means the badge
--- is fully opaque, the original non-pulsing behaviour).
+-- is fully opaque, the original non-pulsing behaviour). Only the chip fades
+-- with it -- the glyph on top always renders at full opacity, see the fill
+-- order below.
 --
 -- badgeColor tints the badge glyph itself, not its circle: it is the same
 -- dynamic state/overtime colour swap mode would have tinted the whole icon
@@ -230,13 +232,20 @@ function M.ensure(opts, callback)
     local cx, cy = badgeCenter(opts.position, workingSize, badgeDiameter, badgeMargin)
     local r = math.floor(badgeDiameter / 2)
     push("-fill")
+    -- Only the chip fades, never the glyph on top of it: the glyph is
+    -- already a handful of thin font strokes at a small supersampled size
+    -- (the same detail an earlier pass found barely legible at 16px), and
+    -- fading it too pushed it toward invisible for most of the cycle --
+    -- read live as the badge going blurry, not pulsing. A solid circle has
+    -- no fine detail to lose, so it can fade on its own without taking
+    -- legibility down with it.
     push(withAlpha(opts.badgeBgColor, pulseAlpha))
     push("-draw")
     push(string.format("circle %d,%d %d,%d", cx, cy, cx + r, cy))
     push("-gravity")
     push("center")
     push("-fill")
-    push(withAlpha(opts.badgeColor, pulseAlpha))
+    push(opts.badgeColor)
     push("-font")
     push(font)
     push("-pointsize")

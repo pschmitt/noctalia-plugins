@@ -73,13 +73,14 @@ is clearly the right shape. **Bump `icon_size` to at least 24 -- 28-32 reads
 comfortably -- if using badge mode**; there is no rendering trick that makes
 a corner badge legible on a 16px icon, only a bigger icon.
 
-`badge_pulse_enabled` fades the badge in and out while tracking, the same
-breathing effect `pschmitt/screencast`'s REC dot uses -- a "something is live"
-signal, so it only runs for the tracking state, not stopped or clocked-out.
-Only the badge fades; the main icon underneath stays fully opaque, since the
-composite is one flattened bitmap and pulsing the whole thing would fade the
-icon along with it. `badge_pulse_period_ms` (default 1200) sets how long one
-fade cycle takes.
+`badge_pulse_enabled` fades the badge's chip in and out while tracking, the
+same breathing effect `pschmitt/screencast`'s REC dot uses -- a "something is
+live" signal, so it only runs for the tracking state, not stopped or
+clocked-out. Only the chip fades; the glyph drawn on top of it, and the main
+icon underneath, both stay fully opaque throughout -- fading the glyph too
+was tried first and made an already small state icon unreadable for most of
+the cycle, which read as the badge going blurry rather than pulsing.
+`badge_pulse_period_ms` (default 1200) sets how long one fade cycle takes.
 
 Hovering the widget shows a small table rather than a sentence: the tracking
 state (`clocked out` once the threshold is met), when the running interval
