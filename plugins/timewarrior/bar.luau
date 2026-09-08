@@ -37,7 +37,7 @@ local LOGO_STOPPED = "assets/pause.svg"
 -- to an external `magick` subprocess (badge_icon.luau) that has no notion
 -- of "relative to the plugin dir" at all -- confirmed live, "unable to open
 -- image" until this became noctalia.pluginDir() .. "/...".
-local LOGO_PNG = noctalia.pluginDir() .. "/assets/timewarrior-logo-128.png"
+local LOGO_PNG = noctalia.pluginDir() .. "/assets/timewarrior-logo-256.png"
 
 -- The bundled artwork is the default for both tracking states; a glyph setting
 -- replaces it for that state alone, so tracking can be a glyph while stopped
@@ -110,6 +110,7 @@ local function badgeModeIcon(kind, color)
     badgeBgColor = resolveColor.resolve("surface_variant", "#1E1F27"),
     logoPngPath = LOGO_PNG,
     assetsDir = assetsDir,
+    size = size,
   }
 
   -- badgeIcon.ensure()'s callback fires synchronously on a cache hit and

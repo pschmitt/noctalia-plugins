@@ -8,7 +8,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-timewarrior";
-  version = "0.34.0";
+  version = "0.34.3";
 
   src = lib.fileset.toSource {
     root = ../../plugins/timewarrior;
@@ -43,7 +43,13 @@ stdenvNoCC.mkDerivation {
     # at build time, not at runtime through ImageMagick's own SVG delegate --
     # already routed around for pschmitt/syncthing's badges the same way,
     # for the same reliability reason.
-    rsvg-convert -w 128 -h 128 -o "$dest"/assets/timewarrior-logo-128.png assets/timewarrior-logo.svg
+    #
+    # 256px covers badge_icon.luau's supersampled working resolution
+    # (icon_size * SUPERSAMPLE) at icon_size's declared max of 48 -- SUPERSAMPLE
+    # would have to exceed 5 before this needs bumping again. Undersizing it
+    # would mean magick upscaling a small source before its own downsample,
+    # softening exactly the edges supersampling exists to keep sharp.
+    rsvg-convert -w 256 -h 256 -o "$dest"/assets/timewarrior-logo-256.png assets/timewarrior-logo.svg
 
     cacheKey=$(basename "$out" | cut -c1-8)
     substitute lib/badge_icon.luau "$dest"/lib/badge_icon.luau \
