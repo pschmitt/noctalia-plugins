@@ -25,7 +25,12 @@ end
 -- The progress bar, value and reset label for one metric -- everything
 -- segment() puts beside the icon/name, minus the row wrapper, so the "both"
 -- window can stack two of these in a column instead of laying them out flat.
-local function metricNodes(metric)
+-- `stacked` shrinks the text: a single row's height is whatever the bar
+-- widget's own row height budget is, but two stacked rows split that budget
+-- in half, and the 11px/10px sizes below are sized for one row, not half of
+-- one -- at full size they overflowed the bar's fixed height entirely,
+-- dropping its capsule background (reported live, see git log).
+local function metricNodes(metric, stacked)
   local nodes = {}
   if noctalia.getConfig("bar_show_progress") ~= false and metric.used ~= nil then
     nodes[#nodes + 1] = ui.progress({
@@ -40,7 +45,7 @@ local function metricNodes(metric)
   if noctalia.getConfig("bar_show_value") == true then
     nodes[#nodes + 1] = ui.label({
       text = metricText(metric),
-      fontSize = 11,
+      fontSize = stacked and 9 or 11,
       fontWeight = "semibold",
       color = shared.colorFor(metric.used),
       maxLines = 1,
@@ -53,7 +58,7 @@ local function metricNodes(metric)
   -- bar_show_name/bar_show_progress/bar_show_value, which only ever check
   -- their own toggle plus the icon-mode bail-out above.
   if noctalia.getConfig("bar_show_reset") == true and metric.reset ~= "" then
-    nodes[#nodes + 1] = ui.label({ text = "↻ " .. shared.resetText(metric.reset, true), fontSize = 10, color = "on_surface_variant", maxLines = 1 })
+    nodes[#nodes + 1] = ui.label({ text = "↻ " .. shared.resetText(metric.reset, true), fontSize = stacked and 8 or 10, color = "on_surface_variant", maxLines = 1 })
   end
   return nodes
 end
@@ -86,11 +91,15 @@ local function segment(card)
   if #metrics > 1 then
     local rows = {}
     for _, metric in ipairs(metrics) do
-      rows[#rows + 1] = ui.row({ align = "center", gap = gap }, metricNodes(metric))
+      rows[#rows + 1] = ui.row({ align = "center", gap = gap }, metricNodes(metric, true))
     end
-    children[#children + 1] = ui.column({ gap = 4, justify = "center" }, rows)
+    -- Text (value/reset) makes each row noticeably taller than a bare
+    -- progress bar, so the column needs less of its own gap to stay inside
+    -- the same total height budget the bar-height-derived fix above assumes.
+    local textShown = noctalia.getConfig("bar_show_value") == true or noctalia.getConfig("bar_show_reset") == true
+    children[#children + 1] = ui.column({ gap = textShown and 1 or 4, justify = "center" }, rows)
   else
-    for _, node in ipairs(metricNodes(metrics[1])) do children[#children + 1] = node end
+    for _, node in ipairs(metricNodes(metrics[1], false)) do children[#children + 1] = node end
   end
   return ui.row({ align = "center", gap = gap }, children)
 end
