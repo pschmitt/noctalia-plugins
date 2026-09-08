@@ -1,6 +1,6 @@
 id = "pschmitt/ha-ai-usage"
 name = "Home Assistant AI Usage"
-version = "0.16.0"
+version = "0.17.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -127,6 +127,13 @@ type = "string"
 label_key = "settings.panel_dashboard_path.label"
 description_key = "settings.panel_dashboard_path.description"
 default = "/"
+
+[[setting]]
+key = "panel_card_filter"
+type = "string"
+label_key = "settings.panel_card_filter.label"
+description_key = "settings.panel_card_filter.description"
+default = ""
 
 [[setting]]
 key = "panel_compact"

@@ -216,8 +216,14 @@ local function render()
       ui.button({ glyph = "x", variant = "ghost", tooltip = "Close", onClick = "onCloseClicked" }),
     }),
   })
+  -- filterCards both filters and orders: with terms, a card lands right
+  -- after the first term that matched it (bar.luau's card_filter does the
+  -- same), so "Codex, Pro" puts Codex first even though the bar's own
+  -- provider-then-label sort would put Claude Pro ahead of it. Empty terms
+  -- return the input unchanged -- every card, in shared.cards' own order.
+  local cards = shared.filterCards(shared.cards(items), shared.config("panel_card_filter", ""))
   local content = {}
-  for _, item in ipairs(shared.cards(items)) do content[#content + 1] = card(item, compact, allMetrics) end
+  for _, item in ipairs(cards) do content[#content + 1] = card(item, compact, allMetrics) end
   if #content == 0 then content[#content + 1] = ui.label({ text = "No active AI usage metrics were discovered.", color = "on_surface_variant" }) end
   local children = { header }
   if errorMessage ~= "" then
