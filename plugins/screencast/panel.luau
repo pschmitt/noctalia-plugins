@@ -131,8 +131,10 @@ local function appList()
         gap = 8,
         align = "center",
         padding = 5,
-        tooltip = "Focus " .. app.name,
-        onClick = function() focusApp(app) end,
+        onClick = function()
+          noctalia.log("screencast: focus clicked for " .. tostring(app.name) .. " pid=" .. tostring(app.pid))
+          focusApp(app)
+        end,
       }, {
         ui.glyph({ name = clientIcon(app.name), size = 14, color = "on_surface_variant" }),
         ui.label({ text = app.name, fontSize = 13, maxLines = 1, flexGrow = 1 }),
