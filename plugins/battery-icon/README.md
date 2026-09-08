@@ -5,6 +5,10 @@ It draws the charge percentage inside the battery silhouette, shows a charging
 bolt, adapts to Battery Saver, can play optional plug/unplug sounds, and opens
 a compact power-control panel when clicked.
 
+| Bar | Panel |
+| --- | --- |
+| ![Green battery pill showing 87% with a charging bolt.](./screenshots/bar.png) | ![Power control panel with battery health, charge rate, charging threshold, connected peripheral battery levels, temperature, load average, and a caffeine toggle.](./screenshots/panel.png) |
+
 ## Requirements
 
 The Nix package bundles absolute paths for its command-line helpers:

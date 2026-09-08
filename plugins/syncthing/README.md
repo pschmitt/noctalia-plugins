@@ -6,6 +6,10 @@ plugin. It retains the upstream service, panel, launcher, shortcut, and
 desktop widget while using a larger tray-like icon and composited status
 badges in the bar.
 
+| Bar | Panel |
+| --- | --- |
+| ![Syncthing tray icon with a green up-to-date checkmark badge.](./screenshots/bar.png) | ![Syncthing panel, Folders tab: four folders (Backups, Documents, Music, Pictures), all up to date.](./screenshots/panel.png) |
+
 ## Setup
 
 Install and run Syncthing for the same user as Noctalia, enable

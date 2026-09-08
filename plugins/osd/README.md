@@ -1,5 +1,9 @@
 # Custom Noctalia OSD
 
+| `severity: "info"` | `severity: "error"` |
+| --- | --- |
+| ![Info toast: "Backup complete" / "All files are current".](./screenshots/toast-info.png) | ![Error toast: "Disk usage critical" / "/var is 96% full".](./screenshots/toast-error.png) |
+
 Open the toast with a JSON payload:
 
 ```sh

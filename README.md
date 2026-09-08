@@ -1,6 +1,6 @@
 # Noctalia plugins
 
-![A nocturnal desktop-shell scene with an abstract status bar, battery, notification, recording, sync, and clock motifs.](./assets/noctalia-plugins-hero.png)
+![The plugins as they actually appear in a Noctalia bar.](./assets/noctalia-plugins-hero.png)
 
 Personal [Noctalia](https://github.com/noctalia-dev/noctalia) plugins by
 [@pschmitt](https://github.com/pschmitt), packaged as a Nix flake.
@@ -10,13 +10,16 @@ Personal [Noctalia](https://github.com/noctalia-dev/noctalia) plugins by
 | Plugin | Description |
 | --- | --- |
 | [`pschmitt/battery-icon`](./plugins/battery-icon) | Android-inspired battery indicator with percentage, charging state, and optional sounds. |
+| [`pschmitt/fan-control`](./plugins/fan-control) | Fan RPM indicator with manual speed control and a load-average panel. |
 | [`pschmitt/ha-ai-usage`](./plugins/ha-ai-usage) | Dynamically discovered AI plan quotas (Claude, Codex, Copilot, Gemini) sourced from Home Assistant. |
 | [`pschmitt/osd`](./plugins/osd) | Scriptable, ad-hoc OSD/toast panels. |
 | [`pschmitt/screencast`](./plugins/screencast) | Red `REC` indicator while a portal screencast is active. |
 | [`pschmitt/syncthing`](./plugins/syncthing) | Syncthing status, controls, launcher provider, shortcut, and desktop widget. |
 | [`pschmitt/timewarrior`](./plugins/timewarrior) | Current Timewarrior task duration and detail panel. |
 
-![Five abstract, glowing plugin cards for battery, notifications, recording, synchronization, and time tracking.](./assets/plugins-at-a-glance.png)
+The detail panels, as actually rendered:
+
+![Grid of plugin detail panels.](./assets/plugins-at-a-glance.png)
 
 ## Nix usage
 

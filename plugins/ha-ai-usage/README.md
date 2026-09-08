@@ -2,6 +2,10 @@
 
 Home Assistant-backed AI plan usage for the Noctalia bar and an attached detail panel. It reads the quota entities that Home Assistant already collects, so the desktop does not need separate provider CLIs, OAuth stores, or direct API calls.
 
+| Bar | Panel |
+| --- | --- |
+| ![Bar widget showing two accounts, each with a stacked session/weekly progress bar.](./screenshots/bar.png) | ![Detail panel with per-account cards: reset-countdown rings, session/weekly bars, pace, and Codex's banked resets.](./screenshots/panel.png) |
+
 ## Discovery
 
 The plugin first reads Home Assistant's integration registry and recognises loaded instances of Claude Usage, OpenAI Usage Monitor (Codex), GitHub Copilot Usage, and Gemini Usage. It then asks Home Assistant only for the correct active metrics for those integrations; it never downloads the complete state registry. Disabled integrations and unavailable entities are ignored automatically.

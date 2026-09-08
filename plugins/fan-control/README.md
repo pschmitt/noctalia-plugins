@@ -6,6 +6,10 @@ speed or a manual level. Clicking it opens a panel with Auto/Full buttons, a
 manual speed slider, the system load average for the 1, 5, and 15 minute
 windows, and a 1-minute load trend graph — no root needed at runtime.
 
+| Bar | Panel (Auto mode) |
+| --- | --- |
+| ![Fan glyph icon in the bar.](./screenshots/bar.png) | ![Fan control panel showing 3282 RPM, temperature, and load average.](./screenshots/panel.png) |
+
 > Fork of [piero-93/thinkpad-fan](https://github.com/noctalia-dev/community-plugins/tree/main/thinkpad-fan),
 > generalized past `thinkpad_acpi` to also drive any fan exposed through the
 > standard Linux hwmon PWM ABI.

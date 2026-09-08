@@ -4,6 +4,13 @@
 bar while a portal-based screen share is live. Its tooltip names the PipeWire
 client(s) attached to the portal stream.
 
+| Bar (while sharing) | Panel |
+| --- | --- |
+| ![Red pulsing REC dot and label in the bar.](./screenshots/bar.png) | ![Screencast panel showing "Screen sharing is active", the sharing client (firefox), and a Stop sharing button.](./screenshots/panel.png) |
+
+The bar widget renders nothing at all (`barWidget.setVisible(false)`) when no
+portal capture is active -- there's no idle icon to screenshot.
+
 ## Detection
 
 The plugin queries PipeWire itself and inspects the graph for links to

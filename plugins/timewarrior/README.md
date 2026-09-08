@@ -5,6 +5,10 @@ interval in a Noctalia bar and provides a panel with a start/stop toggle,
 editable interval boundaries for any day it lists, week/month/year totals, and
 a per-day breakdown of the last two weeks.
 
+| Bar | Panel |
+| --- | --- |
+| ![Hourglass icon and running interval duration in the bar.](./screenshots/bar.png) | ![Timewarrior panel: Stop button, week/month/year totals, and a per-day breakdown of the last 14 days, colored by whether working hours were met.](./screenshots/panel.png) |
+
 ## Requirement
 
 Install the `timew` executable for the user running Noctalia (in Nix/Home
