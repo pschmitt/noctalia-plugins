@@ -318,7 +318,11 @@ function M.remainingSeconds(value)
   return os.difftime(epoch, os.time())
 end
 
-function M.resetText(value)
+-- `omitIn` drops the leading "in " from the relative-countdown branch --
+-- for the bar, which already prefixes the text with a ↻ glyph ("↻ in 6d
+-- 21h" reads worse than "↻ 6d 21h"). The panel's "Reset in 3h 20m" line
+-- wants the word, so it's opt-in, not the default.
+function M.resetText(value, omitIn)
   if not M.validState(value) then return "—" end
   local epoch = timestamp(value)
   if not epoch then return value end
@@ -331,9 +335,10 @@ function M.resetText(value)
   local days = math.floor(seconds / 86400)
   local hours = math.floor((seconds % 86400) / 3600)
   local minutes = math.floor((seconds % 3600) / 60)
-  if days > 0 then return string.format("in %dd %dh", days, hours) end
-  if hours > 0 then return string.format("in %dh %dm", hours, minutes) end
-  return string.format("in %dm", math.max(1, minutes))
+  local prefix = omitIn and "" or "in "
+  if days > 0 then return string.format("%s%dd %dh", prefix, days, hours) end
+  if hours > 0 then return string.format("%s%dh %dm", prefix, hours, minutes) end
+  return string.format("%s%dm", prefix, math.max(1, minutes))
 end
 
 -- The absolute end time, short form (weekday + time) -- tacked onto the

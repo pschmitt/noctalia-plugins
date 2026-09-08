@@ -53,7 +53,7 @@ local function metricNodes(metric)
   -- show_name/show_progress/show_value, which only ever check their own
   -- toggle plus the icon-mode bail-out above.
   if noctalia.getConfig("show_reset") == true and metric.reset ~= "" then
-    nodes[#nodes + 1] = ui.label({ text = "↻ " .. shared.resetText(metric.reset), fontSize = 10, color = "on_surface_variant", maxLines = 1 })
+    nodes[#nodes + 1] = ui.label({ text = "↻ " .. shared.resetText(metric.reset, true), fontSize = 10, color = "on_surface_variant", maxLines = 1 })
   end
   return nodes
 end
