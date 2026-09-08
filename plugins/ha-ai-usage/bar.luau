@@ -88,7 +88,7 @@ local function segment(card)
     for _, metric in ipairs(metrics) do
       rows[#rows + 1] = ui.row({ align = "center", gap = gap }, metricNodes(metric))
     end
-    children[#children + 1] = ui.column({ gap = 1, justify = "center" }, rows)
+    children[#children + 1] = ui.column({ gap = 4, justify = "center" }, rows)
   else
     for _, node in ipairs(metricNodes(metrics[1])) do children[#children + 1] = node end
   end
