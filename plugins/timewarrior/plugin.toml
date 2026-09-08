@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.34.3"
+version = "0.35.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -139,6 +139,28 @@ type = "string"
 label_key = "settings.noctalia_assets_dir.label"
 description_key = "settings.noctalia_assets_dir.description"
 default = ""
+
+# Optional breathing pulse on the badge itself while tracking -- the same
+# idea as pschmitt/screencast's REC dot, mirrored onto badge mode's corner
+# chip. Only the badge fades in and out; the main icon underneath stays put,
+# since it is meant to say "this is what's running", not "something is
+# recording". Off by default: badge mode is already a fairly busy corner of
+# a small icon, and not everyone wants motion there.
+[[setting]]
+key = "badge_pulse_enabled"
+type = "bool"
+label_key = "settings.badge_pulse_enabled.label"
+description_key = "settings.badge_pulse_enabled.description"
+default = false
+
+[[setting]]
+key = "badge_pulse_period_ms"
+type = "int"
+label_key = "settings.badge_pulse_period_ms.label"
+description_key = "settings.badge_pulse_period_ms.description"
+default = 1200
+min = 300
+max = 5000
 
 # What figure the bar widget shows. The running interval was the only thing it
 # ever displayed, which answers "how long have I been at this?" but not the

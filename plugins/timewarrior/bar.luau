@@ -60,6 +60,23 @@ local LOGOS = {
   clock_out = LOGO_STOPPED,
 }
 
+-- Badge pulse (badge_pulse_enabled): mirrors screencast's REC dot -- a
+-- cosine-eased breathe, driven by our own update() tick rather than the
+-- service's poll interval, so it stays smooth regardless of poll_interval.
+-- Only ever applied to the badge composite (see badge_icon.luau's
+-- pulseAlpha), never to a plain icon() -- there is nothing to fade there,
+-- and pulsing the whole icon was the alternative this was built to avoid.
+local PULSE_FRAME_MS = 100
+local IDLE_TICK_MS = 5000
+local PULSE_MIN_ALPHA = 0.25
+
+local function badgePulseAlpha()
+  local periodMs = math.max(300, tonumber(noctalia.getConfig("badge_pulse_period_ms")) or 1200)
+  local phase = (noctalia.nowMs() % periodMs) / periodMs
+  local wave = 0.5 - 0.5 * math.cos(phase * 2 * math.pi)
+  return PULSE_MIN_ALPHA + (1 - PULSE_MIN_ALPHA) * wave
+end
+
 local function icon(kind, color)
   local size = tonumber(noctalia.getConfig("icon_size")) or 16
   local glyph = noctalia.string.trim(noctalia.getConfig(GLYPH_SETTINGS[kind]) or "")
@@ -111,6 +128,11 @@ local function badgeModeIcon(kind, color)
     logoPngPath = LOGO_PNG,
     assetsDir = assetsDir,
     size = size,
+    -- Pulsing while tracking only -- like the REC dot, this is a "something
+    -- is live" signal, not a decoration on a state that already reads fine
+    -- standing still (stopped/clocked-out).
+    pulseAlpha = (kind == "tracking" and noctalia.getConfig("badge_pulse_enabled") == true) and badgePulseAlpha()
+      or nil,
   }
 
   -- badgeIcon.ensure()'s callback fires synchronously on a cache hit and
@@ -384,9 +406,22 @@ render = function()
   barWidget.setTooltip(tooltipRows(active, clockOut))
 end
 
+-- Switches update()'s cadence between the pulse's fast tick and a slow idle
+-- heartbeat -- called on every state transition (so starting/stopping tracking
+-- takes effect on the very next tick) and from update() itself. Fast only
+-- while there is an actual pulse to animate: badge mode, the pulse setting,
+-- and an active (tracking) interval all have to hold at once.
+local function syncTickRate()
+  local pulsing = state.active == true
+    and noctalia.getConfig("badge_mode") == true
+    and noctalia.getConfig("badge_pulse_enabled") == true
+  noctalia.setUpdateInterval(pulsing and PULSE_FRAME_MS or IDLE_TICK_MS)
+end
+
 noctalia.state.watch("tw_status", function(val)
   if type(val) == "table" then
     state = val
+    syncTickRate()
     render()
   end
 end)
@@ -401,7 +436,9 @@ noctalia.state.watch("tw_summary", function(val)
 end)
 
 render()
+syncTickRate()
 
 function update()
+  syncTickRate()
   render()
 end

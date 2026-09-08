@@ -55,12 +55,57 @@ local BADGE_MARGIN_RATIO = 0.03
 local BADGE_FONT_RATIO = 0.62 -- of the badge diameter
 local MAIN_FONT_RATIO = 0.72 -- of the full icon size, unaffected by the badge
 
+-- Optional pulse (see M.ensure's `pulseAlpha` doc below): rather than
+-- regenerate a fresh composite on every ~100ms animation tick, alpha is
+-- bucketed into this many discrete steps and each bucket is cached like any
+-- other combination -- one `magick` call per bucket the very first time its
+-- phase of the pulse is reached, cache hits (synchronous) every time after,
+-- for the rest of that combination's lifetime. 20 steps over a ~1s period is
+-- a new frame roughly every 60ms, smooth enough for a breathing effect and
+-- few enough that a full cycle warms up in about one period.
+local PULSE_FRAME_COUNT = 20
+-- Floor of the badge's fade range, matching screencast's dot -- it dims, it
+-- does not disappear, so the state it names is never briefly unreadable.
+local PULSE_MIN_ALPHA = 0.25
+
 local CACHE_KEY = "@cacheKey@"
 local MAGICK = "@magick@"
 local FIND = "@find@"
 
 local function sanitize(s)
   return tostring(s or ""):gsub("[^%w]", "_")
+end
+
+-- Rounds a continuous 0..1 alpha to one of PULSE_FRAME_COUNT+1 steps, so the
+-- same phase of the pulse always maps to the same cache key instead of
+-- spawning a new `magick` process for every slightly-different float a fast
+-- timer tick produces. Returns nil unchanged (nil means "no pulse: fully
+-- opaque, the original non-pulsing behaviour").
+local function quantizeAlpha(alpha)
+  if alpha == nil then
+    return nil
+  end
+  local clamped = math.clamp(tonumber(alpha) or 1, 0, 1)
+  local step = math.floor(clamped * PULSE_FRAME_COUNT + 0.5)
+  return step / PULSE_FRAME_COUNT
+end
+
+-- Appends an alpha channel to a plain "#RRGGBB" colour (what resolve_color.luau
+-- always hands back) so ImageMagick's -fill / -draw / -annotate alpha-blend it
+-- against whatever is already on the canvas -- the main icon underneath,
+-- drawn first and left fully opaque, so only the badge itself fades.
+-- Anything not in that exact shape (should not happen, but a resolver
+-- fallback is still a string of unknown shape) is returned as-is rather than
+-- mangled.
+local function withAlpha(hexColor, alpha)
+  if alpha == nil then
+    return hexColor
+  end
+  local hex = tostring(hexColor or "")
+  if not hex:match("^#%x%x%x%x%x%x$") then
+    return hexColor
+  end
+  return hex .. string.format("%02x", math.floor(alpha * 255 + 0.5))
 end
 
 -- Center point of the badge circle for each corner, in working (supersampled)
@@ -91,7 +136,9 @@ end
 -- mainColor, badgeColor, badgeBgColor (real hex -- resolve_color.luau first),
 -- logoPngPath (the build-time-rasterized bundled logo), assetsDir
 -- (noctalia_assets_dir), size (the widget's icon_size in pixels -- the
--- output PNG is generated at exactly this size, see SUPERSAMPLE above).
+-- output PNG is generated at exactly this size, see SUPERSAMPLE above),
+-- pulseAlpha (optional, 0..1 -- see quantizeAlpha above; nil means the badge
+-- is fully opaque, the original non-pulsing behaviour).
 --
 -- badgeColor tints the badge glyph itself, not its circle: it is the same
 -- dynamic state/overtime colour swap mode would have tinted the whole icon
@@ -108,6 +155,7 @@ end
 -- input" -- the caller falls back to the plain, badge-less icon.
 function M.ensure(opts, callback)
   local size = math.max(1, math.floor(tonumber(opts.size) or 16))
+  local pulseAlpha = quantizeAlpha(opts.pulseAlpha)
   local key = table.concat({
     opts.mainGlyph or "",
     opts.badgeGlyph or "",
@@ -116,6 +164,7 @@ function M.ensure(opts, callback)
     opts.badgeColor or "",
     opts.badgeBgColor or "",
     tostring(size),
+    pulseAlpha ~= nil and string.format("p%.3f", pulseAlpha) or "static",
   }, "|")
   local outPath = path(key)
   if outPath == nil then
@@ -181,13 +230,13 @@ function M.ensure(opts, callback)
     local cx, cy = badgeCenter(opts.position, workingSize, badgeDiameter, badgeMargin)
     local r = math.floor(badgeDiameter / 2)
     push("-fill")
-    push(opts.badgeBgColor)
+    push(withAlpha(opts.badgeBgColor, pulseAlpha))
     push("-draw")
     push(string.format("circle %d,%d %d,%d", cx, cy, cx + r, cy))
     push("-gravity")
     push("center")
     push("-fill")
-    push(opts.badgeColor)
+    push(withAlpha(opts.badgeColor, pulseAlpha))
     push("-font")
     push(font)
     push("-pointsize")
