@@ -147,6 +147,10 @@ local function render()
       glyph = "player-stop",
       text = stopping and "Stopping…" or "Stop sharing",
       variant = "outline",
+      -- Tints the button's own text/glyph ink only, leaving the outline
+      -- variant's border/background/hover animation alone (see
+      -- overlays/patches/noctalia/0004-button-content-color.patch).
+      color = "error",
       enabled = state.active and not stopping,
       flexGrow = 1,
       onClick = "onStop",
