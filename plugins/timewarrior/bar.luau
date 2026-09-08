@@ -32,7 +32,12 @@ local LOGO_STOPPED = "assets/pause.svg"
 -- -- badge_mode's base layer when main_glyph is empty. Not LOGO_STOPPED: in
 -- badge mode the main icon is constant regardless of state (that is the
 -- point of the mode), only the corner badge changes.
-local LOGO_PNG = "assets/timewarrior-logo-128.png"
+-- Absolute, unlike LOGO_TRACKING/LOGO_STOPPED above: those go straight to
+-- ui.image, which resolves a plugin-relative path itself, but this one goes
+-- to an external `magick` subprocess (badge_icon.luau) that has no notion
+-- of "relative to the plugin dir" at all -- confirmed live, "unable to open
+-- image" until this became noctalia.pluginDir() .. "/...".
+local LOGO_PNG = noctalia.pluginDir() .. "/assets/timewarrior-logo-128.png"
 
 -- The bundled artwork is the default for both tracking states; a glyph setting
 -- replaces it for that state alone, so tracking can be a glyph while stopped
