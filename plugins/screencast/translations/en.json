@@ -4,6 +4,14 @@
       "label": "Poll interval (seconds)",
       "description": "How often to query PipeWire for active portal screencasts."
     },
+    "show_label": {
+      "label": "Show label",
+      "description": "Show the text label next to the recording dot in the bar. Disable for a dot-only indicator."
+    },
+    "label_text": {
+      "label": "Label text",
+      "description": "Text shown next to the recording dot in the bar, when the label is shown. Empty falls back to \"REC\"."
+    },
     "dot_color": {
       "label": "Dot color",
       "description": "Color of the recording dot."

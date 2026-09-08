@@ -26,13 +26,21 @@ portal captures, not arbitrary recorder processes that bypass the portal.
 ## Panel
 
 Click the active `pschmitt/screencast:bar` widget to open a small details
-panel. It lists the PipeWire clients attached to the share and includes a
-`Stop sharing` button. Stopping removes the share's PipeWire links directly;
-it does not depend on the application that created the portal session or on a
+panel. It lists the PipeWire clients attached to the share, each with a
+best-effort icon guessed from the client's PipeWire node name (Firefox,
+Chrome/Chromium, Discord, Slack, Zoom, Teams, Telegram, WhatsApp, Skype,
+Spotify, Steam, VLC, VS Code fall back to their own glyph; anything else gets
+a plain window icon). Clicking a client asks Hyprland for its own window list
+and focuses the first match on class or title -- silently a no-op on another
+compositor, if `hyprctl` is missing, or if nothing matches.
+
+The `Stop sharing` button removes the share's PipeWire links directly; it
+does not depend on the application that created the portal session or on a
 separate watcher service.
 
 ## Setup
 
 Enable `pschmitt/screencast`, then add `pschmitt/screencast:bar` to a bar.
-The plugin is hidden when idle. Its settings control poll frequency, colors,
-dot size, and pulse animation.
+The plugin is hidden when idle. Its settings control poll frequency, the
+label (shown/hidden, and its text), colors, dot size, and pulse animation
+(including turning it off for a static dot).

@@ -46,17 +46,26 @@ local function render()
   local labelColor = noctalia.getConfig("label_color") or "error"
   local dotSize = tonumber(noctalia.getConfig("dot_size")) or 8
   local pulseEnabled = noctalia.getConfig("pulse_enabled") ~= false
+  local showLabel = noctalia.getConfig("show_label") ~= false
+  local labelText = noctalia.getConfig("label_text")
+  if labelText == nil or labelText == "" then
+    labelText = "REC"
+  end
 
   local dotFill = dotColor
   if pulseEnabled then
     dotFill = string.format("%s/%.2f", dotColor, pulseAlpha())
   end
 
-  local container = barWidget.isVertical() and ui.column or ui.row
-  barWidget.render(container({ gap = 5, align = "center" }, {
+  local children = {
     ui.box({ width = dotSize, height = dotSize, radius = dotSize / 2, fill = dotFill }),
-    ui.label({ text = "REC", fontWeight = "bold", color = labelColor }),
-  }))
+  }
+  if showLabel then
+    children[#children + 1] = ui.label({ text = labelText, fontWeight = "bold", color = labelColor })
+  end
+
+  local container = barWidget.isVertical() and ui.column or ui.row
+  barWidget.render(container({ gap = 5, align = "center" }, children))
   barWidget.setTooltip(tooltip())
 end
 
