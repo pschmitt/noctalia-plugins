@@ -52,10 +52,8 @@ local function ringSlot(metric, size)
 end
 
 -- The text side of a ring card: headline, bar, reset countdown, pace.
--- Compact mode keeps all four -- pace and the reset countdown are exactly
--- the numbers worth glancing at, not chrome to shed -- and only shrinks
--- fonts/gaps and drops the absolute-reset tack-on (redundant with the
--- relative countdown right next to it) to fit more providers per screen.
+-- Compact mode keeps all four, including the absolute-reset tack-on -- it
+-- only shrinks fonts/gaps to fit more providers per screen.
 local function ringLines(metric, compact)
   local color = shared.colorFor(metric.used)
   -- Pace sits beside the label rather than on a line of its own: it is a
@@ -92,9 +90,8 @@ local function ringLines(metric, compact)
     resetLine = "Reset " .. shared.resetText(metric.reset)
     -- Only worth appending when the row itself is the relative countdown;
     -- an absolute reset_time_format already shows this and would just repeat
-    -- itself. Compact drops it outright even then -- it is the one line here
-    -- that's a repeat of information already on the row, not new information.
-    if not compact and shared.config("reset_time_format", "relative") == "relative" then
+    -- itself.
+    if shared.config("reset_time_format", "relative") == "relative" then
       resetLine ..= " · " .. shared.resetAbsoluteText(metric.reset)
     end
   end

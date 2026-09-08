@@ -22,7 +22,7 @@ Settings are prefixed by what they affect -- **Connection:** (server/token/refre
 
 The panel header's link icon opens `server_file`'s URL plus **Panel: Home Assistant link path** (default `/`) in the desktop's default browser — point it at a dashboard, e.g. `/mi-casa/data#ai-quotas`.
 
-Enable **Panel: Compact mode** to fit more providers in the same panel height: smaller rings, tighter card padding/spacing/fonts, and no absolute reset time -- pace and the relative reset countdown stay, they're the numbers worth a glance. Disable **Panel: Show all metrics** to drop each card down to just its headline session/weekly windows (or its promoted primary quota for a category-only provider like Copilot), hiding Copilot's Chat/Completions rows and Gemini's 3P model rows.
+Enable **Panel: Compact mode** to fit more providers in the same panel height: smaller rings, tighter card padding/spacing/fonts -- pace, the relative reset countdown, and the absolute reset time all stay. Disable **Panel: Show all metrics** to drop each card down to just its headline session/weekly windows (or its promoted primary quota for a category-only provider like Copilot), hiding Copilot's Chat/Completions rows and Gemini's 3P model rows.
 
 **Panel: Cards** works like **Bar: Cards** -- the same comma-separated, case-insensitive account-fragment matching -- but independently filters and orders the popup panel instead of the bar, and defaults to empty (every card, unreordered). Order matters: `Codex, Pro` puts the Codex card first even though the panel's own provider-then-label sort would otherwise put a Claude Pro card ahead of it.
 
