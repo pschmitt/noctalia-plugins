@@ -2,13 +2,17 @@
 <!-- Reduced variant of timewarrior-logo.svg for badge_mode's small composite
      icon (see lib/badge_icon.luau): the full logo's thin decorative ring
      (a second, closely-spaced circle just inside the disc's edge) survives
-     down to maybe 24px but is pure noise at 16px -- it does not fade, it
+     down to maybe 24px but is pure noise at 16px: it does not fade, it
      aliases into a fuzzy double band, which was the actual bulk of the
      "blurry" look, more than the resolution itself. This drops that ring and
      scales the disc back out to fill the same footprint the full logo did,
      keeping only the one shape that still reads at a glance that small: the
-     helmet silhouette. Same path data as the original for that shape --
-     this is a subtraction, not a redraw. -->
+     helmet silhouette. Same path data as the original for that shape, this
+     is a subtraction, not a redraw.
+
+     NB no double hyphen anywhere in this comment: it is invalid XML and
+     silently kills the whole file, taking the logo with it, confirmed live
+     the exact way timewarrior-logo.svg's own header warns about. -->
 <svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
     <g transform="translate(-477.17241,-466.67808)">
         <g transform="matrix(0.125,0,0,-0.125,477.17241,603.76058)">
