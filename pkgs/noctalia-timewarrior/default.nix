@@ -1,11 +1,14 @@
 {
   lib,
   stdenvNoCC,
+  findutils,
+  imagemagick,
+  librsvg,
 }:
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-timewarrior";
-  version = "0.33.0";
+  version = "0.34.0";
 
   src = lib.fileset.toSource {
     root = ../../plugins/timewarrior;
@@ -21,6 +24,8 @@ stdenvNoCC.mkDerivation {
     ];
   };
 
+  nativeBuildInputs = [ librsvg ];
+
   dontConfigure = true;
   dontBuild = true;
 
@@ -33,6 +38,18 @@ stdenvNoCC.mkDerivation {
     cp plugin.toml README.md bar.luau panel.luau "$dest"/
     cp -r lib assets translations "$dest"/
     cp service.luau "$dest"/
+
+    # Badge mode's constant main icon (lib/badge_icon.luau): rasterized once
+    # at build time, not at runtime through ImageMagick's own SVG delegate --
+    # already routed around for pschmitt/syncthing's badges the same way,
+    # for the same reliability reason.
+    rsvg-convert -w 128 -h 128 -o "$dest"/assets/timewarrior-logo-128.png assets/timewarrior-logo.svg
+
+    cacheKey=$(basename "$out" | cut -c1-8)
+    substitute lib/badge_icon.luau "$dest"/lib/badge_icon.luau \
+      --subst-var-by magick ${lib.getExe' imagemagick "magick"} \
+      --subst-var-by find ${lib.getExe' findutils "find"} \
+      --subst-var-by cacheKey "$cacheKey"
 
     runHook postInstall
   '';

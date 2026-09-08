@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.33.0"
+version = "0.34.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -86,6 +86,59 @@ type = "glyph"
 label_key = "settings.clock_out_glyph.label"
 description_key = "settings.clock_out_glyph.description"
 default = "beer"
+
+# Badge mode: instead of tracking_glyph/stopped_glyph/clock_out_glyph
+# replacing the whole icon per state, keep one constant main icon (the
+# bundled logo, or main_glyph) and composite whichever of those three glyphs
+# matches the current state as a small corner badge on top of it -- the same
+# idea as pschmitt/syncthing's status badges. Off leaves everything above
+# exactly as it already behaves.
+#
+# This needs a rendered bitmap: Noctalia's plugin ui.* tree has no
+# overlay/z-stack primitive to fake it with plain layout (confirmed against
+# the reconciler itself -- box/image/glyph are hard-blocked from having
+# children at all). Rendering the badge glyph needs Noctalia's own bundled
+# icon font, which is not registered as a system font and not safely
+# vendorable by this plugin collection (it would drift from whatever
+# Noctalia version is actually installed) -- hence noctalia_assets_dir below.
+[[setting]]
+key = "badge_mode"
+type = "bool"
+label_key = "settings.badge_mode.label"
+description_key = "settings.badge_mode.description"
+default = false
+
+[[setting]]
+key = "main_glyph"
+type = "glyph"
+label_key = "settings.main_glyph.label"
+description_key = "settings.main_glyph.description"
+default = ""
+
+[[setting]]
+key = "badge_position"
+type = "select"
+label_key = "settings.badge_position.label"
+description_key = "settings.badge_position.description"
+default = "bottom_right"
+options = [
+  { value = "top_left", label_key = "settings.badge_position.top_left" },
+  { value = "top_right", label_key = "settings.badge_position.top_right" },
+  { value = "bottom_right", label_key = "settings.badge_position.bottom_right" },
+  { value = "bottom_left", label_key = "settings.badge_position.bottom_left" },
+]
+
+# Point this at Noctalia's own installed `share/noctalia/assets/fonts`
+# directory -- e.g. `"${pkgs.noctalia}/share/noctalia/assets/fonts"` in a Nix
+# config that already sets `programs.noctalia.package`, so it is guaranteed
+# to match whatever build is actually running. Badge mode silently falls
+# back to the plain icon (no badge) while this is empty or wrong.
+[[setting]]
+key = "noctalia_assets_dir"
+type = "string"
+label_key = "settings.noctalia_assets_dir.label"
+description_key = "settings.noctalia_assets_dir.description"
+default = ""
 
 # What figure the bar widget shows. The running interval was the only thing it
 # ever displayed, which answers "how long have I been at this?" but not the

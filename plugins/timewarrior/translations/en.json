@@ -131,6 +131,26 @@
     "clock_out_glyph": {
       "label": "Clocked-out icon",
       "description": "Glyph shown in the bar once the day's intervals are done, in place of the stopped icon. Empty keeps the stopped icon."
+    },
+    "badge_mode": {
+      "label": "Use badges instead of swapping the icon",
+      "description": "Keep one constant main icon and show the tracking/stopped/clocked-out icon as a small corner badge on top of it instead of replacing the whole icon."
+    },
+    "main_glyph": {
+      "label": "Main icon (badge mode)",
+      "description": "The constant icon badge mode always shows, regardless of state. Empty uses the bundled Timewarrior logo."
+    },
+    "badge_position": {
+      "label": "Badge position",
+      "description": "Corner of the main icon the state badge is composited onto.",
+      "top_left": "Top left",
+      "top_right": "Top right",
+      "bottom_right": "Bottom right",
+      "bottom_left": "Bottom left"
+    },
+    "noctalia_assets_dir": {
+      "label": "Noctalia assets directory (badge mode)",
+      "description": "Absolute path to Noctalia's own installed share/noctalia/assets/fonts directory, e.g. \"${pkgs.noctalia}/share/noctalia/assets/fonts\" in a Nix config that already sets programs.noctalia.package. Required for badge mode -- without it, badges silently fall back to the plain icon."
     }
   }
 }

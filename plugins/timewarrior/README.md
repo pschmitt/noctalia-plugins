@@ -41,6 +41,30 @@ default, turns it off. Starting another interval puts the tracking icon back,
 and since this is an idle state it needs a `visibility` mode that keeps the
 slot while idle (see below) to be visible at all.
 
+`badge_mode` swaps that icon-per-state model for a fixed main icon (the
+bundled logo, or `main_glyph`) with `tracking_glyph`/`stopped_glyph`/
+`clock_out_glyph` composited as a small state badge on top of it instead --
+the same idea as `pschmitt/syncthing`'s status badges. Pick `badge_position`
+for which corner. This needs a rendered bitmap: Noctalia's plugin UI has no
+way to layer one icon over another declaratively (every layout container is
+pure flex, and leaf types like images/glyphs can't have children at all), so
+the composite is generated with the same bundled icon font Noctalia itself
+draws glyphs from. That font isn't registered as a system font and isn't
+something this plugin can safely bundle its own copy of without risking it
+drifting out of sync with whatever Noctalia version is actually installed --
+so `noctalia_assets_dir` has to point at it explicitly: Noctalia's own
+installed `share/noctalia/assets/fonts` directory, e.g.
+
+```nix
+plugin_settings."pschmitt/timewarrior".noctalia_assets_dir =
+  "${pkgs.noctalia}/share/noctalia/assets/fonts";
+```
+
+in a Nix config that already sets `programs.noctalia.package`, so it always
+matches whatever build is actually running. Badge mode silently falls back to
+the plain icon (no badge) while this is empty, wrong, or a configured glyph
+name doesn't resolve.
+
 Hovering the widget shows a small table rather than a sentence: the tracking
 state (`clocked out` once the threshold is met), when the running interval
 started, the interval, today, the number of finished intervals today, this week

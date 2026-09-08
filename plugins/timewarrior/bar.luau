@@ -12,12 +12,27 @@
 local duration = require("./lib/duration.luau")
 local formats = require("./lib/formats.luau")
 local overtime = require("./lib/overtime.luau")
+local resolveColor = require("./lib/resolve_color.luau")
+local badgeIcon = require("./lib/badge_icon.luau")
+
+badgeIcon.prune()
 
 local state = noctalia.state.get("tw_status") or { active = false, duration = "", today = "", since = "", closed = 0 }
 local summary = noctalia.state.get("tw_summary") or { week = "", month = "" }
 
+-- Forward-declared: badgeModeIcon() (below) needs to call render() again once
+-- an async badge composite finishes, but render() itself is only defined
+-- near the bottom of this file. `local function render()` there would
+-- create a second, shadowing local instead of filling this one in.
+local render
+
 local LOGO_TRACKING = "assets/timewarrior-logo.svg"
 local LOGO_STOPPED = "assets/pause.svg"
+-- Build-time-rasterized copy of LOGO_TRACKING (see pkgs/noctalia-timewarrior)
+-- -- badge_mode's base layer when main_glyph is empty. Not LOGO_STOPPED: in
+-- badge mode the main icon is constant regardless of state (that is the
+-- point of the mode), only the corner badge changes.
+local LOGO_PNG = "assets/timewarrior-logo-128.png"
 
 -- The bundled artwork is the default for both tracking states; a glyph setting
 -- replaces it for that state alone, so tracking can be a glyph while stopped
@@ -54,6 +69,58 @@ local function icon(kind, color)
     height = size,
     fit = "contain",
   })
+end
+
+-- badge_mode's alternative to icon(): one constant main icon (the bundled
+-- logo, or main_glyph if set) with the state glyph composited as a small
+-- corner badge instead of replacing the whole icon. See lib/badge_icon.luau
+-- for why this has to be a rendered bitmap rather than plain ui.* layout.
+--
+-- Returns a ui.image for the composite, or nil if badge_mode is off, or if
+-- the composite isn't ready yet / can't be produced (missing
+-- noctalia_assets_dir, a glyph name that doesn't resolve, ...) -- callers
+-- fall back to icon() in that case, same as if badge_mode had never been
+-- turned on.
+local function badgeModeIcon(kind, color)
+  if noctalia.getConfig("badge_mode") ~= true then
+    return nil
+  end
+
+  local size = tonumber(noctalia.getConfig("icon_size")) or 16
+  local assetsDir = noctalia.string.trim(noctalia.getConfig("noctalia_assets_dir") or "")
+  if assetsDir == "" then
+    return nil
+  end
+
+  local opts = {
+    mainGlyph = noctalia.string.trim(noctalia.getConfig("main_glyph") or ""),
+    badgeGlyph = noctalia.string.trim(noctalia.getConfig(GLYPH_SETTINGS[kind]) or ""),
+    position = noctalia.getConfig("badge_position") or "bottom_right",
+    mainColor = resolveColor.resolve(noctalia.getConfig("label_color") or "on_surface", "#9AA0A6"),
+    badgeColor = resolveColor.resolve(color, "#9AA0A6"),
+    logoPngPath = LOGO_PNG,
+    assetsDir = assetsDir,
+  }
+
+  -- badgeIcon.ensure()'s callback fires synchronously on a cache hit and
+  -- asynchronously otherwise (a fresh magick subprocess) -- `sync` tells
+  -- resultPath's setter which case it is in, so an async completion (only)
+  -- triggers a re-render instead of calling render() reentrantly from
+  -- inside the render() call that is building this very frame.
+  local resultPath = nil
+  local sync = true
+  badgeIcon.ensure(opts, function(iconPath)
+    resultPath = iconPath
+    if not sync then
+      render()
+    end
+  end)
+  sync = false
+
+  if resultPath == nil then
+    return nil
+  end
+  return ui.image({ path = resultPath, width = size, height = size, fit = "contain" })
 end
 
 -- Feierabend: once the day's stints are behind you, a paused tracker is the
@@ -271,7 +338,7 @@ local function tooltipRows(active, clockOut)
   return rows
 end
 
-local function render()
+render = function()
   local active = state.active == true
   local clockOut = clockedOut(active)
   local container = barWidget.isVertical() and ui.column or ui.row
@@ -295,7 +362,8 @@ local function render()
   local color = (spec.overtime and value ~= "") and overtime.color(value)
     or (noctalia.getConfig("label_color") or "on_surface")
 
-  local children = { icon(active and "tracking" or (clockOut and "clock_out" or "stopped"), color) }
+  local kind = active and "tracking" or (clockOut and "clock_out" or "stopped")
+  local children = { badgeModeIcon(kind, color) or icon(kind, color) }
   if value ~= "" then
     table.insert(children, ui.label({ text = duration.format(value, formats.get("bar_time_format")), color = color }))
   end
