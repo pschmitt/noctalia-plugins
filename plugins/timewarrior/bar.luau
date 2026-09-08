@@ -28,16 +28,18 @@ local render
 
 local LOGO_TRACKING = "assets/timewarrior-logo.svg"
 local LOGO_STOPPED = "assets/pause.svg"
--- Build-time-rasterized copy of LOGO_TRACKING (see pkgs/noctalia-timewarrior)
--- -- badge_mode's base layer when main_glyph is empty. Not LOGO_STOPPED: in
+-- badge_mode's base layer when main_glyph is empty -- a reduced variant of
+-- LOGO_TRACKING (see assets/timewarrior-logo-simple.svg's own header comment
+-- for why it isn't just the same file) that lib/badge_icon.luau rasterizes
+-- fresh at exactly the composite's working resolution. Not LOGO_STOPPED: in
 -- badge mode the main icon is constant regardless of state (that is the
 -- point of the mode), only the corner badge changes.
 -- Absolute, unlike LOGO_TRACKING/LOGO_STOPPED above: those go straight to
 -- ui.image, which resolves a plugin-relative path itself, but this one goes
--- to an external `magick` subprocess (badge_icon.luau) that has no notion
--- of "relative to the plugin dir" at all -- confirmed live, "unable to open
--- image" until this became noctalia.pluginDir() .. "/...".
-local LOGO_PNG = noctalia.pluginDir() .. "/assets/timewarrior-logo-256.png"
+-- to an external `rsvg-convert` subprocess (badge_icon.luau) that has no
+-- notion of "relative to the plugin dir" at all -- confirmed live, "unable to
+-- open image" until this became noctalia.pluginDir() .. "/...".
+local LOGO_SIMPLE_SVG = noctalia.pluginDir() .. "/assets/timewarrior-logo-simple.svg"
 
 -- The bundled artwork is the default for both tracking states; a glyph setting
 -- replaces it for that state alone, so tracking can be a glyph while stopped
@@ -125,7 +127,7 @@ local function badgeModeIcon(kind, color)
     -- "on_surface" grey, which put the (equally light) glyph on an
     -- indistinguishable same-colour circle when the circle used it too.
     badgeBgColor = resolveColor.resolve("surface_variant", "#1E1F27"),
-    logoPngPath = LOGO_PNG,
+    logoSvgPath = LOGO_SIMPLE_SVG,
     assetsDir = assetsDir,
     size = size,
     -- Pulsing while tracking only -- like the REC dot, this is a "something

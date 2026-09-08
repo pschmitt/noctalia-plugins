@@ -71,7 +71,12 @@ never has to scale it again) -- but a badge is still only a fraction of an
 already-small icon. At the 16px default it is a blur; from 24px up the glyph
 is clearly the right shape. **Bump `icon_size` to at least 24 -- 28-32 reads
 comfortably -- if using badge mode**; there is no rendering trick that makes
-a corner badge legible on a 16px icon, only a bigger icon.
+a corner badge legible on a 16px icon, only a bigger icon. When `main_glyph`
+is empty, the bundled logo's main layer is a reduced variant of the full
+artwork (`assets/timewarrior-logo-simple.svg`) with its thin decorative ring
+removed -- that ring is what actually aliased into a fuzzy double band at
+small sizes, more than resolution alone; the underlying helmet shape still
+has a legibility floor of its own that only a bigger `icon_size` moves.
 
 `badge_pulse_enabled` fades the badge's chip in and out while tracking, the
 same breathing effect `pschmitt/screencast`'s REC dot uses -- a "something is

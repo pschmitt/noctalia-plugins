@@ -8,7 +8,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-timewarrior";
-  version = "0.35.2";
+  version = "0.36.0";
 
   src = lib.fileset.toSource {
     root = ../../plugins/timewarrior;
@@ -24,8 +24,6 @@ stdenvNoCC.mkDerivation {
     ];
   };
 
-  nativeBuildInputs = [ librsvg ];
-
   dontConfigure = true;
   dontBuild = true;
 
@@ -39,21 +37,18 @@ stdenvNoCC.mkDerivation {
     cp -r lib assets translations "$dest"/
     cp service.luau "$dest"/
 
-    # Badge mode's constant main icon (lib/badge_icon.luau): rasterized once
-    # at build time, not at runtime through ImageMagick's own SVG delegate --
-    # already routed around for pschmitt/syncthing's badges the same way,
-    # for the same reliability reason.
-    #
-    # 256px covers badge_icon.luau's supersampled working resolution
-    # (icon_size * SUPERSAMPLE) at icon_size's declared max of 48 -- SUPERSAMPLE
-    # would have to exceed 5 before this needs bumping again. Undersizing it
-    # would mean magick upscaling a small source before its own downsample,
-    # softening exactly the edges supersampling exists to keep sharp.
-    rsvg-convert -w 256 -h 256 -o "$dest"/assets/timewarrior-logo-256.png assets/timewarrior-logo.svg
-
     cacheKey=$(basename "$out" | cut -c1-8)
+    # Badge mode's constant main icon (lib/badge_icon.luau) is rasterized at
+    # runtime, straight from assets/timewarrior-logo-simple.svg, at exactly
+    # the working resolution each icon_size needs -- not through ImageMagick's
+    # own SVG delegate (already routed around for pschmitt/syncthing's badges
+    # the same way, for the same reliability reason), and not from a
+    # fixed-size pre-rasterized PNG resized after the fact either: rendering
+    # fresh from the vector source at the exact target size is what a font
+    # glyph gets for free and a resized raster does not.
     substitute lib/badge_icon.luau "$dest"/lib/badge_icon.luau \
       --subst-var-by magick ${lib.getExe' imagemagick "magick"} \
+      --subst-var-by rsvgConvert ${lib.getExe' librsvg "rsvg-convert"} \
       --subst-var-by find ${lib.getExe' findutils "find"} \
       --subst-var-by cacheKey "$cacheKey"
 

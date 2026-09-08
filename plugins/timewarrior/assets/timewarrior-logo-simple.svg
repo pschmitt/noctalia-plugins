@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Reduced variant of timewarrior-logo.svg for badge_mode's small composite
+     icon (see lib/badge_icon.luau): the full logo's thin decorative ring
+     (a second, closely-spaced circle just inside the disc's edge) survives
+     down to maybe 24px but is pure noise at 16px -- it does not fade, it
+     aliases into a fuzzy double band, which was the actual bulk of the
+     "blurry" look, more than the resolution itself. This drops that ring and
+     scales the disc back out to fill the same footprint the full logo did,
+     keeping only the one shape that still reads at a glance that small: the
+     helmet silhouette. Same path data as the original for that shape --
+     this is a subtraction, not a redraw. -->
+<svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(-477.17241,-466.67808)">
+        <g transform="matrix(0.125,0,0,-0.125,477.17241,603.76058)">
+            <g transform="matrix(0.2042547,0,0,0.2042547,0,872.66204)">
+                <circle cx="548.34" cy="-548.32" r="487.92" style="fill:#ffffff;stroke:none" transform="scale(1,-1)" />
+                <path d="M 593.262,207.129 V 500.32 l 110.351,80.989 7.051,42.492 -140.352,-23.008 h -44.003 l -140.286,23.008 7.051,-42.492 108.93,-81.282 V 207.129 c -43.164,11.387 -119.414,63.555 -186.672,135.625 0,0 78.867,197.266 27.156,289.226 -15.203,28.508 -15.203,258.274 205.207,257.524 C 768.113,888.738 772.312,673.867 754.188,631.98 704.277,542.258 781.34,342.754 781.34,342.754 714.094,270.664 636.418,218.508 593.262,207.129 Z M 548.34,1036.25 C 278.867,1036.25 60.4023,817.793 60.4023,548.32 60.4023,278.848 278.867,60.3984 548.34,60.3984 c 269.472,0 487.92,218.4496 487.92,487.9216 0,269.473 -218.448,487.93 -487.92,487.93" style="fill:#393536;fill-opacity:1;fill-rule:nonzero;stroke:none" />
+            </g>
+        </g>
+    </g>
+</svg>
