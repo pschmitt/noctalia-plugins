@@ -21,8 +21,9 @@ end
 
 -- pw-dump emits the complete object graph as JSON. On a real desktop that is
 -- large enough for Noctalia's Luau CPU budget to abort json.decode before the
--- poller can publish anything. pw-cli's human-readable listings contain the
--- same node/link properties we need, but are far smaller.
+-- poller can publish anything. pw-cli's human-readable listings (and its
+-- per-object `info` dump, used below for client pid/name) contain the same
+-- properties we need, but are far smaller.
 -- Keep the small parser here so detection remains part of the reusable plugin.
 local function parseListing(raw, wantedType)
   local objects = {}
@@ -47,18 +48,24 @@ local function parseListing(raw, wantedType)
   return objects
 end
 
+-- Each portal-linked node also carries a client.id -- the PipeWire client
+-- (app connection) that owns it. Keep that alongside the node name so the
+-- caller can enrich the record with the client's own properties (pid,
+-- application.name) via a follow-up `pw-cli info <clientId>` -- `ls Node`'s
+-- compact listing doesn't carry those, only the full per-object dump does.
 local function portalGraph(nodeRaw, linkRaw)
   local portalNodes = {}
-  local nodeNames = {}
+  local nodeInfo = {}
   for _, node in ipairs(parseListing(nodeRaw, "PipeWire:Interface:Node")) do
     local name = node["node.name"] or ""
-    nodeNames[node.id] = name
+    nodeInfo[node.id] = { name = name, clientId = node["client.id"] }
     if name:find("xdg%-desktop%-portal") then
       portalNodes[node.id] = true
     end
   end
 
-  local apps = {}
+  local records = {}
+  local seen = {}
   local linkIds = {}
   for _, link in ipairs(parseListing(linkRaw, "PipeWire:Interface:Link")) do
     local input = link["link.input.node"] or ""
@@ -66,32 +73,62 @@ local function portalGraph(nodeRaw, linkRaw)
     if portalNodes[input] or portalNodes[output] then
       table.insert(linkIds, link.id)
       -- A portal link has one portal endpoint and one client endpoint.
-      -- Report the latter's PipeWire node name, matching the old helper.
+      -- Report the latter's node name/client id, matching the old helper.
       for _, id in ipairs({ input, output }) do
         if id ~= "" and not portalNodes[id] then
-          local name = nodeNames[id] or ""
-          if name ~= "" then
-            apps[name] = true
+          local info = nodeInfo[id]
+          if info and info.name ~= "" then
+            -- Dedup by client id where we have one (the same app can open
+            -- more than one node touching the portal); fall back to name.
+            local key = info.clientId or info.name
+            if not seen[key] then
+              seen[key] = true
+              table.insert(records, { name = info.name, clientId = info.clientId })
+            end
           end
         end
       end
     end
   end
 
-  local names = {}
-  for name in pairs(apps) do
-    table.insert(names, name)
-  end
-  table.sort(names)
   table.sort(linkIds, function(left, right)
     return tonumber(left) < tonumber(right)
   end)
-  return names, linkIds
+  return records, linkIds
+end
+
+-- Chases down each sharing client's pid and application.name via one
+-- `pw-cli info` round trip per client (there are only ever a handful of
+-- these at once). `ls Client`'s compact listing does carry a pid
+-- (pipewire.sec.pid), but it's the pid of whatever process opened the
+-- PipeWire connection -- a browser's sandboxed GPU/content process, not the
+-- window Hyprland knows about. application.process.id from the full client
+-- dump is the one that actually matches `hyprctl clients`' own pid field.
+local function fetchClientInfo(clientIds, index, results, callback)
+  if index > #clientIds then
+    callback(results)
+    return
+  end
+  local id = clientIds[index]
+  noctalia.runAsync({ PW_CLI, "info", id }, function(result)
+    if result.exitCode == 0 then
+      local out = result.stdout or ""
+      results[id] = {
+        pid = out:match('application%.process%.id = "(%d+)"'),
+        name = out:match('application%.name = "([^"]*)"'),
+      }
+    end
+    fetchClientInfo(clientIds, index + 1, results, callback)
+  end, POLL_TIMEOUT_MS)
 end
 
 local function publish(apps)
   local active = #apps > 0
-  local key = tostring(active) .. "|" .. table.concat(apps, ",")
+  local parts = {}
+  for _, app in ipairs(apps) do
+    table.insert(parts, (app.name or "") .. ":" .. tostring(app.pid or ""))
+  end
+  local key = tostring(active) .. "|" .. table.concat(parts, ",")
   if key == lastKey then
     return
   end
@@ -193,9 +230,29 @@ poll = function()
         return
       end
 
-      polling = false
-      local apps = portalGraph(result.stdout or "", linkResult.stdout or "")
-      publish(apps)
+      local records = portalGraph(result.stdout or "", linkResult.stdout or "")
+      local clientIds = {}
+      for _, record in ipairs(records) do
+        if record.clientId then
+          table.insert(clientIds, record.clientId)
+        end
+      end
+
+      fetchClientInfo(clientIds, 1, {}, function(infoByClient)
+        polling = false
+        local apps = {}
+        for _, record in ipairs(records) do
+          local info = record.clientId and infoByClient[record.clientId]
+          table.insert(apps, {
+            name = (info and info.name and info.name ~= "" and info.name) or record.name,
+            pid = info and info.pid,
+          })
+        end
+        table.sort(apps, function(left, right)
+          return left.name < right.name
+        end)
+        publish(apps)
+      end)
     end, POLL_TIMEOUT_MS)
   end, POLL_TIMEOUT_MS)
 end

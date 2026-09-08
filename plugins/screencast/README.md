@@ -26,13 +26,26 @@ portal captures, not arbitrary recorder processes that bypass the portal.
 ## Panel
 
 Click the active `pschmitt/screencast:bar` widget to open a small details
-panel. It lists the PipeWire clients attached to the share, each with a
-best-effort icon guessed from the client's PipeWire node name (Firefox,
-Chrome/Chromium, Discord, Slack, Zoom, Teams, Telegram, WhatsApp, Skype,
-Spotify, Steam, VLC, VS Code fall back to their own glyph; anything else gets
-a plain window icon). Clicking a client asks Hyprland for its own window list
-and focuses the first match on class or title -- silently a no-op on another
-compositor, if `hyprctl` is missing, or if nothing matches.
+panel. It lists the sharing clients, each with its pid and a best-effort icon
+guessed from the client's name (Firefox, Chrome/Chromium, Discord, Slack,
+Zoom, Teams, Telegram, WhatsApp, Skype, Spotify, Steam, VLC, VS Code fall back
+to their own glyph; anything else gets a plain window icon). The pid comes
+from one `pw-cli info` round trip per client (there are only ever a handful)
+-- specifically `application.process.id`, which is what `hyprctl clients`
+itself reports for the window, not PipeWire's own connection pid (a
+sandboxed content/GPU process for a multi-process app like a browser).
+
+Clicking a client focuses it: pid match first, falling back to a class/title
+substring match on its name if there's no pid or it doesn't match any window.
+Silently a no-op on another compositor, if `hyprctl` is missing, or if
+nothing matches -- this is a convenience, not a guarantee.
+
+Not shown, because neither PipeWire nor the portal expose it after a session
+is running: which window or monitor is actually being captured. That choice
+is made once, in the portal's own share-selection dialog, and isn't
+republished anywhere queryable -- not in a way that would work across portal
+backends (Hyprland, GNOME, KDE, ...) even if one of them happened to expose
+it.
 
 The `Stop sharing` button removes the share's PipeWire links directly; it
 does not depend on the application that created the portal session or on a

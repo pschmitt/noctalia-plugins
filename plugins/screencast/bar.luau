@@ -32,7 +32,11 @@ end
 
 local function tooltip()
   local apps = state.apps or {}
-  local text = #apps > 0 and ("Screensharing: " .. table.concat(apps, ", ")) or "Screensharing"
+  local names = {}
+  for _, app in ipairs(apps) do
+    table.insert(names, app.name)
+  end
+  local text = #names > 0 and ("Screensharing: " .. table.concat(names, ", ")) or "Screensharing"
   return text
 end
 

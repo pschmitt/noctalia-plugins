@@ -4,7 +4,7 @@
 
 id = "pschmitt/screencast"
 name = "Screencast Indicator"
-version = "0.5.1"
+version = "0.6.0"
 plugin_api = 24 # argument-array runAsync() keeps the pw-cli calls shell-free
 author = "pschmitt"
 license = "GPL-3.0-only"

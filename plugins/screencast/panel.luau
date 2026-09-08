@@ -65,15 +65,18 @@ local function clientIcon(name)
   return "app-window"
 end
 
--- Best-effort window focus: PipeWire's client node name is usually close to
--- (but not guaranteed to be) the compositor's window class, so this asks
--- Hyprland for its own client list and matches against class/title rather
--- than trusting `hyprctl dispatch focuswindow class:<name>`'s own regex
--- engine to get case-sensitivity and anchoring right. Silently does nothing
--- on any failure -- wrong compositor, hyprctl missing, no match -- since this
--- is a convenience on top of the panel, not something worth surfacing an
--- error for.
-local function focusApp(appName)
+-- Best-effort window focus. Tries the pid first -- service.luau resolves
+-- application.process.id, which is the pid `hyprctl clients` itself reports
+-- for the window, unlike PipeWire's own connection pid (a browser's sandboxed
+-- content/GPU process, not what owns the toplevel). Falls back to a
+-- class/title substring match on the app name when there's no pid or it
+-- doesn't match any window, rather than trusting
+-- `hyprctl dispatch focuswindow class:<name>`'s own regex engine to get
+-- case-sensitivity and anchoring right. Silently does nothing on any failure
+-- -- wrong compositor, hyprctl missing, no match -- since this is a
+-- convenience on top of the panel, not something worth surfacing an error
+-- for.
+local function focusApp(app)
   noctalia.runAsync({ "hyprctl", "-j", "clients" }, function(result)
     if result.exitCode ~= 0 then
       return
@@ -82,12 +85,30 @@ local function focusApp(appName)
     if type(clients) ~= "table" then
       return
     end
-    local needle = appName:lower()
+
+    local function focus(client)
+      noctalia.runAsync({ "hyprctl", "dispatch", "focuswindow", "address:" .. tostring(client.address) })
+    end
+
+    local pid = tonumber(app.pid)
+    if pid then
+      for _, client in ipairs(clients) do
+        if tonumber(client.pid) == pid then
+          focus(client)
+          return
+        end
+      end
+    end
+
+    local needle = (app.name or ""):lower()
+    if needle == "" then
+      return
+    end
     for _, client in ipairs(clients) do
       local class = tostring(client.class or client.initialClass or ""):lower()
       local title = tostring(client.title or client.initialTitle or ""):lower()
       if class:find(needle, 1, true) or title:find(needle, 1, true) then
-        noctalia.runAsync({ "hyprctl", "dispatch", "focuswindow", "address:" .. tostring(client.address) })
+        focus(client)
         return
       end
     end
@@ -109,11 +130,18 @@ local function appList()
         gap = 8,
         align = "center",
         padding = 5,
-        tooltip = "Focus " .. app,
+        tooltip = "Focus " .. app.name,
         onClick = function() focusApp(app) end,
       }, {
-        ui.glyph({ name = clientIcon(app), size = 14, color = "on_surface_variant" }),
-        ui.label({ text = app, fontSize = 13, maxLines = 1 }),
+        ui.glyph({ name = clientIcon(app.name), size = 14, color = "on_surface_variant" }),
+        ui.label({ text = app.name, fontSize = 13, maxLines = 1, flexGrow = 1 }),
+        ui.label({
+          text = app.pid and ("PID " .. app.pid) or "",
+          fontSize = 10,
+          color = "on_surface_variant",
+          maxLines = 1,
+          visible = app.pid ~= nil,
+        }),
       }))
     end
   end
