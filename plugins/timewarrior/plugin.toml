@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.36.1"
+version = "0.36.3"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -87,12 +87,12 @@ label_key = "settings.clock_out_glyph.label"
 description_key = "settings.clock_out_glyph.description"
 default = "beer"
 
-# Badge mode: instead of tracking_glyph/stopped_glyph/clock_out_glyph
-# replacing the whole icon per state, keep one constant main icon (the
-# bundled logo, or main_glyph) and composite whichever of those three glyphs
-# matches the current state as a small corner badge on top of it -- the same
-# idea as pschmitt/syncthing's status badges. Off leaves everything above
-# exactly as it already behaves.
+# Badge mode keeps one constant main icon (the bundled logo or main_glyph) and
+# composites the current state's glyph as a corner badge. At small sizes the
+# default play/pause/beer states use purpose-drawn assets, following the same
+# rendering path as the Syncthing plugin. Custom glyphs, positions, and larger
+# sizes use the generic runtime compositor. Off leaves everything above exactly
+# as it already behaves.
 #
 # This needs a rendered bitmap: Noctalia's plugin ui.* tree has no
 # overlay/z-stack primitive to fake it with plain layout (confirmed against

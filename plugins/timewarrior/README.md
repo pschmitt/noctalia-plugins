@@ -41,17 +41,29 @@ default, turns it off. Starting another interval puts the tracking icon back,
 and since this is an idle state it needs a `visibility` mode that keeps the
 slot while idle (see below) to be visible at all.
 
-`badge_mode` swaps that icon-per-state model for a fixed main icon (the
-bundled logo, or `main_glyph`) with `tracking_glyph`/`stopped_glyph`/
-`clock_out_glyph` composited as a small state badge on top of it instead --
-the same idea as `pschmitt/syncthing`'s status badges. Pick `badge_position`
-for which corner. This needs a rendered bitmap: Noctalia's plugin UI has no
-way to layer one icon over another declaratively (every layout container is
-pure flex, and leaf types like images/glyphs can't have children at all), so
-the composite is generated with the same bundled icon font Noctalia itself
-draws glyphs from. That font isn't registered as a system font and isn't
-something this plugin can safely bundle its own copy of without risking it
-drifting out of sync with whatever Noctalia version is actually installed --
+`badge_mode` uses a fixed main icon (the bundled logo, or `main_glyph`) with
+`tracking_glyph`/`stopped_glyph`/`clock_out_glyph` composited as a small state
+badge on top of it -- the same idea as `pschmitt/syncthing`'s status badges.
+Pick `badge_position` for which corner.
+
+At small sizes, the default bottom-right play/pause/beer combinations use
+purpose-drawn 16-unit SVGs. The Timewarrior helmet, badge bite, chip, and state
+mark are designed together on that grid; the package rasterizes each SVG to a
+256px source image, and Noctalia performs the one final downsample at the
+actual UI/output scale. This is the same rendering path as the sharp 16px
+Syncthing widget, rather than a six-pixel icon-font glyph enlarged inside a
+runtime-generated bitmap. A tracking pulse switches among pre-rendered green
+chip shades, so the badge remains fully opaque and its white play mark stays
+crisp throughout the cycle.
+
+Custom glyphs, custom badge positions, and icon sizes above 23px use the
+generic compositor. Noctalia's plugin UI has no way to layer one icon over
+another declaratively (every layout container is pure flex, and leaf types
+like images/glyphs can't have children at all), so that path is generated with
+the same bundled icon font Noctalia itself draws glyphs from. That font isn't
+registered as a system font and isn't something this plugin can safely bundle
+its own copy of without risking it drifting out of sync with whatever
+Noctalia version is actually installed --
 so `noctalia_assets_dir` has to point at it explicitly: Noctalia's own
 installed `share/noctalia/assets/fonts` directory, e.g.
 
@@ -61,31 +73,38 @@ plugin_settings."pschmitt/timewarrior".noctalia_assets_dir =
 ```
 
 in a Nix config that already sets `programs.noctalia.package`, so it always
-matches whatever build is actually running. Badge mode silently falls back to
-the plain icon (no badge) while this is empty, wrong, or a configured glyph
-name doesn't resolve.
+matches whatever build is actually running. The generic compositor silently
+falls back to the plain icon (no badge) while this is empty, wrong, or a
+configured glyph name doesn't resolve. The bundled small badges do not need
+the font directory.
 
-The composite is generated at the widget's actual `icon_size` (supersampled
-internally, then downsampled once with ImageMagick's own filter, so `ui.image`
-never has to scale it again) -- but a badge is still only a fraction of an
-already-small icon. At the 16px default it is a blur; from 24px up the glyph
-is clearly the right shape. **Bump `icon_size` to at least 24 -- 28-32 reads
-comfortably -- if using badge mode**; there is no rendering trick that makes
-a corner badge legible on a 16px icon, only a bigger icon. When `main_glyph`
-is empty, the bundled logo's main layer is a reduced variant of the full
-artwork (`assets/timewarrior-logo-simple.svg`) with its thin decorative ring
-removed -- that ring is what actually aliased into a fuzzy double band at
-small sizes, more than resolution alone; the underlying helmet shape still
-has a legibility floor of its own that only a bigger `icon_size` moves.
+The generic composite is generated at the widget's requested `icon_size`,
+supersampled internally, then downsampled with ImageMagick. When `main_glyph`
+is empty, its main layer is a reduced variant of the full artwork
+(`assets/timewarrior-logo-simple.svg`) with the thin decorative ring removed.
 
-`badge_pulse_enabled` fades the badge's chip in and out while tracking, the
-same breathing effect `pschmitt/screencast`'s REC dot uses -- a "something is
-live" signal, so it only runs for the tracking state, not stopped or
-clocked-out. Only the chip fades; the glyph drawn on top of it, and the main
-icon underneath, both stay fully opaque throughout -- fading the glyph too
-was tried first and made an already small state icon unreadable for most of
-the cycle, which read as the badge going blurry rather than pulsing.
-`badge_pulse_period_ms` (default 1200) sets how long one fade cycle takes.
+`badge_pulse_enabled` breathes the badge while tracking, the same
+"something is live" signal as `pschmitt/screencast`'s REC dot. The bundled
+small icon varies only the green chip colour; the logo and white play mark do
+not fade. The generic path varies the chip alpha. Stopped and clocked-out
+badges stay static. `badge_pulse_period_ms` (default 1200) sets the cycle.
+
+To verify the small-icon path, set `icon_size = 16`, enable badge mode, and
+configure the default bottom-right state glyphs. Capture the real bar at native
+output scale with `grim -g 'X,Y WIDTHxHEIGHT' bar.png`, then magnify without
+interpolation using `magick bar.png -filter point -resize 800% bar-8x.png`.
+Preview every state without modifying the Timewarrior database, then restore
+the live state:
+
+```sh
+noctalia msg plugin pschmitt/timewarrior:bar all:main preview-tracking
+noctalia msg plugin pschmitt/timewarrior:bar all:main preview-stopped
+noctalia msg plugin pschmitt/timewarrior:bar all:main preview-clock-out
+noctalia msg plugin pschmitt/timewarrior:bar all:main preview-clear
+```
+
+With pulse enabled, take two tracking captures at opposite ends of the cycle;
+only the green badge chip should change.
 
 Hovering the widget shows a small table rather than a sentence: the tracking
 state (`clocked out` once the threshold is met), when the running interval

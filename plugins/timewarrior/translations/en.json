@@ -134,11 +134,11 @@
     },
     "badge_mode": {
       "label": "Use badges instead of swapping the icon",
-      "description": "Keep one constant main icon and show the tracking/stopped/clocked-out icon as a small corner badge on top of it instead of replacing the whole icon."
+      "description": "Keep the Timewarrior logo visible and show play, pause, or clock-out in a corner badge. Default small badges use sharp purpose-drawn assets."
     },
     "main_glyph": {
       "label": "Main icon (badge mode)",
-      "description": "The constant icon badge mode always shows, regardless of state. Empty uses the bundled Timewarrior logo."
+      "description": "The constant icon used by badge mode. Empty uses the bundled Timewarrior logo. Custom glyphs use the generic compositor."
     },
     "badge_position": {
       "label": "Badge position",
@@ -150,11 +150,11 @@
     },
     "noctalia_assets_dir": {
       "label": "Noctalia assets directory (badge mode)",
-      "description": "Absolute path to Noctalia's own installed share/noctalia/assets/fonts directory, e.g. \"${pkgs.noctalia}/share/noctalia/assets/fonts\" in a Nix config that already sets programs.noctalia.package. Required for badge mode -- without it, badges silently fall back to the plain icon."
+      "description": "Absolute path to Noctalia's own installed share/noctalia/assets/fonts directory, e.g. \"${pkgs.noctalia}/share/noctalia/assets/fonts\" in a Nix config. Required by custom and larger generic badge composites; bundled small badges do not need it."
     },
     "badge_pulse_enabled": {
       "label": "Pulse the badge while tracking",
-      "description": "Fades the state badge in and out while tracking, like the screen-sharing indicator's breathing dot. The main icon stays static -- only the badge pulses."
+      "description": "Breathes the tracking badge without fading the Timewarrior logo or white play mark."
     },
     "badge_pulse_period_ms": {
       "label": "Badge pulse period (ms)",

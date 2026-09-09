@@ -19,6 +19,7 @@ badgeIcon.prune()
 
 local state = noctalia.state.get("tw_status") or { active = false, duration = "", today = "", since = "", closed = 0 }
 local summary = noctalia.state.get("tw_summary") or { week = "", month = "" }
+local previewKind = nil
 
 -- Forward-declared: badgeModeIcon() (below) needs to call render() again once
 -- an async badge composite finishes, but render() itself is only defined
@@ -62,6 +63,23 @@ local LOGOS = {
   clock_out = LOGO_STOPPED,
 }
 
+-- The default 16px badge is purpose-drawn on the same 16-unit grid as the
+-- Syncthing widget's icons, then rasterized to a large PNG at package build
+-- time. It avoids squeezing a full icon-font glyph into a six-pixel box and
+-- keeps Noctalia in charge of the single final downsample. Custom main/state
+-- glyphs and non-default badge positions still use badge_icon.luau below.
+local BUNDLED_BADGES = {
+  tracking = "assets/status-tracking.png",
+  stopped = "assets/status-stopped.png",
+  clock_out = "assets/status-clock-out.png",
+}
+
+local BUNDLED_BADGE_GLYPHS = {
+  tracking = { [""] = true, ["player-play"] = true },
+  stopped = { [""] = true, ["player-pause"] = true },
+  clock_out = { [""] = true, beer = true },
+}
+
 -- Badge pulse (badge_pulse_enabled): mirrors screencast's REC dot -- a
 -- cosine-eased breathe, driven by our own update() tick rather than the
 -- service's poll interval, so it stays smooth regardless of poll_interval.
@@ -71,6 +89,8 @@ local LOGOS = {
 local PULSE_FRAME_MS = 100
 local IDLE_TICK_MS = 5000
 local PULSE_MIN_ALPHA = 0.25
+local BUNDLED_BADGE_MAX_SIZE = 23
+local BUNDLED_PULSE_FRAMES = 8
 
 local function badgePulseAlpha()
   local periodMs = math.max(300, tonumber(noctalia.getConfig("badge_pulse_period_ms")) or 1200)
@@ -95,6 +115,31 @@ local function icon(kind, color)
   })
 end
 
+local function bundledBadgeIcon(kind, size)
+  if size > BUNDLED_BADGE_MAX_SIZE then
+    return nil
+  end
+  if noctalia.string.trim(noctalia.getConfig("main_glyph") or "") ~= "" then
+    return nil
+  end
+  if (noctalia.getConfig("badge_position") or "bottom_right") ~= "bottom_right" then
+    return nil
+  end
+
+  local glyph = noctalia.string.trim(noctalia.getConfig(GLYPH_SETTINGS[kind]) or "")
+  if BUNDLED_BADGE_GLYPHS[kind] == nil or BUNDLED_BADGE_GLYPHS[kind][glyph] ~= true then
+    return nil
+  end
+
+  local path = BUNDLED_BADGES[kind]
+  if kind == "tracking" and noctalia.getConfig("badge_pulse_enabled") == true then
+    local level = (badgePulseAlpha() - PULSE_MIN_ALPHA) / (1 - PULSE_MIN_ALPHA)
+    local frame = math.floor(level * (BUNDLED_PULSE_FRAMES - 1) + 0.5)
+    path = `assets/status-tracking-pulse-{frame}.png`
+  end
+  return ui.image({ path = path, width = size, height = size, fit = "contain" })
+end
+
 -- badge_mode's alternative to icon(): one constant main icon (the bundled
 -- logo, or main_glyph if set) with the state glyph composited as a small
 -- corner badge instead of replacing the whole icon. See lib/badge_icon.luau
@@ -111,6 +156,11 @@ local function badgeModeIcon(kind, color)
   end
 
   local size = tonumber(noctalia.getConfig("icon_size")) or 16
+  local bundled = bundledBadgeIcon(kind, size)
+  if bundled ~= nil then
+    return bundled
+  end
+
   local assetsDir = noctalia.string.trim(noctalia.getConfig("noctalia_assets_dir") or "")
   if assetsDir == "" then
     return nil
@@ -397,7 +447,7 @@ render = function()
   local color = (spec.overtime and value ~= "") and overtime.color(value)
     or (noctalia.getConfig("label_color") or "on_surface")
 
-  local kind = active and "tracking" or (clockOut and "clock_out" or "stopped")
+  local kind = previewKind or (active and "tracking" or (clockOut and "clock_out" or "stopped"))
   local children = { badgeModeIcon(kind, color) or icon(kind, color) }
   if value ~= "" then
     table.insert(children, ui.label({ text = duration.format(value, formats.get("bar_time_format")), color = color }))
@@ -414,7 +464,7 @@ end
 -- while there is an actual pulse to animate: badge mode, the pulse setting,
 -- and an active (tracking) interval all have to hold at once.
 local function syncTickRate()
-  local pulsing = state.active == true
+  local pulsing = (previewKind == "tracking" or state.active == true)
     and noctalia.getConfig("badge_mode") == true
     and noctalia.getConfig("badge_pulse_enabled") == true
   noctalia.setUpdateInterval(pulsing and PULSE_FRAME_MS or IDLE_TICK_MS)
@@ -436,6 +486,28 @@ noctalia.state.watch("tw_summary", function(val)
     render()
   end
 end)
+
+-- A non-persistent visual-test hook for the three icon states. It changes only
+-- the rendered icon, never shared state or the Timewarrior database, and the
+-- live state resumes with preview-clear (or when the widget is recreated).
+-- This keeps real-bar verification reproducible instead of requiring fake
+-- intervals in a user's work log.
+local PREVIEW_KINDS = {
+  ["preview-tracking"] = "tracking",
+  ["preview-stopped"] = "stopped",
+  ["preview-clock-out"] = "clock_out",
+}
+
+function onIpc(event)
+  if event == "preview-clear" then
+    previewKind = nil
+  elseif PREVIEW_KINDS[event] ~= nil then
+    previewKind = PREVIEW_KINDS[event]
+  else
+    return
+  end
+  render()
+end
 
 render()
 syncTickRate()
