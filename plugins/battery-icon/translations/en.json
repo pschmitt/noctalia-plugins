@@ -87,6 +87,10 @@
       "label": "Medium threshold (%)",
       "description": "Charge percentage at or below which the medium-battery color is used."
     },
+    "show_peripheral_low_badge": {
+      "label": "Low peripheral badge",
+      "description": "Show a small red dot on the icon when a connected UPower peripheral (mouse, keyboard, headset, ...) is at or below the low threshold."
+    },
     "low_color": {
       "label": "Low color",
       "description": "Icon color when charge is at or below the low threshold."

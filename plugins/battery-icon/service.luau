@@ -230,6 +230,23 @@ local function publishDetails(percent, charging, status, profile, limit, thresho
     timeToEmpty = details.timeToEmpty,
     devices = details.devices,
   })
+  return details
+end
+
+-- Same "low" the panel already flags per-device rows with (isLow in
+-- panel.luau) and the header uses for the main pack -- reusing low_threshold
+-- here keeps "low" meaning one thing across the whole plugin instead of
+-- introducing a second, differently-tuned notion of it.
+local function hasLowPeripheral(cfg, devices)
+  if noctalia.getConfig("show_peripheral_low_badge") == false then
+    return false -- explicit opt-out; default (nil/true) leaves the badge on
+  end
+  for _, device in ipairs(devices or {}) do
+    if (device.percent or 0) <= cfg.lowThreshold then
+      return true
+    end
+  end
+  return false
 end
 
 local CAFFEINE_FALLBACK_UNIT = "noctalia-battery-caffeine"
@@ -598,7 +615,14 @@ local PLUS_GAP_ARMS = { "78,24 116,41", "89,13 106,51" }
 local ANIM_SETTLE_MS = 150 -- fallback hold for the final real-color frame
 local pendingAnim = nil -- { cfg, percent, charging, powerSaver, dataDir, frames, index }
 
-local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverride, fillOverride, boltColorOverride)
+-- A small dot in the body's top-left corner -- the top-right is already
+-- claimed by the terminal/bolt/power-saver-plus slot, so the badge needed
+-- its own, unoccupied corner. Centered just inside the rounded corner
+-- BODY_PATH draws there, small enough to stay clear of the centered
+-- percentage label.
+local PERIPHERAL_BADGE_DRAW = "circle 12,14 12,7"
+
+local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverride, fillOverride, boltColorOverride, lowPeripheral)
   local bg = bgOverride or tierColor(cfg, percent, charging)
   local fg = cfg.textColor
   local label = tostring(percent)
@@ -626,6 +650,7 @@ local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverrid
     .. sanitize(cfg.powerSaverPlusColor)
     .. "-"
     .. tostring(fillPercent)
+    .. (lowPeripheral and "-lp" or "")
     .. ".png"
 
   if noctalia.fileExists(outPath) then
@@ -697,6 +722,17 @@ local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverrid
     .. label
     .. "' "
 
+  if lowPeripheral then
+    cmd = cmd
+      .. "-fill '"
+      .. cfg.lowColor
+      .. "' -stroke '"
+      .. cfg.textColor
+      .. "' -strokewidth 1.5 -draw '"
+      .. PERIPHERAL_BADGE_DRAW
+      .. "' "
+  end
+
   cmd = cmd .. "'" .. outPath .. "'"
 
   noctalia.runAsync(cmd, function(result)
@@ -741,7 +777,8 @@ local function advanceAnim()
     anim.dataDir,
     frame and frame.color,
     frame and frame.fillPercent,
-    frame and frame.boltColor
+    frame and frame.boltColor,
+    anim.lowPeripheral
   )
   return not finished
 end
@@ -759,7 +796,7 @@ local function strobeFrames(targetColor, flashColor, blinks, onMs, offMs)
   return frames
 end
 
-local function startStrobe(cfg, percent, charging, powerSaver, dataDir, frames)
+local function startStrobe(cfg, percent, charging, powerSaver, dataDir, frames, lowPeripheral)
   pendingAnim = {
     cfg = cfg,
     percent = percent,
@@ -768,6 +805,7 @@ local function startStrobe(cfg, percent, charging, powerSaver, dataDir, frames)
     dataDir = dataDir,
     frames = frames,
     index = 1,
+    lowPeripheral = lowPeripheral,
   }
   advanceAnim()
 end
@@ -812,8 +850,8 @@ local function chargeSweepFrames(percent)
   return frames
 end
 
-local function startChargePulse(cfg, percent, charging, powerSaver, dataDir)
-  startStrobe(cfg, percent, charging, powerSaver, dataDir, chargeSweepFrames(percent))
+local function startChargePulse(cfg, percent, charging, powerSaver, dataDir, lowPeripheral)
+  startStrobe(cfg, percent, charging, powerSaver, dataDir, chargeSweepFrames(percent), lowPeripheral)
 end
 
 -- Plugging in gets the "filling up" animation above; unplugging just cuts
@@ -822,11 +860,11 @@ end
 -- never a flash -- plugging in is the only moment any of them animate. The
 -- existing unplug sound chime (charging_sound_enabled) already carries the
 -- "something changed" cue on its own.
-local function startPulse(cfg, percent, charging, powerSaver, dataDir)
+local function startPulse(cfg, percent, charging, powerSaver, dataDir, lowPeripheral)
   if charging then
-    startChargePulse(cfg, percent, charging, powerSaver, dataDir)
+    startChargePulse(cfg, percent, charging, powerSaver, dataDir, lowPeripheral)
   else
-    regenerate(cfg, percent, charging, powerSaver, dataDir)
+    regenerate(cfg, percent, charging, powerSaver, dataDir, nil, nil, nil, lowPeripheral)
   end
 end
 
@@ -840,10 +878,10 @@ local CRITICAL_COLOR = "#FF1E1E" -- more saturated than low_color, so this alarm
 -- there). Deliberately paced differently from startPulse's quick flash
 -- (long on / short off vs. short on / long off) so the two are never
 -- mistaken for each other.
-local function startCriticalPulse(cfg, percent, charging, powerSaver, dataDir)
+local function startCriticalPulse(cfg, percent, charging, powerSaver, dataDir, lowPeripheral)
   local target = tierColor(cfg, percent, charging)
   if not isStrobeSafe(target) then
-    regenerate(cfg, percent, charging, powerSaver, dataDir)
+    regenerate(cfg, percent, charging, powerSaver, dataDir, nil, nil, nil, lowPeripheral)
     return
   end
   startStrobe(
@@ -852,7 +890,8 @@ local function startCriticalPulse(cfg, percent, charging, powerSaver, dataDir)
     charging,
     powerSaver,
     dataDir,
-    strobeFrames(target, CRITICAL_COLOR, CRITICAL_BLINKS, CRITICAL_ON_MS, CRITICAL_OFF_MS)
+    strobeFrames(target, CRITICAL_COLOR, CRITICAL_BLINKS, CRITICAL_ON_MS, CRITICAL_OFF_MS),
+    lowPeripheral
   )
 end
 
@@ -1037,7 +1076,7 @@ local function poll()
               -- Always publish panel data, even when the rendered icon is
               -- unchanged (for example, a wireless mouse can change charge
               -- while the laptop battery stays at 80%).
-              publishDetails(
+              local details = publishDetails(
                 percent,
                 charging,
                 status,
@@ -1047,6 +1086,7 @@ local function poll()
                 caffeineEnabled,
                 detailsResult.stdout
               )
+              local lowPeripheral = hasLowPeripheral(cfg, details.devices)
 
               local key = tostring(percent)
                 .. (charging and "c" or "d")
@@ -1059,6 +1099,7 @@ local function poll()
                 .. cfg.chargingBoltColor
                 .. cfg.textColor
                 .. cfg.emptyColor
+                .. tostring(lowPeripheral)
 
               if key == lastKey then
                 return
@@ -1071,11 +1112,11 @@ local function poll()
               end
 
               if edge then
-                startPulse(cfg, percent, charging, powerSaver, dataDir)
+                startPulse(cfg, percent, charging, powerSaver, dataDir, lowPeripheral)
               elseif lowEdge then
-                startCriticalPulse(cfg, percent, charging, powerSaver, dataDir)
+                startCriticalPulse(cfg, percent, charging, powerSaver, dataDir, lowPeripheral)
               else
-                regenerate(cfg, percent, charging, powerSaver, dataDir)
+                regenerate(cfg, percent, charging, powerSaver, dataDir, nil, nil, nil, lowPeripheral)
               end
             end, 5000)
           end)

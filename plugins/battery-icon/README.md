@@ -2,8 +2,9 @@
 
 `pschmitt/battery-icon` is a compact, Android-inspired Noctalia bar widget.
 It draws the charge percentage inside the battery silhouette, shows a charging
-bolt, adapts to Battery Saver, can play optional plug/unplug sounds, and opens
-a compact power-control panel when clicked.
+bolt, adapts to Battery Saver, flags a low-battery peripheral (mouse,
+keyboard, headset, ...) with a small red dot on the icon, can play optional
+plug/unplug sounds, and opens a compact power-control panel when clicked.
 
 | Bar | Panel |
 | --- | --- |

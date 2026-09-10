@@ -1,6 +1,6 @@
 id = "pschmitt/battery-icon"
 name = "Battery Icon"
-version = "0.6.3"
+version = "0.6.4"
 plugin_api = 26 # noctalia.getSetting() and noctalia.openSettings()
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -67,6 +67,13 @@ description_key = "settings.medium_threshold.description"
 default = 50
 min = 1
 max = 99
+
+[[setting]]
+key = "show_peripheral_low_badge"
+type = "bool"
+label_key = "settings.show_peripheral_low_badge.label"
+description_key = "settings.show_peripheral_low_badge.description"
+default = true
 
 # These feed ImageMagick's -fill (service.luau), which has no notion of
 # Noctalia's color roles — a bare role name like "on_primary" fails with
