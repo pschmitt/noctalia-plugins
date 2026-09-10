@@ -633,7 +633,7 @@ local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverrid
   local fillPercent = fillOverride or percent
   local boltColor = boltColorOverride or cfg.chargingBoltColor
   local outPath = dataDir
-    .. "/battery-m3e-v5-"
+    .. "/battery-m3e-v6-"
     .. tostring(percent)
     .. (charging and "c" or "d")
     .. (powerSaver and "s" or "n")
@@ -725,9 +725,7 @@ local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverrid
     cmd = cmd
       .. "-fill '"
       .. cfg.lowColor
-      .. "' -stroke '"
-      .. cfg.textColor
-      .. "' -strokewidth 1.5 -draw '"
+      .. "' -stroke none -draw '"
       .. PERIPHERAL_BADGE_DRAW
       .. "' "
   end
