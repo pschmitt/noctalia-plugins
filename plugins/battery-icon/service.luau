@@ -615,11 +615,15 @@ local PLUS_GAP_ARMS = { "78,24 116,41", "89,13 106,51" }
 local ANIM_SETTLE_MS = 150 -- fallback hold for the final real-color frame
 local pendingAnim = nil -- { cfg, percent, charging, powerSaver, dataDir, frames, index }
 
--- A small dot past the body's top-right corner, clear of the terminal nub
--- (which sits lower, mid-height) and only lightly clipping the charging
--- bolt's very tip in the rare charging+low-peripheral case -- an acceptable
+-- A dot past the body's top-right corner, clear of the terminal nub (which
+-- sits lower, mid-height) and only lightly clipping the charging bolt's
+-- very tip in the rare charging+low-peripheral case -- an acceptable
 -- trade-off for keeping the badge in the corner users actually expect it.
-local PERIPHERAL_BADGE_DRAW = "circle 116,14 116,7"
+-- Radius 11, not the visually-tiny 7 first tried: at icon_height's default
+-- 18px the 128x64 canvas is downscaled by ~0.28x, so this is the smallest
+-- radius that still reads as a dot instead of a speck -- sized to match
+-- Noctalia's own notification-bell badge at that same default height.
+local PERIPHERAL_BADGE_DRAW = "circle 113,13 113,2"
 
 local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverride, fillOverride, boltColorOverride, lowPeripheral)
   local bg = bgOverride or tierColor(cfg, percent, charging)
@@ -633,7 +637,7 @@ local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverrid
   local fillPercent = fillOverride or percent
   local boltColor = boltColorOverride or cfg.chargingBoltColor
   local outPath = dataDir
-    .. "/battery-m3e-v6-"
+    .. "/battery-m3e-v7-"
     .. tostring(percent)
     .. (charging and "c" or "d")
     .. (powerSaver and "s" or "n")
