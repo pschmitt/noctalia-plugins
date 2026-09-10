@@ -615,12 +615,11 @@ local PLUS_GAP_ARMS = { "78,24 116,41", "89,13 106,51" }
 local ANIM_SETTLE_MS = 150 -- fallback hold for the final real-color frame
 local pendingAnim = nil -- { cfg, percent, charging, powerSaver, dataDir, frames, index }
 
--- A small dot in the body's top-left corner -- the top-right is already
--- claimed by the terminal/bolt/power-saver-plus slot, so the badge needed
--- its own, unoccupied corner. Centered just inside the rounded corner
--- BODY_PATH draws there, small enough to stay clear of the centered
--- percentage label.
-local PERIPHERAL_BADGE_DRAW = "circle 12,14 12,7"
+-- A small dot past the body's top-right corner, clear of the terminal nub
+-- (which sits lower, mid-height) and only lightly clipping the charging
+-- bolt's very tip in the rare charging+low-peripheral case -- an acceptable
+-- trade-off for keeping the badge in the corner users actually expect it.
+local PERIPHERAL_BADGE_DRAW = "circle 116,14 116,7"
 
 local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverride, fillOverride, boltColorOverride, lowPeripheral)
   local bg = bgOverride or tierColor(cfg, percent, charging)
