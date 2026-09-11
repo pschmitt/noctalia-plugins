@@ -1,6 +1,6 @@
 id = "pschmitt/hassio"
 name = "Home Assistant"
-version = "0.7.0"
+version = "0.8.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -49,14 +49,18 @@ max = 300
 # script tick, which blows Noctalia's per-callback CPU budget outright on an
 # instance this size (7000+ entities, a 5+MB response). Paging keeps every
 # single request's decode small regardless of how many entities HA has.
+# Capped at 250, not higher: Noctalia silently drops any ui node's children
+# past 256 (confirmed live -- "ui node 'scroll' has more than 256 children,
+# extra dropped" -- a page of 300 was quietly losing its last 44 rows every
+# time), and each result row is exactly one such child.
 [[setting]]
 key = "browser_page_size"
 type = "int"
 label_key = "settings.browser_page_size.label"
 description_key = "settings.browser_page_size.description"
-default = 300
+default = 200
 min = 50
-max = 1000
+max = 250
 advanced = true
 
 # ── Bar ──────────────────────────────────────────────────────────────────────

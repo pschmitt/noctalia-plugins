@@ -158,18 +158,43 @@ local function statusTemplate(ids)
     .. "{% endfor %}"
 end
 
+-- Home Assistant strips trailing whitespace off the *end of the whole
+-- response*, not per line -- verified live: of two entities in one request,
+-- only the last one (whose trailing brightness/percentage/position fields
+-- are all empty, the common case) loses its trailing tabs entirely. A fixed
+-- tab-count match() fails outright on that shortened last line, silently
+-- dropping that entity from every refresh. Split field-by-field instead and
+-- pad any missing trailing fields with "" so a short line still parses.
+local function splitFields(line, count)
+  local fields = {}
+  local start = 1
+  for i = 1, count - 1 do
+    local tabPos = line:find("\t", start, true)
+    if not tabPos then
+      fields[i] = line:sub(start)
+      for j = i + 1, count do fields[j] = "" end
+      return fields
+    end
+    fields[i] = line:sub(start, tabPos - 1)
+    start = tabPos + 1
+  end
+  fields[count] = line:sub(start)
+  return fields
+end
+
 local function parseStatusResponse(body)
   local rows = {}
   for line in tostring(body or ""):gmatch("[^\n]+") do
-    local id, state, name, brightness, percentage, position = line:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$")
+    local f = splitFields(line, 6)
+    local id = f[1]
     if id and id ~= "" then
       rows[#rows + 1] = {
         entity_id = id,
-        state = state,
-        name = (name ~= "" and name or id),
-        brightness = brightness ~= "" and tonumber(brightness) or nil,
-        percentage = percentage ~= "" and tonumber(percentage) or nil,
-        position = position ~= "" and tonumber(position) or nil,
+        state = f[2],
+        name = (f[3] ~= "" and f[3] or id),
+        brightness = f[4] ~= "" and tonumber(f[4]) or nil,
+        percentage = f[5] ~= "" and tonumber(f[5]) or nil,
+        position = f[6] ~= "" and tonumber(f[6]) or nil,
       }
     end
   end
@@ -349,8 +374,10 @@ local function browseSource(domain)
 end
 
 local function pageSize()
-  local n = tonumber(shared.config("browser_page_size", 300)) or 300
-  return math.max(50, math.min(1000, n))
+  local n = tonumber(shared.config("browser_page_size", 200)) or 200
+  -- Kept in step with plugin.toml's browser_page_size max (250): Noctalia
+  -- silently drops a ui node's children past 256, and each result row is one.
+  return math.max(50, math.min(250, n))
 end
 
 local function browseTemplate(domain, offset, limit)
