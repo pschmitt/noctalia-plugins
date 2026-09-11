@@ -46,7 +46,7 @@ local PROVIDERS = {
   claude = { label = "Claude", image = "assets/claude-code.svg", order = 1 },
   codex = { label = "Codex", glyph = "brand-openai", order = 2 },
   copilot = { label = "GitHub Copilot", glyph = "brand-github-copilot", order = 3 },
-  gemini = { label = "Gemini", image = "assets/google-antigravity.svg", order = 4 },
+  gemini = { label = "Gemini", image = "assets/gemini.svg", order = 4 },
 }
 
 local function cardDetails(item)
