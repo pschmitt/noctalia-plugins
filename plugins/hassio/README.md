@@ -14,7 +14,7 @@ The status query also carries a light's brightness, a fan's speed and a cover's 
 
 Add `pschmitt/hassio:bar` to a Noctalia bar. By default it shows one icon per configured entity, tinted to reflect its state, with a tooltip listing names and states. Set **Bar: Display mode** to **Single icon** for a fixed bar slot instead — the real Home Assistant logo by default, that never grows, shrinks or recolors as entities are added or change state. **Bar: Single icon glyph** swaps that logo for a plain Tabler glyph instead, if you'd rather have that; leave it at its own default (`smart-home`) to keep the logo. Click opens the panel either way; right-click refreshes immediately.
 
-The panel header shows the real Home Assistant mark, a small connection status line (a colored dot + Connecting…/Connected/Error), a **Refresh** button (hide it via **Panel: Show refresh button** if the automatic interval is enough for you) and a settings button. The panel itself has two views:
+The panel header shows the real Home Assistant mark, a small connection status line (a colored dot + Connecting…/Connected/Error, with a small external-link button that opens Home Assistant itself in the desktop's default browser -- **Panel: Home Assistant link path**, default `/`, picks what page), a **Refresh** button (hide it via **Panel: Show refresh button** if the automatic interval is enough for you) and a settings button. The panel itself has two views:
 
 - **My entities** — the configured list, each entity in its own card, showing its current state and domain-appropriate controls:
   - **cover** gets a dedicated open/stop/close row instead of a toggle.

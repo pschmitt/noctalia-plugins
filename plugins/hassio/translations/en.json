@@ -8,6 +8,7 @@
     "bar_display_mode": { "label": "Bar: Display mode", "description": "Entities shows one icon per configured entity, tinted by state. Single icon collapses the whole widget to one fixed glyph instead -- for a bar slot that doesn't grow, shrink or recolor as entities are added or change state.", "entities": "One icon per entity", "single": "Single fixed icon" },
     "bar_icon": { "label": "Bar: Single icon glyph", "description": "Overrides the real Home Assistant logo shown when Bar: Display mode is set to Single icon. Leave as smart-home for the logo; any other Tabler icon name (e.g. home, bulb) switches to that plain glyph instead." },
     "panel_show_refresh_button": { "label": "Panel: Show refresh button", "description": "Show the manual refresh button in the panel's top-right corner. Entities refresh on their own regardless (Connection: Refresh interval); this only hides the manual button." },
+    "panel_dashboard_path": { "label": "Panel: Home Assistant link path", "description": "Relative path opened by the panel's Open Home Assistant button, appended to the server URL. For example: /lovelace/0." },
     "bar_icon_size": { "label": "Bar: Icon size", "description": "Bar icon size in pixels." },
     "bar_spacing": { "label": "Bar: Spacing", "description": "Gap between entity icons in the bar." }
   }

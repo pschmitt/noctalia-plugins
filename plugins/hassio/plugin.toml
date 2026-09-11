@@ -1,6 +1,6 @@
 id = "pschmitt/hassio"
 name = "Home Assistant"
-version = "0.6.0"
+version = "0.7.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -87,6 +87,13 @@ type = "bool"
 label_key = "settings.panel_show_refresh_button.label"
 description_key = "settings.panel_show_refresh_button.description"
 default = true
+
+[[setting]]
+key = "panel_dashboard_path"
+type = "string"
+label_key = "settings.panel_dashboard_path.label"
+description_key = "settings.panel_dashboard_path.description"
+default = "/"
 
 [[service]]
 id = "poller"

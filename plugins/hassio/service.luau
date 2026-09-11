@@ -263,6 +263,34 @@ local function toggleEntity(entityId)
   callService("homeassistant", "toggle", entityId)
 end
 
+-- The runtime only takes a command *line*, so the URL has to be shell-quoted
+-- by hand. gio, not xdg-open: with XDG_CURRENT_DESKTOP=KDE (set for Qt
+-- theming under niri) but no KDE session, xdg-open takes the kfmclient path
+-- and no-ops with exit 0; gio resolves the x-scheme-handler/http default
+-- directly. Ported from pschmitt/ha-ai-usage's service.luau, which solved
+-- this same problem for its own "open in Home Assistant" button.
+local function shq(value)
+  local quoted = tostring(value or ""):gsub("'", "'\\''")
+  return "'" .. quoted .. "'"
+end
+
+local function openDashboard()
+  local server, serverErr = readSecret("server_file")
+  if not server then
+    publishError("Home Assistant " .. (serverErr or "credentials are unavailable"))
+    return
+  end
+  local path = shared.trim(noctalia.getConfig("panel_dashboard_path"))
+  if path == "" then path = "/" end
+  if path:sub(1, 1) ~= "/" then path = "/" .. path end
+  local url = shq(server:gsub("/+$", "") .. path)
+  noctalia.runAsync("gio open " .. url .. " || xdg-open " .. url, function(result)
+    if result.exitCode ~= 0 then
+      noctalia.log("hassio: open dashboard failed: " .. shared.trim(result.stderr))
+    end
+  end, 10000)
+end
+
 local COVER_SERVICES = { open = "open_cover", close = "close_cover", stop = "stop_cover" }
 
 local function coverCommand(entityId, command)
@@ -375,6 +403,8 @@ noctalia.state.watch("hassio.command", function(command)
   if type(command) ~= "table" then return end
   if command.action == "refresh" then
     refresh()
+  elseif command.action == "open_dashboard" then
+    openDashboard()
   elseif command.action == "toggle" then
     toggleEntity(command.entity_id)
   elseif command.action == "cover" then

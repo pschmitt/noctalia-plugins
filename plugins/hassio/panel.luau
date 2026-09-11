@@ -399,6 +399,15 @@ local function header()
         ui.row({ align = "center", gap = 5 }, {
           ui.box({ width = 8, height = 8, radius = 4, fill = status.color }),
           ui.label({ text = status.text, fontSize = 11, color = "on_surface_variant" }),
+          ui.button({
+            glyph = "external-link",
+            variant = "ghost",
+            width = 18,
+            height = 18,
+            glyphSize = 11,
+            tooltip = "Open Home Assistant",
+            onClick = "onOpenDashboard",
+          }),
         }),
       }),
     })
@@ -514,6 +523,10 @@ end
 
 function onRefresh()
   sendCommand({ action = "refresh" })
+end
+
+function onOpenDashboard()
+  sendCommand({ action = "open_dashboard" })
 end
 
 function onSettings()
