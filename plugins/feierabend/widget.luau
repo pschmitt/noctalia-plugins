@@ -4,8 +4,7 @@
 -- "🍻 {N}s before Feierabend" while zhj feierabend's shutdown countdown is
 -- armed. Renders nothing while it isn't: the desktop-widget box is placed
 -- with box_width/box_height = 0 (auto-fit to content, see
--- profiles/laptop/noctalia.nix) so an empty row collapses to nothing rather
--- than leaving a visible empty card.
+-- profiles/laptop/noctalia.nix) so no content means no visible card.
 
 local state = noctalia.state.get("feierabend_countdown") or { active = false, seconds = 0 }
 
@@ -27,7 +26,17 @@ local function render()
     if barWidget then
       barWidget.setVisible(false)
     end
-    renderer.render(ui.row({}, {}))
+    -- No desktopWidget.setVisible() exists, so this still has to render
+    -- *something* to clear a previous "Ns before Feierabend" once the
+    -- countdown stops. A single-space, zero-opacity label keeps a valid
+    -- non-empty surface committed at all times -- committing a truly empty
+    -- ui.row({}, {}) here crashed Noctalia outright the first time this ran
+    -- with nothing to show (a 0x0 buffer commit -> "invalid object" Wayland
+    -- protocol error -> fatal display_error=22 -> noctalia.service exits ->
+    -- Hyprland's ext-session-lock protocol has no client left to grab the
+    -- lock and falls back to its own crashed-lockscreen placeholder;
+    -- confirmed live on gk4, 2026-09-11).
+    renderer.render(ui.label({ text = " ", color = "on_surface/0", fontSize = 1 }))
     return
   end
 
