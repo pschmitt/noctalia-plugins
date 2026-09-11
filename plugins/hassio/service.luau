@@ -98,6 +98,11 @@ local function quoteJinja(value)
   return "'" .. tostring(value):gsub("\\", "\\\\"):gsub("'", "\\'") .. "'"
 end
 
+-- brightness (light, 0-255) and percentage (fan, 0-100) ride along on every
+-- status query so the panel can draw their sliders without a second request
+-- per entity. Both are only ever present on an entity that is currently on
+-- and does support them, which is exactly the condition panel.luau's
+-- brightnessSlider()/fanSlider() gate on.
 local function statusTemplate(ids)
   local quoted = {}
   for _, id in ipairs(ids) do
@@ -105,16 +110,23 @@ local function statusTemplate(ids)
   end
   local list = "[" .. table.concat(quoted, ",") .. "]"
   return "{% for id in " .. list .. " %}{{ id }}\t{{ states(id) }}\t"
-    .. "{{ (state_attr(id,'friendly_name') or id) | replace('\\t',' ') | replace('\\n',' ') }}\n"
+    .. "{{ (state_attr(id,'friendly_name') or id) | replace('\\t',' ') | replace('\\n',' ') }}\t"
+    .. "{{ state_attr(id,'brightness') or '' }}\t{{ state_attr(id,'percentage') or '' }}\n"
     .. "{% endfor %}"
 end
 
 local function parseStatusResponse(body)
   local rows = {}
   for line in tostring(body or ""):gmatch("[^\n]+") do
-    local id, state, name = line:match("^([^\t]*)\t([^\t]*)\t(.*)$")
+    local id, state, name, brightness, percentage = line:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$")
     if id and id ~= "" then
-      rows[#rows + 1] = { entity_id = id, state = state, name = (name ~= "" and name or id) }
+      rows[#rows + 1] = {
+        entity_id = id,
+        state = state,
+        name = (name ~= "" and name or id),
+        brightness = brightness ~= "" and tonumber(brightness) or nil,
+        percentage = percentage ~= "" and tonumber(percentage) or nil,
+      }
     end
   end
   return rows
@@ -158,30 +170,58 @@ local function refresh()
   end
 end
 
--- ── Toggle ───────────────────────────────────────────────────────────────────
+-- ── Service calls: toggle, cover open/stop/close, brightness, fan speed ─────
 
-local function toggleEntity(entityId)
+local function callService(domain, service, entityId, extraData)
   if type(entityId) ~= "string" or entityId == "" then return end
   local server, token, err = credentials()
   if err then
     publishError(err)
     return
   end
+  local payload = { entity_id = entityId }
+  if type(extraData) == "table" then
+    for k, v in pairs(extraData) do payload[k] = v end
+  end
   local started = noctalia.http({
-    url = server .. "/api/services/homeassistant/toggle",
+    url = server .. "/api/services/" .. domain .. "/" .. service,
     method = "POST",
     headers = { "Authorization: Bearer " .. token, "Content-Type: application/json" },
-    body = noctalia.json.encode({ entity_id = entityId }),
+    body = noctalia.json.encode(payload),
     allow_insecure_tls = noctalia.getConfig("allow_insecure_tls") == true,
   }, function(response)
     if not response.ok then
-      publishError("Toggle failed for " .. entityId .. " (HTTP " .. tostring(response.status) .. ")")
+      publishError(domain .. "." .. service .. " failed for " .. entityId .. " (HTTP " .. tostring(response.status) .. ")")
     end
     refresh()
   end)
   if not started then
-    publishError("Could not start toggle request for " .. entityId)
+    publishError("Could not start " .. domain .. "." .. service .. " request for " .. entityId)
   end
+end
+
+local function toggleEntity(entityId)
+  callService("homeassistant", "toggle", entityId)
+end
+
+local COVER_SERVICES = { open = "open_cover", close = "close_cover", stop = "stop_cover" }
+
+local function coverCommand(entityId, command)
+  local service = COVER_SERVICES[command]
+  if not service then return end
+  callService("cover", service, entityId)
+end
+
+-- brightness arrives as 0-255 (Home Assistant's own scale for light.turn_on)
+-- so the panel's 0-100% slider converts before sending it here.
+local function setBrightness(entityId, brightness)
+  local value = math.floor((tonumber(brightness) or 0) + 0.5)
+  callService("light", "turn_on", entityId, { brightness = math.max(0, math.min(255, value)) })
+end
+
+local function setFanPercentage(entityId, percentage)
+  local value = math.floor((tonumber(percentage) or 0) + 0.5)
+  callService("fan", "set_percentage", entityId, { percentage = math.max(0, math.min(100, value)) })
 end
 
 -- ── Add / remove ─────────────────────────────────────────────────────────────
@@ -274,6 +314,12 @@ noctalia.state.watch("hassio.command", function(command)
     refresh()
   elseif command.action == "toggle" then
     toggleEntity(command.entity_id)
+  elseif command.action == "cover" then
+    coverCommand(command.entity_id, command.command)
+  elseif command.action == "set_brightness" then
+    setBrightness(command.entity_id, command.value)
+  elseif command.action == "set_percentage" then
+    setFanPercentage(command.entity_id, command.value)
   elseif command.action == "add" then
     addEntity(command.entity_id)
   elseif command.action == "remove" then

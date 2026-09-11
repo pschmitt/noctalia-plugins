@@ -31,13 +31,21 @@ local function tooltip()
   return rows
 end
 
+-- "single" collapses the whole widget to one fixed, configurable glyph --
+-- for whoever wants a stable bar slot rather than one that grows/shrinks/
+-- recolors with however many entities happen to be configured right now.
 local function render()
   local children = {}
-  for _, entity in ipairs(entities) do
-    children[#children + 1] = segment(entity)
-  end
-  if #children == 0 then
-    children[#children + 1] = ui.glyph({ name = "smart-home", size = iconSize(), color = "on_surface_variant" })
+  if shared.config("bar_display_mode", "entities") == "single" then
+    local iconName = shared.trim(shared.config("bar_icon", "smart-home"))
+    children[#children + 1] = ui.glyph({ name = iconName ~= "" and iconName or "smart-home", size = iconSize(), color = "on_surface_variant" })
+  else
+    for _, entity in ipairs(entities) do
+      children[#children + 1] = segment(entity)
+    end
+    if #children == 0 then
+      children[#children + 1] = ui.glyph({ name = "smart-home", size = iconSize(), color = "on_surface_variant" })
+    end
   end
   if errorMessage ~= "" then
     children[#children + 1] = ui.glyph({ name = "alert-circle", size = 12, color = "error" })

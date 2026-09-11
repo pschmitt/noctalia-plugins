@@ -70,9 +70,10 @@ end
 -- Domains a plain [[homeassistant.toggle]] service call meaningfully flips.
 -- Anything else (sensor, binary_sensor, person, device_tracker, camera, ...)
 -- is read-only here on purpose -- this plugin is a status/quick-toggle strip,
--- not a full entity editor.
+-- not a full entity editor. cover is deliberately absent: it gets its own
+-- open/stop/close row instead of a toggle (see panel.luau's coverButtons()).
 local TOGGLEABLE_DOMAINS = {
-  light = true, switch = true, input_boolean = true, fan = true, cover = true,
+  light = true, switch = true, input_boolean = true, fan = true,
   lock = true, climate = true, automation = true, script = true, siren = true,
   humidifier = true, media_player = true, vacuum = true,
 }

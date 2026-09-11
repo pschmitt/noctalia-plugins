@@ -1,6 +1,6 @@
 id = "pschmitt/hassio"
 name = "Home Assistant"
-version = "0.1.0"
+version = "0.2.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -60,6 +60,24 @@ max = 1000
 advanced = true
 
 # ── Bar ──────────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "bar_display_mode"
+type = "select"
+label_key = "settings.bar_display_mode.label"
+description_key = "settings.bar_display_mode.description"
+default = "entities"
+options = [
+  { value = "entities", label_key = "settings.bar_display_mode.entities" },
+  { value = "single", label_key = "settings.bar_display_mode.single" },
+]
+
+[[setting]]
+key = "bar_icon"
+type = "glyph"
+label_key = "settings.bar_icon.label"
+description_key = "settings.bar_icon.description"
+default = "smart-home"
 
 [[service]]
 id = "poller"

@@ -86,18 +86,78 @@ end
 
 -- ── "My entities" view ───────────────────────────────────────────────────────
 
+-- entity_id -> previewed 0-100 slider value while a brightness/fan-speed drag
+-- is in progress. entities gets replaced wholesale on every hassio.entities
+-- update, so this has to live outside that table (same pattern fan-control's
+-- panel uses for its own speed slider).
+local sliderPreviews = {}
+
+local function coverButtons(entity)
+  local function press(command)
+    return function() sendCommand({ action = "cover", entity_id = entity.entity_id, command = command }) end
+  end
+  return ui.row({ gap = 2 }, {
+    ui.button({ glyph = "arrow-up", variant = "ghost", controlSize = "sm", tooltip = "Open", onClick = press("open") }),
+    ui.button({ glyph = "player-stop", variant = "ghost", controlSize = "sm", tooltip = "Stop", onClick = press("stop") }),
+    ui.button({ glyph = "arrow-down", variant = "ghost", controlSize = "sm", tooltip = "Close", onClick = press("close") }),
+  })
+end
+
+-- Shared by brightnessSlider/fanSlider: `value01to100` is what's currently
+-- known (from the last refresh, converted to 0-100), overridden by a preview
+-- while dragging. onChange previews and re-renders on every tick; onDragEnd
+-- is the only point that actually calls Home Assistant, so a drag never
+-- floods it with a request per pixel moved.
+local function previewSlider(entity, value01to100, commit)
+  local previewed = sliderPreviews[entity.entity_id]
+  local value = previewed or value01to100 or 0
+  return ui.slider({
+    min = 0,
+    max = 100,
+    step = 1,
+    value = value,
+    width = 200,
+    controlSize = "sm",
+    onChange = function(nextValue)
+      sliderPreviews[entity.entity_id] = tonumber(nextValue) or value
+      render()
+    end,
+    onDragEnd = function(nextValue)
+      local target = sliderPreviews[entity.entity_id] or tonumber(nextValue) or value
+      sliderPreviews[entity.entity_id] = nil
+      commit(target)
+    end,
+  })
+end
+
+local function brightnessSlider(entity)
+  local pct = entity.brightness and math.floor((entity.brightness / 255) * 100 + 0.5) or 0
+  return previewSlider(entity, pct, function(target)
+    sendCommand({ action = "set_brightness", entity_id = entity.entity_id, value = (target / 100) * 255 })
+  end)
+end
+
+local function fanSlider(entity)
+  return previewSlider(entity, entity.percentage or 0, function(target)
+    sendCommand({ action = "set_percentage", entity_id = entity.entity_id, value = target })
+  end)
+end
+
 local function entityRow(entity)
   local domain = shared.domainOf(entity.entity_id)
   local unavailable = shared.isUnavailable(entity.state)
-  local children = {
+  local on = shared.isOn(entity.state)
+  local header = {
     ui.glyph({ name = shared.glyphFor(domain), size = 20, color = shared.colorFor(entity.state) }),
     ui.column({ gap = 0, flexGrow = 1 }, {
       ui.label({ text = entity.name or entity.entity_id, fontSize = 13, fontWeight = "semibold", maxLines = 1 }),
       ui.label({ text = unavailable and "unavailable" or (entity.state or "—"), fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
     }),
   }
-  if shared.isToggleable(domain) then
-    children[#children + 1] = ui.button({
+  if domain == "cover" then
+    header[#header + 1] = coverButtons(entity)
+  elseif shared.isToggleable(domain) then
+    header[#header + 1] = ui.button({
       glyph = "power",
       variant = "ghost",
       controlSize = "sm",
@@ -105,14 +165,24 @@ local function entityRow(entity)
       onClick = function() sendCommand({ action = "toggle", entity_id = entity.entity_id }) end,
     })
   end
-  children[#children + 1] = ui.button({
+  header[#header + 1] = ui.button({
     glyph = "trash",
     variant = "ghost",
     controlSize = "sm",
     tooltip = "Remove from bar",
     onClick = function() sendCommand({ action = "remove", entity_id = entity.entity_id }) end,
   })
-  return ui.row({ align = "center", gap = 8, paddingV = 4 }, children)
+
+  local rows = { ui.row({ align = "center", gap = 8 }, header) }
+  -- Only while on: an off light/fan carries no brightness/percentage
+  -- attribute to seed the slider from (Home Assistant clears both when the
+  -- entity turns off), and a slider with nothing to show is worse than none.
+  if domain == "light" and on and entity.brightness ~= nil then
+    rows[#rows + 1] = ui.row({ align = "center", paddingL = 28 }, { brightnessSlider(entity) })
+  elseif domain == "fan" and on and entity.percentage ~= nil then
+    rows[#rows + 1] = ui.row({ align = "center", paddingL = 28 }, { fanSlider(entity) })
+  end
+  return ui.column({ gap = 2, paddingV = 4 }, rows)
 end
 
 local function listView()
@@ -227,7 +297,13 @@ end
 local function header()
   local left
   if view == "list" then
+    -- Same boxed-glyph header pschmitt/ha-ai-usage uses, keyed off this
+    -- plugin's own declared icon (plugin.toml's top-level `icon`) rather than
+    -- a second hardcoded glyph name.
     left = {
+      ui.row({ align = "center", justify = "center", width = 36, height = 36, fill = "primary/0.15", radius = 11 }, {
+        ui.glyph({ name = "smart-home", size = 19, color = "primary" }),
+      }),
       ui.label({ text = "Home Assistant", fontSize = 15, fontWeight = "bold" }),
     }
   else
@@ -238,6 +314,7 @@ local function header()
   end
   local right = { ui.button({ glyph = "x", variant = "ghost", tooltip = "Close", onClick = "onCloseClicked" }) }
   if view == "list" then
+    table.insert(right, 1, ui.button({ glyph = "settings", variant = "ghost", tooltip = "Plugin settings", onClick = "onSettings" }))
     table.insert(right, 1, ui.button({ glyph = "refresh", variant = "ghost", tooltip = "Refresh", onClick = "onRefresh" }))
     table.insert(right, 1, ui.button({ text = "Add", glyph = "plus", variant = "ghost", controlSize = "sm", tooltip = "Add entity", onClick = "onOpenBrowser" }))
   end
@@ -319,6 +396,10 @@ end
 
 function onRefresh()
   sendCommand({ action = "refresh" })
+end
+
+function onSettings()
+  noctalia.openSettings()
 end
 
 function onOpenBrowser()
