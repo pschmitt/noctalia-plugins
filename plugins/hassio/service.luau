@@ -360,7 +360,7 @@ local function removeEntity(entityId)
   refresh()
 end
 
--- ── Browse (paginated, domain-scoped) ───────────────────────────────────────
+-- ── Browse (paginated, domain- or area-scoped) ──────────────────────────────
 -- `domain` only ever reaches this function as one of shared.BROWSABLE_DOMAINS
 -- (the panel only offers those as chips) or "all"/nil, and is checked against
 -- that same list again here before being spliced into the template as
@@ -380,14 +380,33 @@ local function pageSize()
   return math.max(50, math.min(250, n))
 end
 
-local function browseTemplate(domain, offset, limit)
+-- Areas come from Home Assistant's own area registry (see listAreas() below),
+-- not a fixed whitelist like domains -- quoteJinja() is what keeps an area id
+-- from breaking out of the template if it ever contained something odd.
+--
+-- area_entities() returns plain entity_id strings, not State objects, so
+-- this branch looks up each one's name via state_attr() instead of the
+-- `states`/`states.<domain>` branch's s.name -- the two sources don't share
+-- a common item shape, hence the two different for-loop bodies below rather
+-- than one shared template for both.
+local function browseTemplate(domain, area, offset, limit)
+  local slice = "[" .. offset .. ":" .. (offset + limit) .. "]"
+  if type(area) == "string" and area ~= "" and area ~= "all" then
+    local source = "area_entities(" .. quoteJinja(area) .. ")"
+    if type(domain) == "string" and shared.isKnownDomain(domain) then
+      source = source .. " | select('match', '^" .. domain .. "\\\\.')"
+    end
+    return "{% for id in (" .. source .. " | sort | list)" .. slice .. " %}"
+      .. "{{ id }}\t{{ (state_attr(id,'friendly_name') or id) | replace('\\t',' ') | replace('\\n',' ') }}\n"
+      .. "{% endfor %}"
+  end
   local source = browseSource(domain)
-  return "{% for s in (" .. source .. " | sort(attribute='entity_id') | list)[" .. offset .. ":" .. (offset + limit) .. "] %}"
+  return "{% for s in (" .. source .. " | sort(attribute='entity_id') | list)" .. slice .. " %}"
     .. "{{ s.entity_id }}\t{{ (s.name or s.entity_id) | replace('\\t',' ') | replace('\\n',' ') }}\n"
     .. "{% endfor %}"
 end
 
-local function browse(domain, offset)
+local function browse(domain, area, offset)
   local server, token, err = credentials()
   if err then
     noctalia.state.set("hassio.browse_error", err)
@@ -396,7 +415,7 @@ local function browse(domain, offset)
   offset = tonumber(offset) or 0
   local limit = pageSize()
 
-  local started = haRequest(server, token, browseTemplate(domain, offset, limit), function(response)
+  local started = haRequest(server, token, browseTemplate(domain, area, offset, limit), function(response)
     if not response.ok or response.status ~= 200 then
       noctalia.state.set("hassio.browse_error", "Browse failed (HTTP " .. tostring(response.status) .. ")")
       return
@@ -411,6 +430,7 @@ local function browse(domain, offset)
     noctalia.state.set("hassio.browse_error", "")
     noctalia.state.set("hassio.browse_result", {
       domain = domain or "all",
+      area = area or "all",
       offset = offset,
       limit = limit,
       rows = rows,
@@ -421,6 +441,36 @@ local function browse(domain, offset)
   end)
   if not started then
     noctalia.state.set("hassio.browse_error", "Could not start browse request")
+  end
+end
+
+-- Home Assistant's own area registry, via the areas()/area_name() template
+-- functions -- typically a couple dozen entries at most (verified: 10 on
+-- this instance), so unlike everything else in this file, this one request
+-- is never paginated.
+local function listAreas()
+  local server, token, err = credentials()
+  if err then
+    noctalia.state.set("hassio.browse_error", err)
+    return
+  end
+  local template = "{% for a in areas() %}{{ a }}\t{{ area_name(a) | replace('\\t',' ') | replace('\\n',' ') }}\n{% endfor %}"
+  local started = haRequest(server, token, template, function(response)
+    if not response.ok or response.status ~= 200 then
+      noctalia.state.set("hassio.browse_error", "Could not list areas (HTTP " .. tostring(response.status) .. ")")
+      return
+    end
+    local rows = {}
+    for line in tostring(response.body or ""):gmatch("[^\n]+") do
+      local id, name = line:match("^([^\t]*)\t(.*)$")
+      if id and id ~= "" then
+        rows[#rows + 1] = { id = id, name = (name ~= "" and name or id) }
+      end
+    end
+    noctalia.state.set("hassio.areas", rows)
+  end)
+  if not started then
+    noctalia.state.set("hassio.browse_error", "Could not start area list request")
   end
 end
 
@@ -447,7 +497,9 @@ noctalia.state.watch("hassio.command", function(command)
   elseif command.action == "rename" then
     renameEntity(command.entity_id, command.label)
   elseif command.action == "browse" then
-    browse(command.domain, command.offset)
+    browse(command.domain, command.area, command.offset)
+  elseif command.action == "list_areas" then
+    listAreas()
   end
 end)
 

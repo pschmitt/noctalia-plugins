@@ -11,6 +11,9 @@ local errorMessage = noctalia.state.get("hassio.error") or ""
 local lastRefreshedAt = noctalia.state.get("hassio.refreshed_at")
 
 local domainFilter = "all"
+local areaFilter = "all"
+local areas = noctalia.state.get("hassio.areas") or {} -- {id, name}, from Home Assistant's own area registry
+local filterKind = "domain" -- "domain" | "area" -- which chip row is shown; only one of domainFilter/areaFilter is ever active
 local searchText = ""
 local browseRows = {}
 local browseOffset = 0
@@ -64,12 +67,34 @@ local function fetchBrowsePage(reset)
   end
   browseLoading = true
   render()
-  sendCommand({ action = "browse", domain = domainFilter, offset = browseOffset })
+  sendCommand({ action = "browse", domain = domainFilter, area = areaFilter, offset = browseOffset })
 end
 
 local function setDomainFilter(domain)
   if domainFilter == domain then return end
   domainFilter = domain
+  fetchBrowsePage(true)
+end
+
+local function setAreaFilter(area)
+  if areaFilter == area then return end
+  areaFilter = area
+  fetchBrowsePage(true)
+end
+
+-- Domain and area are mutually exclusive in the UI (the backend can combine
+-- them, see service.luau's browseTemplate(), but one filter dimension at a
+-- time keeps this chip grid from needing two rows shown together). Switching
+-- kind resets whichever filter isn't shown back to "all" and re-fetches.
+local function setFilterKind(kind)
+  if filterKind == kind then return end
+  filterKind = kind
+  if kind == "domain" then
+    areaFilter = "all"
+  else
+    domainFilter = "all"
+    if #areas == 0 then sendCommand({ action = "list_areas" }) end
+  end
   fetchBrowsePage(true)
 end
 
@@ -320,6 +345,53 @@ local function domainChipsGrid()
   return ui.column({ gap = 6 }, rows)
 end
 
+local function areaChip(area, label)
+  local active = areaFilter == area
+  return ui.button({
+    text = label,
+    variant = active and "primary" or "ghost",
+    controlSize = "sm",
+    onClick = function() setAreaFilter(area) end,
+  })
+end
+
+-- Home Assistant's own area registry (see service.luau's listAreas()) rather
+-- than a fixed list like the domain chips -- fetched once when the Area tab
+-- is first opened, since unlike domains, areas are per-instance.
+local function areaChipsGrid()
+  if #areas == 0 then
+    return ui.label({ text = "Loading areas…", color = "on_surface_variant", fontSize = 12 })
+  end
+  local chips = { { id = "all", label = "All" } }
+  for _, area in ipairs(areas) do
+    chips[#chips + 1] = { id = area.id, label = area.name }
+  end
+  local rows = {}
+  for _, group in ipairs(chunk(chips, 3)) do
+    local buttons = {}
+    for _, c in ipairs(group) do buttons[#buttons + 1] = areaChip(c.id, c.label) end
+    rows[#rows + 1] = ui.row({ gap = 6 }, buttons)
+  end
+  return ui.column({ gap = 6 }, rows)
+end
+
+local function filterKindTabs()
+  return ui.row({ gap = 6 }, {
+    ui.button({
+      text = "Domain",
+      variant = filterKind == "domain" and "primary" or "ghost",
+      controlSize = "sm",
+      onClick = function() setFilterKind("domain") end,
+    }),
+    ui.button({
+      text = "Area",
+      variant = filterKind == "area" and "primary" or "ghost",
+      controlSize = "sm",
+      onClick = function() setFilterKind("area") end,
+    }),
+  })
+end
+
 local function browseRow(row)
   local configured = configuredSet()
   local already = configured[row.entity_id] == true
@@ -343,7 +415,8 @@ end
 local function browseView()
   local content = {
     ui.input({ key = "hassio_search", placeholder = "Search entities…", value = searchText, onChange = "onSearchChange" }),
-    domainChipsGrid(),
+    filterKindTabs(),
+    filterKind == "area" and areaChipsGrid() or domainChipsGrid(),
   }
   if browseErrorMessage ~= "" then
     content[#content + 1] = ui.label({ text = browseErrorMessage, color = "error", fontSize = 11 })
@@ -431,7 +504,6 @@ end
 -- Just Add/Edit down here -- Refresh and Settings moved up to the header.
 local function footer()
   return ui.row({ align = "center", justify = "space_between" }, {
-    ui.button({ text = "Add", glyph = "plus", variant = "ghost", controlSize = "sm", tooltip = "Add entity", onClick = "onOpenBrowser" }),
     ui.button({
       text = editMode and "Done" or "Edit",
       glyph = editMode and "check" or "pencil",
@@ -440,6 +512,7 @@ local function footer()
       tooltip = editMode and "Done editing" or "Rename or remove entities",
       onClick = "onToggleEditMode",
     }),
+    ui.button({ text = "Add", glyph = "plus", variant = "ghost", controlSize = "sm", tooltip = "Add entity", onClick = "onOpenBrowser" }),
   })
 end
 
@@ -489,16 +562,21 @@ end)
 
 noctalia.state.watch("hassio.browse_result", function(result)
   if type(result) ~= "table" then return end
-  -- Drop responses for a domain we've since navigated away from -- e.g. two
-  -- quick chip clicks in a row -- rather than splicing a stale page into the
-  -- list the user is now looking at.
-  if result.domain ~= domainFilter then return end
+  -- Drop responses for a domain/area we've since navigated away from -- e.g.
+  -- two quick chip clicks in a row -- rather than splicing a stale page into
+  -- the list the user is now looking at.
+  if result.domain ~= domainFilter or result.area ~= areaFilter then return end
   browseLoading = false
   for _, row in ipairs(result.rows or {}) do
     browseRows[#browseRows + 1] = row
   end
   browseOffset = (result.offset or 0) + (result.limit or 0)
   browseMore = result.more == true
+  render()
+end)
+
+noctalia.state.watch("hassio.areas", function(value)
+  areas = type(value) == "table" and value or {}
   render()
 end)
 
@@ -541,6 +619,8 @@ function onOpenBrowser()
   view = "browse"
   searchText = ""
   domainFilter = "all"
+  areaFilter = "all"
+  filterKind = "domain"
   browseErrorMessage = ""
   fetchBrowsePage(true)
 end

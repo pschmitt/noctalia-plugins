@@ -26,7 +26,7 @@ The panel header shows the real Home Assistant mark, a small connection status l
   - Sliders only call Home Assistant once dragging ends, not on every intermediate value, so dragging never floods it with requests.
   - The footer's **Edit** button switches the whole list into edit mode at once: every card's normal controls (toggle, cover buttons, sliders) hide and a rename (pencil) and remove (trash) button take their place, so there's no risk of nudging a light while trying to rename it. **Done** switches back. Renaming only overrides what this plugin displays; it never touches the entity in Home Assistant.
   - **+ Add** and **Edit** live in a footer below the list.
-- **Add entity** (via the footer's **+ Add** button) — a search box, domain filter chips, and paginated results with an Add button per row. **Load more** fetches another bounded page; it never fetches everything at once.
+- **Add entity** (via the footer's **+ Add** button) — a search box, a Domain/Area tab switcher with filter chips for whichever is selected, and paginated results with an Add button per row. Area chips come from Home Assistant's own area registry (fetched once, first time the Area tab is opened). **Load more** fetches another bounded page; it never fetches everything at once.
 
 Entities you add, and any renames, live in small files this plugin manages itself (`entities.json`/`labels.json` in its own plugin data directory), not in a Noctalia setting — that's what lets the panel add/remove/rename entries live without needing a settings-write API this plugin's runtime doesn't have.
 
