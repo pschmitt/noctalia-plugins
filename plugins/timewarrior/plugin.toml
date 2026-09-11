@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.36.3"
+version = "0.36.4"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 24
@@ -27,9 +27,9 @@ key = "poll_interval"
 type = "int"
 label_key = "settings.poll_interval.label"
 description_key = "settings.poll_interval.description"
-default = 5
+default = 60
 min = 2
-max = 60
+max = 300
 
 [[setting]]
 key = "overtime_hours"
@@ -341,7 +341,7 @@ description_key = "settings.stop_command.description"
 default = ""
 
 # Wrappers can be slow (shutting a VM down, syncing, closing browser tabs), so
-# the default is far more generous than the 5s the `timew export` polls use.
+# the default is far more generous than the 60s the `timew export` polls use.
 [[setting]]
 key = "command_timeout"
 type = "int"

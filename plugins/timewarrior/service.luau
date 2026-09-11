@@ -36,7 +36,7 @@ local function breakdownStartDate()
 end
 
 local function pollMs()
-  return (tonumber(noctalia.getConfig("poll_interval")) or 5) * 1000
+  return (tonumber(noctalia.getConfig("poll_interval")) or 60) * 1000
 end
 
 local function databasePath()
