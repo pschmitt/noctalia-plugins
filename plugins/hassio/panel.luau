@@ -404,12 +404,13 @@ local function header()
     })
     -- No close button: dismiss_on_outside_click (plugin.toml) already closes
     -- the panel, and this repo's other panels don't duplicate that with an X.
-    if noctalia.getConfig("panel_show_refresh_button") == false then
-      return left
+    local right = { ui.button({ glyph = "settings", variant = "ghost", tooltip = "Plugin settings", onClick = "onSettings" }) }
+    if noctalia.getConfig("panel_show_refresh_button") ~= false then
+      table.insert(right, 1, ui.button({ glyph = "refresh", variant = "ghost", tooltip = "Refresh", onClick = "onRefresh" }))
     end
     return ui.row({ align = "center", justify = "space_between" }, {
       left,
-      ui.button({ glyph = "refresh", variant = "ghost", tooltip = "Refresh", onClick = "onRefresh" }),
+      ui.row({ align = "center", gap = 2 }, right),
     })
   end
   return ui.row({ align = "center", gap = 8 }, {
@@ -418,22 +419,17 @@ local function header()
   })
 end
 
--- Add/Edit/Settings live down here rather than in the header -- utility
--- actions below the content they act on, only the title, status and
--- (optional) Refresh stay up top.
+-- Just Add/Edit down here -- Refresh and Settings moved up to the header.
 local function footer()
   return ui.row({ align = "center", justify = "space_between" }, {
     ui.button({ text = "Add", glyph = "plus", variant = "ghost", controlSize = "sm", tooltip = "Add entity", onClick = "onOpenBrowser" }),
-    ui.row({ align = "center", gap = 2 }, {
-      ui.button({
-        text = editMode and "Done" or "Edit",
-        glyph = editMode and "check" or "pencil",
-        variant = editMode and "primary" or "ghost",
-        controlSize = "sm",
-        tooltip = editMode and "Done editing" or "Rename or remove entities",
-        onClick = "onToggleEditMode",
-      }),
-      ui.button({ glyph = "settings", variant = "ghost", tooltip = "Plugin settings", onClick = "onSettings" }),
+    ui.button({
+      text = editMode and "Done" or "Edit",
+      glyph = editMode and "check" or "pencil",
+      variant = editMode and "primary" or "ghost",
+      controlSize = "sm",
+      tooltip = editMode and "Done editing" or "Rename or remove entities",
+      onClick = "onToggleEditMode",
     }),
   })
 end

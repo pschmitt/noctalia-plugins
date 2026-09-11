@@ -31,14 +31,21 @@ local function tooltip()
   return rows
 end
 
--- "single" collapses the whole widget to one fixed, configurable glyph --
--- for whoever wants a stable bar slot rather than one that grows/shrinks/
--- recolors with however many entities happen to be configured right now.
+-- "single" collapses the whole widget to one fixed icon -- for whoever wants
+-- a stable bar slot rather than one that grows/shrinks/recolors with however
+-- many entities happen to be configured right now. Defaults to the real
+-- Home Assistant mark; Bar: Single icon glyph only takes over once it's set
+-- to something other than its own "smart-home" default, for whoever would
+-- rather have a plain Tabler glyph than the branded logo.
 local function render()
   local children = {}
   if shared.config("bar_display_mode", "entities") == "single" then
     local iconName = shared.trim(shared.config("bar_icon", "smart-home"))
-    children[#children + 1] = ui.glyph({ name = iconName ~= "" and iconName or "smart-home", size = iconSize(), color = "on_surface_variant" })
+    if iconName == "" or iconName == "smart-home" then
+      children[#children + 1] = ui.image({ path = "assets/home-assistant-icon.png", width = iconSize(), height = iconSize(), fit = "contain" })
+    else
+      children[#children + 1] = ui.glyph({ name = iconName, size = iconSize(), color = "on_surface_variant" })
+    end
   else
     for _, entity in ipairs(entities) do
       children[#children + 1] = segment(entity)
