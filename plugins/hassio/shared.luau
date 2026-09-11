@@ -105,4 +105,27 @@ function M.domainLabel(domain)
   return label:sub(1, 1):upper() .. label:sub(2)
 end
 
+-- "on · 62%" / "open · 40%" instead of a bare state word, wherever there's a
+-- number worth showing: light brightness (while on), fan speed (while on),
+-- cover position (whatever state it's in -- unlike brightness/percentage,
+-- Home Assistant doesn't clear a cover's position when it's fully closed).
+-- Shared by bar.luau's tooltip and panel.luau's entity cards so both read
+-- the same thing.
+function M.statusText(entity)
+  local domain = M.domainOf(entity.entity_id)
+  if M.isUnavailable(entity.state) then return "unavailable" end
+  local state = entity.state or "—"
+  local on = M.isOn(entity.state)
+  if domain == "light" and on and entity.brightness ~= nil then
+    return state .. " · " .. math.floor((entity.brightness / 255) * 100 + 0.5) .. "%"
+  end
+  if domain == "fan" and on and entity.percentage ~= nil then
+    return state .. " · " .. math.floor(entity.percentage + 0.5) .. "%"
+  end
+  if domain == "cover" and entity.position ~= nil then
+    return state .. " · " .. math.floor(entity.position + 0.5) .. "%"
+  end
+  return state
+end
+
 return M

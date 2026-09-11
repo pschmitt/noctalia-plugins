@@ -22,7 +22,7 @@ end
 local function tooltip()
   local rows = {}
   for _, entity in ipairs(entities) do
-    rows[#rows + 1] = { key = entity.name or entity.entity_id, value = entity.state or "—" }
+    rows[#rows + 1] = { key = entity.name or entity.entity_id, value = shared.statusText(entity) }
   end
   if #rows == 0 then
     rows[#rows + 1] = { key = "Home Assistant", value = "No entities configured yet -- click to add some" }

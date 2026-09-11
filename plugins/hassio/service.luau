@@ -138,11 +138,13 @@ local function quoteJinja(value)
   return "'" .. tostring(value):gsub("\\", "\\\\"):gsub("'", "\\'") .. "'"
 end
 
--- brightness (light, 0-255) and percentage (fan, 0-100) ride along on every
--- status query so the panel can draw their sliders without a second request
--- per entity. Both are only ever present on an entity that is currently on
--- and does support them, which is exactly the condition panel.luau's
--- brightnessSlider()/fanSlider() gate on.
+-- brightness (light, 0-255), percentage (fan, 0-100) and current_position
+-- (cover, 0-100) ride along on every status query so the panel can draw
+-- sliders and a richer subtitle without a second request per entity.
+-- brightness/percentage are only ever present on an entity that is
+-- currently on and does support them, which is exactly the condition
+-- panel.luau's brightnessSlider()/fanSlider() gate on; current_position is
+-- independent of on/off (a cover reports it whatever state it's in).
 local function statusTemplate(ids)
   local quoted = {}
   for _, id in ipairs(ids) do
@@ -151,14 +153,15 @@ local function statusTemplate(ids)
   local list = "[" .. table.concat(quoted, ",") .. "]"
   return "{% for id in " .. list .. " %}{{ id }}\t{{ states(id) }}\t"
     .. "{{ (state_attr(id,'friendly_name') or id) | replace('\\t',' ') | replace('\\n',' ') }}\t"
-    .. "{{ state_attr(id,'brightness') or '' }}\t{{ state_attr(id,'percentage') or '' }}\n"
+    .. "{{ state_attr(id,'brightness') or '' }}\t{{ state_attr(id,'percentage') or '' }}\t"
+    .. "{{ state_attr(id,'current_position') or '' }}\n"
     .. "{% endfor %}"
 end
 
 local function parseStatusResponse(body)
   local rows = {}
   for line in tostring(body or ""):gmatch("[^\n]+") do
-    local id, state, name, brightness, percentage = line:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$")
+    local id, state, name, brightness, percentage, position = line:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$")
     if id and id ~= "" then
       rows[#rows + 1] = {
         entity_id = id,
@@ -166,6 +169,7 @@ local function parseStatusResponse(body)
         name = (name ~= "" and name or id),
         brightness = brightness ~= "" and tonumber(brightness) or nil,
         percentage = percentage ~= "" and tonumber(percentage) or nil,
+        position = position ~= "" and tonumber(position) or nil,
       }
     end
   end

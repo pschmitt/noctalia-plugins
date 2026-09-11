@@ -210,13 +210,12 @@ local function entityRow(entity)
     return ui.column(CARD_STYLE, { renameRow(entity, domain) })
   end
 
-  local unavailable = shared.isUnavailable(entity.state)
   local on = shared.isOn(entity.state)
   local header = {
     ui.glyph({ name = shared.glyphFor(domain), size = 20, color = shared.colorFor(entity.state) }),
     ui.column({ gap = 0, flexGrow = 1 }, {
       ui.label({ text = entity.name or entity.entity_id, fontSize = 13, fontWeight = "semibold", maxLines = 1 }),
-      ui.label({ text = unavailable and "unavailable" or (entity.state or "—"), fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
+      ui.label({ text = shared.statusText(entity), fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
     }),
   }
   if editMode then

@@ -8,6 +8,8 @@ The community `pozzoo/hassio` plugin's entity browser asks Home Assistant to ren
 
 This plugin never makes either kind of unbounded request. The bar/status query names only the entities you've configured, however few. The "Add entity" browser pages through Home Assistant's entity list a bounded chunk at a time (see **Advanced: Browser page size**), optionally scoped to one domain, so every single request stays small regardless of how many entities the instance has.
 
+The status query also carries a light's brightness, a fan's speed and a cover's position along with each entity's state, so the bar tooltip and each panel card can show e.g. "on · 62%" or "open · 40%" instead of a bare state word, with no extra request per entity.
+
 ## Usage
 
 Add `pschmitt/hassio:bar` to a Noctalia bar. By default it shows one icon per configured entity, tinted to reflect its state, with a tooltip listing names and states. Set **Bar: Display mode** to **Single icon** for a fixed bar slot instead — one glyph (**Bar: Single icon glyph**, any Tabler icon name) that never grows, shrinks or recolors as entities are added or change state. Click opens the panel either way; right-click refreshes immediately.
