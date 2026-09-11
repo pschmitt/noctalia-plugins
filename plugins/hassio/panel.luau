@@ -8,6 +8,7 @@ local view = "list" -- "list" | "browse"
 local configuredEntities = noctalia.state.get("hassio.configured") or {}
 local entities = noctalia.state.get("hassio.entities") or {}
 local errorMessage = noctalia.state.get("hassio.error") or ""
+local lastRefreshedAt = noctalia.state.get("hassio.refreshed_at")
 
 local domainFilter = "all"
 local searchText = ""
@@ -143,8 +144,65 @@ local function fanSlider(entity)
   end)
 end
 
+-- entity_id of the row currently showing its edit/delete buttons, or the row
+-- being renamed -- at most one of each at a time, same single-id pattern
+-- pschmitt/timewarrior's panel uses for its own revealed/editing state.
+local revealed = nil
+local editingEntityId = nil
+local editingLabelDraft = ""
+
+local function toggleReveal(entityId)
+  revealed = (revealed == entityId) and nil or entityId
+  render()
+end
+
+local function startRename(entity)
+  editingEntityId = entity.entity_id
+  editingLabelDraft = entity.name or entity.entity_id
+  revealed = nil
+  render()
+end
+
+local function cancelRename()
+  editingEntityId = nil
+  render()
+end
+
+local function saveRename()
+  if editingEntityId then
+    sendCommand({ action = "rename", entity_id = editingEntityId, label = editingLabelDraft })
+  end
+  editingEntityId = nil
+  render()
+end
+
+local function renameRow(entity, domain)
+  return ui.row({ align = "center", gap = 8 }, {
+    ui.glyph({ name = shared.glyphFor(domain), size = 20, color = shared.colorFor(entity.state) }),
+    ui.input({
+      key = `hassio-rename-{entity.entity_id}`,
+      value = editingLabelDraft,
+      flexGrow = 1,
+      fontSize = 13,
+      focus = true,
+      submitOnEnter = true,
+      onChange = function(value) editingLabelDraft = value or "" end,
+      onSubmit = function(value)
+        editingLabelDraft = value or editingLabelDraft
+        saveRename()
+      end,
+    }),
+    ui.button({ glyph = "check", variant = "ghost", controlSize = "sm", tooltip = "Save", onClick = saveRename }),
+    ui.button({ glyph = "x", variant = "ghost", controlSize = "sm", tooltip = "Cancel", onClick = cancelRename }),
+  })
+end
+
 local function entityRow(entity)
   local domain = shared.domainOf(entity.entity_id)
+  if editingEntityId == entity.entity_id then
+    return ui.column({ gap = 2, paddingV = 4 }, { renameRow(entity, domain) })
+  end
+
   local unavailable = shared.isUnavailable(entity.state)
   local on = shared.isOn(entity.state)
   local header = {
@@ -157,21 +215,42 @@ local function entityRow(entity)
   if domain == "cover" then
     header[#header + 1] = coverButtons(entity)
   elseif shared.isToggleable(domain) then
+    -- Lights read better as an on/off toggle (bulb / bulb-off) than a
+    -- generic power glyph that never changes -- the bulb itself already
+    -- carries the state everywhere else this domain glyph shows up.
+    local toggleGlyph = domain == "light" and (on and "bulb" or "bulb-off") or "power"
     header[#header + 1] = ui.button({
-      glyph = "power",
+      glyph = toggleGlyph,
       variant = "ghost",
       controlSize = "sm",
       tooltip = "Toggle",
       onClick = function() sendCommand({ action = "toggle", entity_id = entity.entity_id }) end,
     })
   end
-  header[#header + 1] = ui.button({
-    glyph = "trash",
-    variant = "ghost",
-    controlSize = "sm",
-    tooltip = "Remove from bar",
-    onClick = function() sendCommand({ action = "remove", entity_id = entity.entity_id }) end,
-  })
+  if revealed == entity.entity_id then
+    header[#header + 1] = ui.button({
+      glyph = "pencil",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = "Rename",
+      onClick = function() startRename(entity) end,
+    })
+    header[#header + 1] = ui.button({
+      glyph = "trash",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = "Remove from bar",
+      onClick = function() sendCommand({ action = "remove", entity_id = entity.entity_id }) end,
+    })
+  else
+    header[#header + 1] = ui.button({
+      glyph = "dots",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = "Edit",
+      onClick = function() toggleReveal(entity.entity_id) end,
+    })
+  end
 
   local rows = { ui.row({ align = "center", gap = 8 }, header) }
   -- Only while on: an off light/fan carries no brightness/percentage
@@ -294,33 +373,52 @@ end
 
 -- ── Header + root ────────────────────────────────────────────────────────────
 
+-- Small filled dot + word, the same "is it working" read a colored status
+-- LED gives at a glance. A plain ui.box circle rather than a guessed glyph
+-- name: dot/circle glyphs aren't used (and so not verified) anywhere else in
+-- this repo, and a box with a radius needs no such guess.
+local function connectionStatus()
+  if errorMessage ~= "" then return { color = "error", text = "Error" } end
+  if lastRefreshedAt ~= nil then return { color = "primary", text = "Connected" } end
+  return { color = "on_surface_variant", text = "Connecting…" }
+end
+
 local function header()
-  local left
   if view == "list" then
-    -- Same boxed-glyph header pschmitt/ha-ai-usage uses, keyed off this
-    -- plugin's own declared icon (plugin.toml's top-level `icon`) rather than
-    -- a second hardcoded glyph name.
-    left = {
-      ui.row({ align = "center", justify = "center", width = 36, height = 36, fill = "primary/0.15", radius = 11 }, {
-        ui.glyph({ name = "smart-home", size = 19, color = "primary" }),
+    -- The real Home Assistant mark (assets/home-assistant-icon.png, from
+    -- the project's own home-assistant/brands repo) rather than a generic
+    -- glyph -- it already carries its own color/shape, so it renders bare
+    -- rather than in ha-ai-usage's boxed-glyph style.
+    local status = connectionStatus()
+    return ui.row({ align = "center", gap = 8 }, {
+      ui.image({ path = "assets/home-assistant-icon.png", width = 32, height = 32, fit = "contain" }),
+      ui.column({ gap = 1 }, {
+        ui.label({ text = "Home Assistant", fontSize = 15, fontWeight = "bold" }),
+        ui.row({ align = "center", gap = 5 }, {
+          ui.box({ width = 8, height = 8, radius = 4, fill = status.color }),
+          ui.label({ text = status.text, fontSize = 11, color = "on_surface_variant" }),
+        }),
       }),
-      ui.label({ text = "Home Assistant", fontSize = 15, fontWeight = "bold" }),
-    }
-  else
-    left = {
-      ui.button({ glyph = "arrow-left", variant = "ghost", controlSize = "sm", onClick = "onBackToList" }),
-      ui.label({ text = "Add entity", fontSize = 15, fontWeight = "bold" }),
-    }
+    })
   end
-  local right = { ui.button({ glyph = "x", variant = "ghost", tooltip = "Close", onClick = "onCloseClicked" }) }
-  if view == "list" then
-    table.insert(right, 1, ui.button({ glyph = "settings", variant = "ghost", tooltip = "Plugin settings", onClick = "onSettings" }))
-    table.insert(right, 1, ui.button({ glyph = "refresh", variant = "ghost", tooltip = "Refresh", onClick = "onRefresh" }))
-    table.insert(right, 1, ui.button({ text = "Add", glyph = "plus", variant = "ghost", controlSize = "sm", tooltip = "Add entity", onClick = "onOpenBrowser" }))
-  end
+  -- No close button: dismiss_on_outside_click (plugin.toml) already closes
+  -- the panel, and this repo's other panels don't duplicate that with an X.
+  return ui.row({ align = "center", gap = 8 }, {
+    ui.button({ glyph = "arrow-left", variant = "ghost", controlSize = "sm", onClick = "onBackToList" }),
+    ui.label({ text = "Add entity", fontSize = 15, fontWeight = "bold" }),
+  })
+end
+
+-- Add/Refresh/Settings live down here rather than in the header -- utility
+-- actions below the content they act on, only the title and Close stay up
+-- top.
+local function footer()
   return ui.row({ align = "center", justify = "space_between" }, {
-    ui.row({ align = "center", gap = 8 }, left),
-    ui.row({ align = "center", gap = 2 }, right),
+    ui.button({ text = "Add", glyph = "plus", variant = "ghost", controlSize = "sm", tooltip = "Add entity", onClick = "onOpenBrowser" }),
+    ui.row({ align = "center", gap = 2 }, {
+      ui.button({ glyph = "refresh", variant = "ghost", tooltip = "Refresh", onClick = "onRefresh" }),
+      ui.button({ glyph = "settings", variant = "ghost", tooltip = "Plugin settings", onClick = "onSettings" }),
+    }),
   })
 end
 
@@ -334,6 +432,7 @@ render = function()
     })
   end
   children[#children + 1] = view == "list" and listView() or browseView()
+  if view == "list" then children[#children + 1] = footer() end
   panel.render(ui.column({ flexGrow = 1, padding = 12, gap = 8 }, children))
 end
 
@@ -351,6 +450,11 @@ end)
 
 noctalia.state.watch("hassio.error", function(value)
   errorMessage = type(value) == "string" and value or ""
+  render()
+end)
+
+noctalia.state.watch("hassio.refreshed_at", function(value)
+  lastRefreshedAt = value
   render()
 end)
 
@@ -386,6 +490,8 @@ end
 function onOpen()
   panelOpen = true
   view = "list"
+  revealed = nil
+  editingEntityId = nil
   sendCommand({ action = "refresh" })
   render()
 end
@@ -419,8 +525,4 @@ end
 function onSearchChange(value)
   searchText = value or ""
   render()
-end
-
-function onCloseClicked()
-  panel.close()
 end

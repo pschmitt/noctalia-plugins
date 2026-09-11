@@ -5,7 +5,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-hassio";
-  version = "0.2.0";
+  version = "0.3.0";
 
   src = lib.fileset.toSource {
     root = ../../plugins/hassio;
@@ -17,6 +17,7 @@ stdenvNoCC.mkDerivation {
       ../../plugins/hassio/service.luau
       ../../plugins/hassio/shared.luau
       ../../plugins/hassio/translations
+      ../../plugins/hassio/assets
     ];
   };
 
@@ -30,7 +31,7 @@ stdenvNoCC.mkDerivation {
     mkdir -p "$dest"
 
     cp plugin.toml README.md bar.luau panel.luau service.luau shared.luau "$dest"/
-    cp -r translations "$dest"/
+    cp -r translations assets "$dest"/
 
     runHook postInstall
   '';

@@ -87,6 +87,46 @@ local function hasEntity(entityId)
   return false
 end
 
+-- Display-name overrides, entity_id -> label. Kept in their own file rather
+-- than folded into entities.json: it stays a plain list of ids that way, and
+-- an entity with no override just has no entry here instead of every entry
+-- needing an optional field. Declared up here (used by parseStatusResponse's
+-- caller below) but its own load/save/rename functions live after refresh(),
+-- since renaming re-triggers it.
+local LABELS_FILE = "labels.json"
+local labels = {}
+
+local function labelsPath()
+  local dir, err = noctalia.pluginDataDir()
+  if not dir then
+    noctalia.log("hassio: cannot resolve plugin data dir: " .. tostring(err))
+    return nil
+  end
+  return dir .. "/" .. LABELS_FILE
+end
+
+local function loadLabels()
+  local path = labelsPath()
+  local data = path and noctalia.readFile(path)
+  if data and data ~= "" then
+    local parsed = noctalia.json.decode(data)
+    if type(parsed) == "table" then
+      labels = parsed
+      return
+    end
+  end
+  labels = {}
+end
+
+local function saveLabels()
+  local path = labelsPath()
+  if not path then return end
+  local ok, writeErr = noctalia.writeFile(path, noctalia.json.encode(labels))
+  if not ok then
+    noctalia.log("hassio: failed to save labels: " .. tostring(writeErr))
+  end
+end
+
 -- ── Status refresh (the bar + "My entities" panel view) ────────────────────
 -- One /api/template call naming exactly the configured entities, however few
 -- or many that is -- never the full states table. Tab/newline delimited
@@ -161,13 +201,28 @@ local function refresh()
       publishError("Home Assistant status query failed (HTTP " .. tostring(response.status) .. ")")
       return
     end
-    noctalia.state.set("hassio.entities", parseStatusResponse(response.body))
+    local rows = parseStatusResponse(response.body)
+    for _, row in ipairs(rows) do
+      local override = labels[row.entity_id]
+      if override and override ~= "" then row.name = override end
+    end
+    noctalia.state.set("hassio.entities", rows)
     noctalia.state.set("hassio.error", "")
     noctalia.state.set("hassio.refreshed_at", os.time())
   end)
   if not started then
     publishError("Could not start Home Assistant status query")
   end
+end
+
+local function renameEntity(entityId, label)
+  if type(entityId) ~= "string" or entityId == "" then return end
+  label = shared.trim(label)
+  -- Empty clears the override rather than storing a blank label, so the
+  -- entity falls back to Home Assistant's own friendly_name again.
+  labels[entityId] = label ~= "" and label or nil
+  saveLabels()
+  refresh()
 end
 
 -- ── Service calls: toggle, cover open/stop/close, brightness, fan speed ─────
@@ -240,6 +295,10 @@ local function removeEntity(entityId)
     if id ~= entityId then table.insert(newList, id) end
   end
   configuredEntities = newList
+  if labels[entityId] ~= nil then
+    labels[entityId] = nil
+    saveLabels()
+  end
   saveConfiguredEntities()
   refresh()
 end
@@ -324,6 +383,8 @@ noctalia.state.watch("hassio.command", function(command)
     addEntity(command.entity_id)
   elseif command.action == "remove" then
     removeEntity(command.entity_id)
+  elseif command.action == "rename" then
+    renameEntity(command.entity_id, command.label)
   elseif command.action == "browse" then
     browse(command.domain, command.offset)
   end

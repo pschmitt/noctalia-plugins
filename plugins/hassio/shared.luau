@@ -63,7 +63,7 @@ end
 
 function M.colorFor(state)
   if M.isUnavailable(state) then return "on_surface_variant" end
-  if M.isOn(state) then return M.config("on_color", "primary") end
+  if M.isOn(state) then return "primary" end
   return "on_surface_variant"
 end
 
