@@ -10,6 +10,20 @@
     "panel_show_refresh_button": { "label": "Panel: Show refresh button", "description": "Show the manual refresh button in the panel's top-right corner. Entities refresh on their own regardless (Connection: Refresh interval); this only hides the manual button." },
     "panel_dashboard_path": { "label": "Panel: Home Assistant link path", "description": "Relative path opened by the panel's Open Home Assistant button, appended to the server URL. For example: /lovelace/0." },
     "bar_icon_size": { "label": "Bar: Icon size", "description": "Bar icon size in pixels." },
-    "bar_spacing": { "label": "Bar: Spacing", "description": "Gap between entity icons in the bar." }
+    "bar_spacing": { "label": "Bar: Spacing", "description": "Gap between entity icons in the bar." },
+    "action": {
+      "description": "What this bar-widget interaction does",
+      "options": {
+        "panel": "Open panel",
+        "refresh": "Refresh now",
+        "open_dashboard": "Open Home Assistant",
+        "none": "Nothing"
+      }
+    },
+    "action_left_click": { "label": "Bar: Left click" },
+    "action_right_click": { "label": "Bar: Right click" },
+    "action_middle_click": { "label": "Bar: Middle click" },
+    "action_scroll_up": { "label": "Bar: Scroll up" },
+    "action_scroll_down": { "label": "Bar: Scroll down" }
   }
 }

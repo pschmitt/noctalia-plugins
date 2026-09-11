@@ -1,6 +1,6 @@
 id = "pschmitt/hassio"
 name = "Home Assistant"
-version = "0.8.0"
+version = "0.9.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -82,6 +82,74 @@ type = "glyph"
 label_key = "settings.bar_icon.label"
 description_key = "settings.bar_icon.description"
 default = "smart-home"
+
+# Same runAction()/ACTIONS convention pschmitt/battery-icon uses for its own
+# five interaction settings, right down to the shared settings.action.*
+# description/option translation keys.
+[[setting]]
+key = "action_left_click"
+type = "select"
+label_key = "settings.action_left_click.label"
+description_key = "settings.action.description"
+default = "panel"
+options = [
+  { value = "panel", label_key = "settings.action.options.panel" },
+  { value = "refresh", label_key = "settings.action.options.refresh" },
+  { value = "open_dashboard", label_key = "settings.action.options.open_dashboard" },
+  { value = "none", label_key = "settings.action.options.none" },
+]
+
+[[setting]]
+key = "action_right_click"
+type = "select"
+label_key = "settings.action_right_click.label"
+description_key = "settings.action.description"
+default = "refresh"
+options = [
+  { value = "panel", label_key = "settings.action.options.panel" },
+  { value = "refresh", label_key = "settings.action.options.refresh" },
+  { value = "open_dashboard", label_key = "settings.action.options.open_dashboard" },
+  { value = "none", label_key = "settings.action.options.none" },
+]
+
+[[setting]]
+key = "action_middle_click"
+type = "select"
+label_key = "settings.action_middle_click.label"
+description_key = "settings.action.description"
+default = "open_dashboard"
+options = [
+  { value = "panel", label_key = "settings.action.options.panel" },
+  { value = "refresh", label_key = "settings.action.options.refresh" },
+  { value = "open_dashboard", label_key = "settings.action.options.open_dashboard" },
+  { value = "none", label_key = "settings.action.options.none" },
+]
+
+[[setting]]
+key = "action_scroll_up"
+type = "select"
+label_key = "settings.action_scroll_up.label"
+description_key = "settings.action.description"
+default = "none"
+options = [
+  { value = "panel", label_key = "settings.action.options.panel" },
+  { value = "refresh", label_key = "settings.action.options.refresh" },
+  { value = "open_dashboard", label_key = "settings.action.options.open_dashboard" },
+  { value = "none", label_key = "settings.action.options.none" },
+]
+
+[[setting]]
+key = "action_scroll_down"
+type = "select"
+label_key = "settings.action_scroll_down.label"
+description_key = "settings.action.description"
+default = "none"
+options = [
+  { value = "panel", label_key = "settings.action.options.panel" },
+  { value = "refresh", label_key = "settings.action.options.refresh" },
+  { value = "open_dashboard", label_key = "settings.action.options.open_dashboard" },
+  { value = "none", label_key = "settings.action.options.none" },
+]
 
 # ── Panel ────────────────────────────────────────────────────────────────────
 

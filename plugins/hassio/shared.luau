@@ -29,7 +29,12 @@ local DOMAIN_GLYPHS = {
   sensor = "chart-line",
   binary_sensor = "activity",
   climate = "temperature",
-  cover = "door",
+  -- "door" (pozzoo/hassio's own choice) reads as an actual door, but most
+  -- HA cover entities are blinds/shades/curtains rather than a literal door
+  -- -- "blinds" fits that common case better. Still one glyph for a domain
+  -- that covers several different physical things, so it's a compromise
+  -- either way.
+  cover = "blinds",
   fan = "wind",
   lock = "lock",
   media_player = "device-speaker",

@@ -80,12 +80,37 @@ function onConfigChanged()
   render()
 end
 
+-- Same runAction()/ACTIONS convention pschmitt/battery-icon's bar.luau uses:
+-- each interaction setting names one of these, so left/right/middle click
+-- and scroll up/down are all independently configurable instead of hardcoded
+-- to one action apiece.
+local ACTIONS = {
+  panel = function() noctalia.togglePanel("pschmitt/hassio:panel") end,
+  refresh = function() noctalia.state.set("hassio.command", { action = "refresh" }) end,
+  open_dashboard = function() noctalia.state.set("hassio.command", { action = "open_dashboard" }) end,
+}
+
+local function runAction(settingKey)
+  local action = ACTIONS[noctalia.getConfig(settingKey)]
+  if action then action() end
+end
+
 function onClick()
-  noctalia.togglePanel("pschmitt/hassio:panel")
+  runAction("action_left_click")
 end
 
 function onRightClick()
-  noctalia.state.set("hassio.command", { action = "refresh" })
+  runAction("action_right_click")
+end
+
+function onMiddleClick()
+  runAction("action_middle_click")
+end
+
+-- Same scroll convention as Noctalia's built-in widgets: positive steps are
+-- scroll-down.
+function onScroll(_axis, steps, _startsGesture)
+  runAction(steps > 0 and "action_scroll_down" or "action_scroll_up")
 end
 
 render()

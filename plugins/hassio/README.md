@@ -12,7 +12,9 @@ The status query also carries a light's brightness, a fan's speed and a cover's 
 
 ## Usage
 
-Add `pschmitt/hassio:bar` to a Noctalia bar. By default it shows one icon per configured entity, tinted to reflect its state, with a tooltip listing names and states. Set **Bar: Display mode** to **Single icon** for a fixed bar slot instead — the real Home Assistant logo by default, that never grows, shrinks or recolors as entities are added or change state. **Bar: Single icon glyph** swaps that logo for a plain Tabler glyph instead, if you'd rather have that; leave it at its own default (`smart-home`) to keep the logo. Click opens the panel either way; right-click refreshes immediately.
+Add `pschmitt/hassio:bar` to a Noctalia bar. By default it shows one icon per configured entity, tinted to reflect its state, with a tooltip listing names and states. Set **Bar: Display mode** to **Single icon** for a fixed bar slot instead — the real Home Assistant logo by default, that never grows, shrinks or recolors as entities are added or change state. **Bar: Single icon glyph** swaps that logo for a plain Tabler glyph instead, if you'd rather have that; leave it at its own default (`smart-home`) to keep the logo.
+
+What each bar interaction does is independently configurable -- **Bar: Left/Right/Middle click** and **Bar: Scroll up/down**, each a choice of Open panel, Refresh now, Open Home Assistant or Nothing. Defaults: left click opens the panel, right click refreshes, middle click opens Home Assistant, scrolling does nothing.
 
 The panel header shows the real Home Assistant mark, a small connection status line (a colored dot + Connecting…/Connected/Error, with a small external-link button that opens Home Assistant itself in the desktop's default browser -- **Panel: Home Assistant link path**, default `/`, picks what page), a **Refresh** button (hide it via **Panel: Show refresh button** if the automatic interval is enough for you) and a settings button. The panel itself has two views:
 

@@ -5,7 +5,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-hassio";
-  version = "0.8.0";
+  version = "0.9.0";
 
   src = lib.fileset.toSource {
     root = ../../plugins/hassio;
