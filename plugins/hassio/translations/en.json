@@ -1,0 +1,11 @@
+{
+  "settings": {
+    "server_file": { "label": "Connection: Home Assistant server file", "description": "File containing the Home Assistant base URL. This keeps the URL outside the declarative plugin config." },
+    "token_file": { "label": "Connection: Home Assistant token file", "description": "File containing a long-lived Home Assistant token. It is read only at runtime and never stored by the plugin." },
+    "allow_insecure_tls": { "label": "Connection: Allow insecure TLS", "description": "Skip HTTPS certificate verification. Use only for a trusted Home Assistant with a self-signed certificate." },
+    "refresh_interval": { "label": "Connection: Refresh interval (seconds)", "description": "How often to re-fetch the state of your configured entities." },
+    "browser_page_size": { "label": "Advanced: Browser page size", "description": "How many entities the \"Add entity\" browser fetches per page/Load-more click. Lower this if browsing still feels slow on a very large Home Assistant instance; there is normally no need to touch it." },
+    "bar_icon_size": { "label": "Bar: Icon size", "description": "Bar icon size in pixels." },
+    "bar_spacing": { "label": "Bar: Spacing", "description": "Gap between entity icons in the bar." }
+  }
+}
