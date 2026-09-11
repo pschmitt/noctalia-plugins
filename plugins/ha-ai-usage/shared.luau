@@ -221,6 +221,27 @@ function M.isHeadline(metric)
   return not metric.secondary and (metric.window == "short" or metric.window == "weekly")
 end
 
+-- Row count panel.luau's card() would render for this card, used only to
+-- pick a panel_size "Auto" bucket -- mirrors its headline/rest split and the
+-- promoted-primary fallback for windowless providers (Copilot) exactly, so
+-- the estimate matches what actually renders instead of drifting from it.
+function M.panelRowCount(card, allMetrics)
+  local headline, rest = 0, 0
+  for _, metric in ipairs(card.metrics) do
+    if M.isHeadline(metric) then
+      headline += 1
+    else
+      rest += 1
+    end
+  end
+  if headline == 0 and card.primary ~= nil and card.primary.reset ~= "" then
+    headline = 1
+    rest = math.max(0, rest - 1)
+  end
+  if headline == 0 and not (allMetrics and rest > 0) then return 0 end
+  return headline + (allMetrics and rest or 0)
+end
+
 function M.metricWindow(card)
   return card.primary and card.primary.window or "other"
 end

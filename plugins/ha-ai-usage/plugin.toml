@@ -1,6 +1,6 @@
 id = "pschmitt/ha-ai-usage"
 name = "Home Assistant AI Usage"
-version = "0.18.1"
+version = "0.19.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -148,6 +148,25 @@ label_key = "settings.panel_all_metrics.label"
 description_key = "settings.panel_all_metrics.description"
 default = true
 
+# Noctalia has no runtime panel-resize API (see the osd plugin's README), so
+# a dynamic panel height isn't possible -- each size below is its own
+# fixed-geometry [[panel]] entry (see the bottom of this file) and "Auto"
+# estimates which one the currently discovered cards/metrics need, the same
+# workaround pschmitt/battery-icon uses for its power panel.
+[[setting]]
+key = "panel_size"
+type = "select"
+label_key = "settings.panel_size.label"
+description_key = "settings.panel_size.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.panel_size.auto" },
+  { value = "small", label_key = "settings.panel_size.small" },
+  { value = "medium", label_key = "settings.panel_size.medium" },
+  { value = "large", label_key = "settings.panel_size.large" },
+  { value = "xlarge", label_key = "settings.panel_size.xlarge" },
+]
+
 # The ring counts the window down, so it gets its own colours rather than
 # reusing the usage ones: no shipped palette has an orange role (Indigo's
 # tertiary is lavender), hence the literal hex default.
@@ -270,9 +289,29 @@ entry = "bar.luau"
   min = 0
   max = 48
 
-  [widget.actions]
-  left = "panel-toggle pschmitt/ha-ai-usage:panel"
-  right = "plugin pschmitt/ha-ai-usage:poller all refresh"
+# Both clicks are handled by bar.luau's onClick/onRightClick, not a
+# [widget.actions] block: left-click's panel id is only known at click time
+# (it depends on panel_size and the currently discovered cards), and once
+# left is script-driven, right has to be too -- a script handler and a
+# static action on the same widget cannot be mixed. noctalia.togglePanel()
+# always opens unanchored, unlike the anchored panel-toggle dispatcher, but
+# that's the tradeoff a runtime-chosen panel id requires (same one
+# pschmitt/battery-icon makes).
+
+# One [[panel]] entry per panel_size bucket, all sharing panel.luau -- see
+# the panel_size setting above and bar.luau's selectedPanelId(). "medium"
+# keeps the plugin's original id/geometry so existing panel-open callers are
+# unaffected.
+[[panel]]
+id = "panel-small"
+entry = "panel.luau"
+width = 600
+# Fits a single lightly-used account without leaving a wall of empty space.
+height = 700
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
 
 [[panel]]
 id = "panel"
@@ -283,6 +322,30 @@ width = 600
 # across 5 cards. Non-compact still scrolls well before this with the same
 # data -- that mode is the verbose one by design.
 height = 1000
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-large"
+entry = "panel.luau"
+width = 600
+# Covers the "medium" busy-account scenario above rendered in non-compact
+# mode, which scrolls well before 1000px with the same data.
+height = 1400
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-xlarge"
+entry = "panel.luau"
+width = 600
+# For accounts with more providers/metrics than the "large" bucket was sized
+# for; still scrolls past this rather than growing further.
+height = 1900
 placement = "attached"
 position = "auto"
 open_near_click = true

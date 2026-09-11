@@ -34,6 +34,23 @@ What the bar shows is configured plugin-wide (Settings -> Plugins -> Home Assist
 
 Reset times support relative countdowns and three configurable local-date formats.
 
+## Panel size
+
+Noctalia panels have a fixed outer height -- there is no runtime panel-resize
+API -- so **Panel: Size** picks between four preset panel geometries
+(`panel-small`/`panel`/`panel-large`/`panel-xlarge`, 700-1900px tall) rather
+than resizing one panel dynamically. **Automatic** (the default) estimates
+the right preset from the accounts and metrics Home Assistant currently
+reports, combined with **Panel: Compact mode** and **Panel: Show all
+metrics** -- a single lightly used account gets the small preset, a busy
+multi-provider account with every metric shown gets a larger one. Pick a
+fixed size instead if you'd rather the panel never change geometry as
+accounts come and go.
+
+Because the panel id is only resolved at click time, left-click is handled by
+the bar widget's own script rather than Noctalia's anchored panel-toggle
+action, so the panel opens centered rather than anchored under the click.
+
 ## Network and privacy
 
 One authenticated `POST /api/template` request runs at the configured refresh interval (60 seconds by default). Home Assistant filters the active metric set server-side before returning it, and no provider endpoint is contacted from the desktop. The data remains in Noctalia's in-memory plugin state and is not written to disk.

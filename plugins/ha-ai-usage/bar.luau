@@ -162,3 +162,60 @@ function onConfigChanged()
 end
 
 render()
+
+-- ── Panel sizing ─────────────────────────────────────────────────────────────
+-- See plugin.toml's panel_size setting: Noctalia has no runtime panel-resize
+-- API, so this picks one of the fixed-geometry [[panel]] entries. "Auto"
+-- estimates the panel's rendered height from the same cards/settings panel.luau
+-- itself would use, rather than the bar's own cards/limit/window settings.
+
+local PANEL_IDS = {
+  small = "pschmitt/ha-ai-usage:panel-small",
+  medium = "pschmitt/ha-ai-usage:panel",
+  large = "pschmitt/ha-ai-usage:panel-large",
+  xlarge = "pschmitt/ha-ai-usage:panel-xlarge",
+}
+local SIZE_ORDER = { "small", "medium", "large", "xlarge" }
+local SIZE_HEIGHT = { small = 700, medium = 1000, large = 1400, xlarge = 1900 }
+
+-- Rough per-row/per-card pixel costs mirrored from panel.luau's own
+-- ringCard/ringLines paddings and gaps -- not pixel-exact, just enough to
+-- pick the right bucket.
+local function estimatedPanelHeight(cards, compact, allMetrics)
+  local height = compact and 96 or 120 -- header row + outer panel padding
+  local rowHeight = compact and 44 or 58
+  local cardOverhead = compact and 46 or 60
+  for _, item in ipairs(cards) do
+    height += cardOverhead + shared.panelRowCount(item, allMetrics) * rowHeight
+  end
+  return height
+end
+
+local function autoSize()
+  local cards = shared.filterCards(shared.cards(items), shared.config("panel_card_filter", ""))
+  local compact = noctalia.getConfig("panel_compact") == true
+  local allMetrics = noctalia.getConfig("panel_all_metrics") ~= false
+  local needed = estimatedPanelHeight(cards, compact, allMetrics)
+  for _, size in ipairs(SIZE_ORDER) do
+    if needed <= SIZE_HEIGHT[size] then return size end
+  end
+  return "xlarge"
+end
+
+local function selectedPanelId()
+  local size = noctalia.getConfig("panel_size") or "auto"
+  if size == "auto" then size = autoSize() end
+  return PANEL_IDS[size] or PANEL_IDS.medium
+end
+
+-- Routed through noctalia.togglePanel() rather than a static
+-- [widget.actions] panel-toggle entry, since the panel id is only known at
+-- click time (it depends on panel_size and the currently discovered
+-- cards) -- see the comment above the [[panel]] entries in plugin.toml.
+function onClick()
+  noctalia.togglePanel(selectedPanelId())
+end
+
+function onRightClick()
+  noctalia.state.set("ha_ai_usage.command", { action = "refresh" })
+end
