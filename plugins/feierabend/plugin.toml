@@ -1,0 +1,66 @@
+# Feierabend countdown indicator — lockscreen (and optionally bar) display
+# for the shutdown countdown armed by `zhj feierabend countdown-start`
+# (~/.config/zsh/plugins/local/homeassistant.zsh, wired to the go-hass-agent
+# "Feierabend Start" button). That countdown writes the remaining seconds as
+# plain text to state_file once a second and removes it on stop/abort; this
+# plugin just tails that file and shows it. Ported from the old hyprlock
+# `cmd[update:1000] cat ~/.local/state/feierabend-countdown` label
+# (home-manager/gui/hyprland/services/hyprlock.nix in nixos-config) after
+# Noctalia replaced hyprlock as the session locker.
+
+id = "pschmitt/feierabend"
+name = "Feierabend Countdown"
+version = "0.1.0"
+plugin_api = 14
+author = "pschmitt"
+license = "MIT"
+tags = ["lockscreen", "bar", "utility"]
+icon = "beer"
+description = "Shows the remaining time before zhj feierabend's shutdown countdown fires, on the lockscreen and/or bar."
+
+[[setting]]
+key = "state_file"
+type = "string"
+label_key = "settings.state_file.label"
+description_key = "settings.state_file.description"
+default = "~/.local/state/feierabend-countdown"
+
+[[setting]]
+key = "poll_interval"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = 1
+min = 1
+max = 10
+
+[[setting]]
+key = "text_template"
+type = "string"
+label_key = "settings.text_template.label"
+description_key = "settings.text_template.description"
+default = "🍻 {seconds}s before Feierabend"
+
+[[setting]]
+key = "text_color"
+type = "color"
+label_key = "settings.text_color.label"
+description_key = "settings.text_color.description"
+default = "error"
+
+[[setting]]
+key = "font_size"
+type = "int"
+label_key = "settings.font_size.label"
+description_key = "settings.font_size.description"
+default = 24
+min = 10
+max = 72
+
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[desktop_widget]]
+id = "lockscreen"
+entry = "widget.luau"

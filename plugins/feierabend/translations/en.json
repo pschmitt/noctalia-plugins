@@ -1,0 +1,24 @@
+{
+  "settings": {
+    "state_file": {
+      "label": "State file",
+      "description": "Path to the file zhj feierabend's countdown writes the remaining seconds to."
+    },
+    "poll_interval": {
+      "label": "Poll interval (s)",
+      "description": "How often to re-read the state file while the widget is visible."
+    },
+    "text_template": {
+      "label": "Text template",
+      "description": "Shown while the countdown is armed. {seconds} is replaced with the remaining seconds."
+    },
+    "text_color": {
+      "label": "Text color",
+      "description": "A Noctalia color role (e.g. error, primary) or a hex color."
+    },
+    "font_size": {
+      "label": "Font size",
+      "description": "Text size, in pixels."
+    }
+  }
+}
