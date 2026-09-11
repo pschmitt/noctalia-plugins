@@ -144,22 +144,24 @@ local function fanSlider(entity)
   end)
 end
 
--- entity_id of the row currently showing its edit/delete buttons, or the row
--- being renamed -- at most one of each at a time, same single-id pattern
--- pschmitt/timewarrior's panel uses for its own revealed/editing state.
-local revealed = nil
+-- A single footer button (see footer() below) flips the whole list into
+-- edit mode at once, rather than a per-row reveal toggle: every row's
+-- rename/remove buttons show together, and its normal controls (toggle,
+-- cover buttons, sliders) hide together, so edit mode reads as one clear
+-- state instead of row-by-row guessing which one is "open".
+local editMode = false
 local editingEntityId = nil
 local editingLabelDraft = ""
 
-local function toggleReveal(entityId)
-  revealed = (revealed == entityId) and nil or entityId
+local function toggleEditMode()
+  editMode = not editMode
+  editingEntityId = nil
   render()
 end
 
 local function startRename(entity)
   editingEntityId = entity.entity_id
   editingLabelDraft = entity.name or entity.entity_id
-  revealed = nil
   render()
 end
 
@@ -197,10 +199,15 @@ local function renameRow(entity, domain)
   })
 end
 
+-- Same card treatment pschmitt/ha-ai-usage gives each provider: a tinted,
+-- rounded container per entity instead of a bare row, so a list of several
+-- reads as distinct cards rather than one undifferentiated block.
+local CARD_STYLE = { fill = "surface_variant/0.58", radius = 12, padding = 10, gap = 2 }
+
 local function entityRow(entity)
   local domain = shared.domainOf(entity.entity_id)
   if editingEntityId == entity.entity_id then
-    return ui.column({ gap = 2, paddingV = 4 }, { renameRow(entity, domain) })
+    return ui.column(CARD_STYLE, { renameRow(entity, domain) })
   end
 
   local unavailable = shared.isUnavailable(entity.state)
@@ -212,22 +219,7 @@ local function entityRow(entity)
       ui.label({ text = unavailable and "unavailable" or (entity.state or "—"), fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
     }),
   }
-  if domain == "cover" then
-    header[#header + 1] = coverButtons(entity)
-  elseif shared.isToggleable(domain) then
-    -- Lights read better as an on/off toggle (bulb / bulb-off) than a
-    -- generic power glyph that never changes -- the bulb itself already
-    -- carries the state everywhere else this domain glyph shows up.
-    local toggleGlyph = domain == "light" and (on and "bulb" or "bulb-off") or "power"
-    header[#header + 1] = ui.button({
-      glyph = toggleGlyph,
-      variant = "ghost",
-      controlSize = "sm",
-      tooltip = "Toggle",
-      onClick = function() sendCommand({ action = "toggle", entity_id = entity.entity_id }) end,
-    })
-  end
-  if revealed == entity.entity_id then
+  if editMode then
     header[#header + 1] = ui.button({
       glyph = "pencil",
       variant = "ghost",
@@ -242,26 +234,37 @@ local function entityRow(entity)
       tooltip = "Remove from bar",
       onClick = function() sendCommand({ action = "remove", entity_id = entity.entity_id }) end,
     })
-  else
+  elseif domain == "cover" then
+    header[#header + 1] = coverButtons(entity)
+  elseif shared.isToggleable(domain) then
+    -- Lights read better as an on/off toggle (bulb / bulb-off) than a
+    -- generic power glyph that never changes -- the bulb itself already
+    -- carries the state everywhere else this domain glyph shows up.
+    local toggleGlyph = domain == "light" and (on and "bulb" or "bulb-off") or "power"
     header[#header + 1] = ui.button({
-      glyph = "dots",
+      glyph = toggleGlyph,
       variant = "ghost",
       controlSize = "sm",
-      tooltip = "Edit",
-      onClick = function() toggleReveal(entity.entity_id) end,
+      tooltip = "Toggle",
+      onClick = function() sendCommand({ action = "toggle", entity_id = entity.entity_id }) end,
     })
   end
 
   local rows = { ui.row({ align = "center", gap = 8 }, header) }
-  -- Only while on: an off light/fan carries no brightness/percentage
-  -- attribute to seed the slider from (Home Assistant clears both when the
-  -- entity turns off), and a slider with nothing to show is worse than none.
-  if domain == "light" and on and entity.brightness ~= nil then
-    rows[#rows + 1] = ui.row({ align = "center", paddingL = 28 }, { brightnessSlider(entity) })
-  elseif domain == "fan" and on and entity.percentage ~= nil then
-    rows[#rows + 1] = ui.row({ align = "center", paddingL = 28 }, { fanSlider(entity) })
+  -- Hidden in edit mode along with the toggle/cover controls above -- edit
+  -- mode is rename/remove only, not a place to also nudge a light's
+  -- brightness by accident.
+  if not editMode then
+    -- Only while on: an off light/fan carries no brightness/percentage
+    -- attribute to seed the slider from (Home Assistant clears both when the
+    -- entity turns off), and a slider with nothing to show is worse than none.
+    if domain == "light" and on and entity.brightness ~= nil then
+      rows[#rows + 1] = ui.row({ align = "center", paddingL = 28 }, { brightnessSlider(entity) })
+    elseif domain == "fan" and on and entity.percentage ~= nil then
+      rows[#rows + 1] = ui.row({ align = "center", paddingL = 28 }, { fanSlider(entity) })
+    end
   end
-  return ui.column({ gap = 2, paddingV = 4 }, rows)
+  return ui.column(CARD_STYLE, rows)
 end
 
 local function listView()
@@ -289,7 +292,7 @@ local function listView()
       end
     end
   end
-  return ui.scroll({ flexGrow = 1, gap = 2 }, content)
+  return ui.scroll({ flexGrow = 1, gap = 8 }, content)
 end
 
 -- ── Browse view ──────────────────────────────────────────────────────────────
@@ -390,7 +393,7 @@ local function header()
     -- glyph -- it already carries its own color/shape, so it renders bare
     -- rather than in ha-ai-usage's boxed-glyph style.
     local status = connectionStatus()
-    return ui.row({ align = "center", gap = 8 }, {
+    local left = ui.row({ align = "center", gap = 8 }, {
       ui.image({ path = "assets/home-assistant-icon.png", width = 32, height = 32, fit = "contain" }),
       ui.column({ gap = 1 }, {
         ui.label({ text = "Home Assistant", fontSize = 15, fontWeight = "bold" }),
@@ -400,23 +403,37 @@ local function header()
         }),
       }),
     })
+    -- No close button: dismiss_on_outside_click (plugin.toml) already closes
+    -- the panel, and this repo's other panels don't duplicate that with an X.
+    if noctalia.getConfig("panel_show_refresh_button") == false then
+      return left
+    end
+    return ui.row({ align = "center", justify = "space_between" }, {
+      left,
+      ui.button({ glyph = "refresh", variant = "ghost", tooltip = "Refresh", onClick = "onRefresh" }),
+    })
   end
-  -- No close button: dismiss_on_outside_click (plugin.toml) already closes
-  -- the panel, and this repo's other panels don't duplicate that with an X.
   return ui.row({ align = "center", gap = 8 }, {
     ui.button({ glyph = "arrow-left", variant = "ghost", controlSize = "sm", onClick = "onBackToList" }),
     ui.label({ text = "Add entity", fontSize = 15, fontWeight = "bold" }),
   })
 end
 
--- Add/Refresh/Settings live down here rather than in the header -- utility
--- actions below the content they act on, only the title and Close stay up
--- top.
+-- Add/Edit/Settings live down here rather than in the header -- utility
+-- actions below the content they act on, only the title, status and
+-- (optional) Refresh stay up top.
 local function footer()
   return ui.row({ align = "center", justify = "space_between" }, {
     ui.button({ text = "Add", glyph = "plus", variant = "ghost", controlSize = "sm", tooltip = "Add entity", onClick = "onOpenBrowser" }),
     ui.row({ align = "center", gap = 2 }, {
-      ui.button({ glyph = "refresh", variant = "ghost", tooltip = "Refresh", onClick = "onRefresh" }),
+      ui.button({
+        text = editMode and "Done" or "Edit",
+        glyph = editMode and "check" or "pencil",
+        variant = editMode and "primary" or "ghost",
+        controlSize = "sm",
+        tooltip = editMode and "Done editing" or "Rename or remove entities",
+        onClick = "onToggleEditMode",
+      }),
       ui.button({ glyph = "settings", variant = "ghost", tooltip = "Plugin settings", onClick = "onSettings" }),
     }),
   })
@@ -490,7 +507,7 @@ end
 function onOpen()
   panelOpen = true
   view = "list"
-  revealed = nil
+  editMode = false
   editingEntityId = nil
   sendCommand({ action = "refresh" })
   render()
@@ -506,6 +523,10 @@ end
 
 function onSettings()
   noctalia.openSettings()
+end
+
+function onToggleEditMode()
+  toggleEditMode()
 end
 
 function onOpenBrowser()

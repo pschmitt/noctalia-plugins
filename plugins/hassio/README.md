@@ -12,16 +12,16 @@ This plugin never makes either kind of unbounded request. The bar/status query n
 
 Add `pschmitt/hassio:bar` to a Noctalia bar. By default it shows one icon per configured entity, tinted to reflect its state, with a tooltip listing names and states. Set **Bar: Display mode** to **Single icon** for a fixed bar slot instead — one glyph (**Bar: Single icon glyph**, any Tabler icon name) that never grows, shrinks or recolors as entities are added or change state. Click opens the panel either way; right-click refreshes immediately.
 
-The panel header shows the real Home Assistant mark and a small connection status line (a colored dot + Connecting…/Connected/Error). The panel itself has two views:
+The panel header shows the real Home Assistant mark, a small connection status line (a colored dot + Connecting…/Connected/Error), and a **Refresh** button (hide it via **Panel: Show refresh button** if the automatic interval is enough for you). The panel itself has two views:
 
-- **My entities** — the configured list, each row showing its current state and domain-appropriate controls:
+- **My entities** — the configured list, each entity in its own card, showing its current state and domain-appropriate controls:
   - **cover** gets a dedicated open/stop/close row instead of a toggle.
   - **light** gets an on/off toggle that swaps its own glyph (bulb / bulb-off) to show state, plus a brightness slider under the row whenever it's on and Home Assistant reports a brightness (i.e. it's dimmable).
   - **fan** gets a plain toggle plus a speed slider under the row whenever it's on and Home Assistant reports a percentage (i.e. it supports speed control).
   - Every other toggleable domain (switches, scripts, automations, climate, locks, media players, and so on) gets a plain toggle button.
   - Sliders only call Home Assistant once dragging ends, not on every intermediate value, so dragging never floods it with requests.
-  - Rename and remove are hidden behind a row's **⋯** button rather than shown by default — click it to reveal a rename (pencil) and remove (trash) button for that row, matching this repo's `pschmitt/timewarrior` panel's own reveal-before-delete pattern. Renaming only overrides what this plugin displays; it never touches the entity in Home Assistant.
-  - **+ Add**, **Refresh** and the settings button live in a footer below the list rather than the header, keeping the header to just the title/status and (in the browser) a back button.
+  - The footer's **Edit** button switches the whole list into edit mode at once: every card's normal controls (toggle, cover buttons, sliders) hide and a rename (pencil) and remove (trash) button take their place, so there's no risk of nudging a light while trying to rename it. **Done** switches back. Renaming only overrides what this plugin displays; it never touches the entity in Home Assistant.
+  - **+ Add**, **Edit** and the settings button live in a footer below the list.
 - **Add entity** (via the footer's **+ Add** button) — a search box, domain filter chips, and paginated results with an Add button per row. **Load more** fetches another bounded page; it never fetches everything at once.
 
 Entities you add, and any renames, live in small files this plugin manages itself (`entities.json`/`labels.json` in its own plugin data directory), not in a Noctalia setting — that's what lets the panel add/remove/rename entries live without needing a settings-write API this plugin's runtime doesn't have.

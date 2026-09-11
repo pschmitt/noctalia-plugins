@@ -1,6 +1,6 @@
 id = "pschmitt/hassio"
 name = "Home Assistant"
-version = "0.3.0"
+version = "0.4.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -78,6 +78,15 @@ type = "glyph"
 label_key = "settings.bar_icon.label"
 description_key = "settings.bar_icon.description"
 default = "smart-home"
+
+# ── Panel ────────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "panel_show_refresh_button"
+type = "bool"
+label_key = "settings.panel_show_refresh_button.label"
+description_key = "settings.panel_show_refresh_button.description"
+default = true
 
 [[service]]
 id = "poller"
