@@ -1,11 +1,11 @@
-id = "pschmitt/hassio"
+id = "pschmitt/ha"
 name = "Home Assistant"
-version = "0.10.0"
+version = "0.11.0"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
 icon = "smart-home"
-description = "Status and toggle for a chosen handful of Home Assistant entities, without ever asking HA to dump its full entity list."
+description = "Status and toggle for a chosen handful of Home Assistant entities, with declarative sections and bounded conditional visibility."
 tags = ["bar", "panel", "service", "indicator", "utility"]
 
 # ── Connection ───────────────────────────────────────────────────────────────
@@ -166,6 +166,20 @@ type = "string"
 label_key = "settings.panel_dashboard_path.label"
 description_key = "settings.panel_dashboard_path.description"
 default = "/"
+
+[[setting]]
+key = "panel_hide_edit_button"
+type = "bool"
+label_key = "settings.panel_hide_edit_button.label"
+description_key = "settings.panel_hide_edit_button.description"
+default = false
+
+[[setting]]
+key = "panel_show_search"
+type = "bool"
+label_key = "settings.panel_show_search.label"
+description_key = "settings.panel_show_search.description"
+default = false
 
 [[service]]
 id = "poller"

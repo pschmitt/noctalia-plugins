@@ -23,7 +23,7 @@
           noctalia-fan-control = pkgs.callPackage ./pkgs/noctalia-fan-control { };
           noctalia-feierabend = pkgs.callPackage ./pkgs/noctalia-feierabend { };
           noctalia-ha-ai-usage = pkgs.callPackage ./pkgs/noctalia-ha-ai-usage { };
-          noctalia-hassio = pkgs.callPackage ./pkgs/noctalia-hassio { };
+          noctalia-ha = pkgs.callPackage ./pkgs/noctalia-ha { };
           noctalia-osd = pkgs.callPackage ./pkgs/noctalia-osd { };
           noctalia-screencast = pkgs.callPackage ./pkgs/noctalia-screencast { };
           noctalia-syncthing = pkgs.callPackage ./pkgs/noctalia-syncthing { };
@@ -35,7 +35,7 @@
               (pkgs.callPackage ./pkgs/noctalia-fan-control { })
               (pkgs.callPackage ./pkgs/noctalia-feierabend { })
               (pkgs.callPackage ./pkgs/noctalia-ha-ai-usage { })
-              (pkgs.callPackage ./pkgs/noctalia-hassio { })
+              (pkgs.callPackage ./pkgs/noctalia-ha { })
               (pkgs.callPackage ./pkgs/noctalia-osd { })
               (pkgs.callPackage ./pkgs/noctalia-screencast { })
               (pkgs.callPackage ./pkgs/noctalia-syncthing { })

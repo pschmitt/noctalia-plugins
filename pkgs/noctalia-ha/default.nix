@@ -4,20 +4,21 @@
 }:
 
 stdenvNoCC.mkDerivation {
-  pname = "noctalia-hassio";
-  version = "0.10.0";
+  pname = "noctalia-ha";
+  version = "0.11.0";
 
   src = lib.fileset.toSource {
-    root = ../../plugins/hassio;
+    root = ../../plugins/ha;
     fileset = lib.fileset.unions [
-      ../../plugins/hassio/plugin.toml
-      ../../plugins/hassio/README.md
-      ../../plugins/hassio/bar.luau
-      ../../plugins/hassio/panel.luau
-      ../../plugins/hassio/service.luau
-      ../../plugins/hassio/shared.luau
-      ../../plugins/hassio/translations
-      ../../plugins/hassio/assets
+      ../../plugins/ha/plugin.toml
+      ../../plugins/ha/README.md
+      ../../plugins/ha/bar.luau
+      ../../plugins/ha/panel.luau
+      ../../plugins/ha/service.luau
+      ../../plugins/ha/shared.luau
+      ../../plugins/ha/layout.luau
+      ../../plugins/ha/translations
+      ../../plugins/ha/assets
     ];
   };
 
@@ -27,10 +28,10 @@ stdenvNoCC.mkDerivation {
   installPhase = ''
     runHook preInstall
 
-    dest=$out/share/noctalia-plugins/hassio
+    dest=$out/share/noctalia-plugins/ha
     mkdir -p "$dest"
 
-    cp plugin.toml README.md bar.luau panel.luau service.luau shared.luau "$dest"/
+    cp plugin.toml README.md bar.luau panel.luau service.luau shared.luau layout.luau "$dest"/
     cp -r translations assets "$dest"/
 
     runHook postInstall

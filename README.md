@@ -12,7 +12,7 @@ Personal [Noctalia](https://github.com/noctalia-dev/noctalia) plugins by
 | [`pschmitt/battery-icon`](./plugins/battery-icon) | Android-inspired battery indicator with percentage, charging state, optional sounds, and configurable power controls. |
 | [`pschmitt/fan-control`](./plugins/fan-control) | Fan RPM indicator with manual speed control and a load-average panel. |
 | [`pschmitt/ha-ai-usage`](./plugins/ha-ai-usage) | Dynamically discovered AI plan quotas (Claude, Codex, Copilot, Gemini) sourced from Home Assistant. |
-| [`pschmitt/hassio`](./plugins/hassio) | Status and toggle for a chosen handful of Home Assistant entities, scoped and paginated so it works on large instances. |
+| [`pschmitt/ha`](./plugins/ha) | Status and toggle for a chosen handful of Home Assistant entities, scoped and paginated so it works on large instances. |
 | [`pschmitt/osd`](./plugins/osd) | Scriptable, ad-hoc OSD/toast panels. |
 | [`pschmitt/screencast`](./plugins/screencast) | Red `REC` indicator while a portal screencast is active. |
 | [`pschmitt/syncthing`](./plugins/syncthing) | Syncthing status, controls, launcher provider, shortcut, and desktop widget. |

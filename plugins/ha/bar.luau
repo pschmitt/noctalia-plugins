@@ -1,8 +1,9 @@
 --!nonstrict
 
 local shared = require("./shared.luau")
-local entities = noctalia.state.get("hassio.entities") or {}
-local errorMessage = noctalia.state.get("hassio.error") or ""
+local entities = noctalia.state.get("ha.entities") or {}
+local sections = noctalia.state.get("ha.sections") or {}
+local errorMessage = noctalia.state.get("ha.error") or ""
 
 local function iconSize()
   return tonumber(shared.config("bar_icon_size", 16)) or 16
@@ -16,13 +17,39 @@ end
 -- any part of this row opens it.
 local function segment(entity)
   local domain = shared.domainOf(entity.entity_id)
-  return ui.glyph({ name = shared.glyphFor(domain), size = iconSize(), color = shared.colorFor(entity.state) })
+  return ui.glyph({ name = shared.glyphFor(domain, entity.icon), size = iconSize(), color = shared.colorFor(entity.state) })
 end
 
 local function tooltip()
   local rows = {}
-  for _, entity in ipairs(entities) do
+  local sectioned = {}
+  for _, section in ipairs(sections) do
+    for _, entityId in ipairs(section.entities or {}) do sectioned[entityId] = true end
+  end
+
+  -- Tooltip data is a flat list of `{ key, value }` rows; unlike the panel
+  -- tree it has no separator node. Keep section-less entities first, then
+  -- add a visually distinct section-heading row before each populated
+  -- section. This gives the hover summary the intended grouping without
+  -- relying on unsupported tooltip fields.
+  local byId = {}
+  for _, entity in ipairs(entities) do byId[entity.entity_id] = entity end
+  local function addEntity(entity)
     rows[#rows + 1] = { key = entity.name or entity.entity_id, value = shared.statusText(entity) }
+  end
+  for _, entity in ipairs(entities) do
+    if not sectioned[entity.entity_id] then addEntity(entity) end
+  end
+  for _, section in ipairs(sections) do
+    local sectionRows = {}
+    for _, entityId in ipairs(section.entities or {}) do
+      local entity = byId[entityId]
+      if entity then sectionRows[#sectionRows + 1] = entity end
+    end
+    if #sectionRows > 0 then
+      rows[#rows + 1] = { key = "── " .. section.name .. " ──", value = "" }
+      for _, entity in ipairs(sectionRows) do addEntity(entity) end
+    end
   end
   if #rows == 0 then
     rows[#rows + 1] = { key = "Home Assistant", value = "No entities configured yet -- click to add some" }
@@ -62,12 +89,17 @@ local function render()
   barWidget.setTooltip(tooltip())
 end
 
-noctalia.state.watch("hassio.entities", function(value)
+noctalia.state.watch("ha.entities", function(value)
   entities = type(value) == "table" and value or {}
   render()
 end)
 
-noctalia.state.watch("hassio.error", function(value)
+noctalia.state.watch("ha.sections", function(value)
+  sections = type(value) == "table" and value or {}
+  render()
+end)
+
+noctalia.state.watch("ha.error", function(value)
   errorMessage = type(value) == "string" and value or ""
   render()
 end)
@@ -85,9 +117,9 @@ end
 -- and scroll up/down are all independently configurable instead of hardcoded
 -- to one action apiece.
 local ACTIONS = {
-  panel = function() noctalia.togglePanel("pschmitt/hassio:panel") end,
-  refresh = function() noctalia.state.set("hassio.command", { action = "refresh" }) end,
-  open_dashboard = function() noctalia.state.set("hassio.command", { action = "open_dashboard" }) end,
+  panel = function() noctalia.togglePanel("pschmitt/ha:panel") end,
+  refresh = function() noctalia.state.set("ha.command", { action = "refresh" }) end,
+  open_dashboard = function() noctalia.state.set("ha.command", { action = "open_dashboard" }) end,
 }
 
 local function runAction(settingKey)

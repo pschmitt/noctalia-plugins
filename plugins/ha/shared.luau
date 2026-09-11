@@ -29,12 +29,10 @@ local DOMAIN_GLYPHS = {
   sensor = "chart-line",
   binary_sensor = "activity",
   climate = "temperature",
-  -- "door" (pozzoo/hassio's own choice) reads as an actual door, but most
-  -- HA cover entities are blinds/shades/curtains rather than a literal door
-  -- -- "blinds" fits that common case better. Still one glyph for a domain
-  -- that covers several different physical things, so it's a compromise
-  -- either way.
-  cover = "blinds",
+  -- Covers can be blinds, shades, curtains, doors or windows. `window` is a
+  -- verified Tabler glyph and reads correctly for the common roller-shutter
+  -- case; the old `blinds` name is not in Noctalia's bundled glyph font.
+  cover = "window",
   fan = "wind",
   lock = "lock",
   media_player = "device-speaker",
@@ -48,7 +46,32 @@ local DOMAIN_GLYPHS = {
   device_tracker = "map-pin",
 }
 
-function M.glyphFor(domain)
+-- Home Assistant commonly supplies Material Design Icons names (`mdi:...`),
+-- while Noctalia ships Tabler rather than the MDI font. These are the names
+-- where the two icon sets differ but a close Tabler equivalent is unambiguous.
+-- Unknown MDI names still lose only their prefix and are passed through, so a
+-- future Noctalia glyph or a plain Tabler-compatible override remains usable.
+local MDI_TO_TABLER = {
+  ["desk-lamp"] = "lamp",
+  ["fan"] = "wind",
+  ["lightbulb"] = "bulb",
+  ["lightbulb-outline"] = "bulb",
+  ["robot-vacuum"] = "robot",
+  ["speaker"] = "device-speaker",
+  ["television"] = "device-tv",
+  ["television-classic"] = "device-tv",
+  ["thermometer"] = "temperature",
+  ["washing-machine"] = "wash-machine",
+  ["weather-night"] = "moon",
+  ["weather-sunny"] = "sun",
+}
+
+function M.glyphFor(domain, override)
+  if type(override) == "string" and override ~= "" then
+    local mdiName = override:match("^mdi:(.+)$")
+    if mdiName then return MDI_TO_TABLER[mdiName] or mdiName end
+    return override
+  end
   return DOMAIN_GLYPHS[domain] or "smart-home"
 end
 
@@ -119,7 +142,7 @@ end
 function M.statusText(entity)
   local domain = M.domainOf(entity.entity_id)
   if M.isUnavailable(entity.state) then return "unavailable" end
-  local state = entity.state or "—"
+  local state = entity.display_state or entity.state or "—"
   local on = M.isOn(entity.state)
   if domain == "light" and on and entity.brightness ~= nil then
     return state .. " · " .. math.floor((entity.brightness / 255) * 100 + 0.5) .. "%"
@@ -129,6 +152,11 @@ function M.statusText(entity)
   end
   if domain == "cover" and entity.position ~= nil then
     return state .. " · " .. math.floor(entity.position + 0.5) .. "%"
+  end
+  if domain == "media_player" and entity.media_title and entity.media_title ~= "" then
+    local track = entity.media_title
+    if entity.media_artist and entity.media_artist ~= "" then track = track .. " · " .. entity.media_artist end
+    return state .. " · " .. track
   end
   return state
 end
