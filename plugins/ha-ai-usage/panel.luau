@@ -102,7 +102,7 @@ end
 -- Experiment: instead of one card per window sitting side by side (which
 -- halves the width each bar gets), stack every headline window of a provider
 -- in a single card -- full-width bars, one ring each. Providers differ in how
--- many headline windows they have (Copilot one, Gemini Antigravity four), so
+-- many headline windows they have (Copilot one, Antigravity four), so
 -- this is the only renderer for them: a one-window provider must not fall
 -- back to a differently-sized ring in a differently-shaped card next to a
 -- two-window one.
@@ -138,7 +138,7 @@ local function card(card, compact, allMetrics)
   -- Providers with no fixed-length window (Copilot's category quotas) never
   -- produce a headline metric above, which left their card without a ring
   -- entirely. Promote the card's primary metric into one ring so every card
-  -- gets at least one, same as Claude/Codex/Gemini.
+  -- gets at least one, same as Claude/Codex/Antigravity.
   if #headline == 0 and card.primary ~= nil and card.primary.reset ~= "" then
     headline[#headline + 1] = card.primary
     for i, metric in ipairs(rest) do
@@ -163,7 +163,7 @@ local function card(card, compact, allMetrics)
     ui.row({ align = "center", gap = compact and 6 or 8 }, titleRow),
   }
   -- `rest` is exactly the metrics with no fixed-length window of their own
-  -- (Copilot's Chat/Completions once Premium is promoted above, Gemini's 3P
+  -- (Copilot's Chat/Completions once Premium is promoted above, Antigravity's 3P
   -- session/weekly): the ones panel_all_metrics=false hides, keeping only
   -- each card's headline windows (or its promoted primary for Copilot).
   if #headline > 0 or (allMetrics and #rest > 0) then

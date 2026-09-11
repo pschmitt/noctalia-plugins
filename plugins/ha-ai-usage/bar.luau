@@ -109,7 +109,7 @@ end
 -- so reset times stay in the panel.
 --
 -- Only the headline quotas make it in: an account's own session/weekly windows,
--- never Gemini's 3P side quotas or Copilot's per-category counters. Providers
+-- never Antigravity's 3P side quotas or Copilot's per-category counters. Providers
 -- that expose no time window at all (Copilot) fall back to their primary quota
 -- so the account still shows a number instead of an empty row.
 local function tooltip(cards)

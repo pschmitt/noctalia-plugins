@@ -46,7 +46,7 @@ local PROVIDERS = {
   claude = { label = "Claude", image = "assets/claude-code.svg", order = 1 },
   codex = { label = "Codex", glyph = "brand-openai", order = 2 },
   copilot = { label = "GitHub Copilot", glyph = "brand-github-copilot", order = 3 },
-  gemini = { label = "Gemini", image = "assets/antigravity.svg", order = 4 },
+  antigravity = { label = "Google Antigravity", image = "assets/antigravity.svg", order = 4 },
 }
 
 local function cardDetails(item)
@@ -72,7 +72,7 @@ local function metricDetails(item)
     window = "short"
     label = entity:find("_5h_used$", 1, false) and "5h" or "Session"
   -- Each integration spells its weekly entity differently: Claude uses
-  -- _week_usage, Codex _weekly_used, Gemini _weekly_usage. Missing one here
+  -- _week_usage, Codex _weekly_used, Antigravity _weekly_usage. Missing one here
   -- silently demotes it to the "other" bucket, where the weekly bar mode can
   -- no longer find it.
   elseif entity:find("_week_usage$", 1, false) or entity:find("_weekly_used$", 1, false) or entity:find("_weekly_usage$", 1, false) then
@@ -85,10 +85,10 @@ local function metricDetails(item)
   elseif contains(source, "chat") then
     label = "Chat"
   end
-  -- Gemini's third-party model quotas share the account card with its own
+  -- Antigravity's third-party model quotas share the account card with its own
   -- models; flag them so they sort after (and never become) the card's primary
   -- metric, which is what the bar renders.
-  local secondary = M.trim(item.integration) == "gemini" and contains(source, "3p models")
+  local secondary = M.trim(item.integration) == "antigravity" and contains(source, "3p models")
   if secondary then
     label = "3P " .. label
   end
@@ -214,7 +214,7 @@ function M.filterCards(cards, filter)
 end
 
 -- The metrics worth a dedicated countdown/tooltip line: an account's own
--- session/weekly windows, never Gemini's 3P side quotas or a provider's
+-- session/weekly windows, never Antigravity's 3P side quotas or a provider's
 -- per-category counters (Copilot chat/completions/premium), which don't map
 -- to a single fixed-length window.
 function M.isHeadline(metric)

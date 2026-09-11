@@ -11,7 +11,7 @@ local SUPPORTED_INTEGRATIONS = {
   { domain = "hass_claude_usage", id = "claude", prefix = "sensor.claude_usage_" },
   { domain = "openai_usage_monitor", id = "codex", prefix = "sensor.codex_usage_" },
   { domain = "github_copilot_usage", id = "copilot", prefix = "sensor.github_copilot_" },
-  { domain = "gemini_usage", id = "gemini", prefix = "sensor.google_gemini_" },
+  { domain = "google_antigravity_usage", id = "antigravity", prefix = "sensor.google_antigravity_" },
 }
 
 local function intervalMs()
@@ -74,8 +74,8 @@ local function discoveryTemplate(monitors)
     {%- set claude = monitor.id == 'claude' and (id.endswith('_session_usage') or id.endswith('_week_usage')) -%}
     {%- set codex = monitor.id == 'codex' and (id.endswith('_5h_used') or id.endswith('_weekly_used')) -%}
     {%- set copilot = monitor.id == 'copilot' and id.endswith('_used') -%}
-    {%- set gemini = monitor.id == 'gemini' and id.endswith('_usage') and not id.endswith('_usage_pace') -%}
-    {%- if id.startswith(monitor.prefix) and (claude or codex or copilot or gemini) and item.state | float(-1) >= 0 -%}
+    {%- set antigravity = monitor.id == 'antigravity' and id.endswith('_usage') and not id.endswith('_usage_pace') -%}
+    {%- if id.startswith(monitor.prefix) and (claude or codex or copilot or antigravity) and item.state | float(-1) >= 0 -%}
       {%- set attrs = item.attributes -%}
       {%- set reset_id = id | replace('_session_usage', '_session_reset_time') | replace('_week_usage', '_weekly_reset_time') -%}
       {%- set reset = states[reset_id] -%}
