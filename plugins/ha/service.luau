@@ -512,6 +512,12 @@ local function toggleEntity(entityId)
   callService("homeassistant", "toggle", entityId)
 end
 
+local function urlPathPart(value)
+  return tostring(value):gsub("([^%w%._%-])", function(character)
+    return string.format("%%%02X", string.byte(character))
+  end)
+end
+
 -- The runtime only takes a command *line*, so the URL has to be shell-quoted
 -- by hand. gio, not xdg-open: with XDG_CURRENT_DESKTOP=KDE (set for Qt
 -- theming under niri) but no KDE session, xdg-open takes the kfmclient path
@@ -536,6 +542,21 @@ local function openDashboard()
   noctalia.runAsync("gio open " .. url .. " || xdg-open " .. url, function(result)
     if result.exitCode ~= 0 then
       noctalia.log("ha: open dashboard failed: " .. shared.trim(result.stderr))
+    end
+  end, 10000)
+end
+
+local function openEntityInHomeAssistant(entityId)
+  if type(entityId) ~= "string" or entityId == "" then return end
+  local server, serverErr = readSecret("server_file")
+  if not server then
+    publishError("Home Assistant " .. (serverErr or "credentials are unavailable"))
+    return
+  end
+  local url = server:gsub("/+$", "") .. "/?more-info-entity-id=" .. urlPathPart(entityId)
+  noctalia.runAsync("gio open " .. shq(url) .. " || xdg-open " .. shq(url), function(result)
+    if result.exitCode ~= 0 then
+      noctalia.log("ha: open entity failed: " .. shared.trim(result.stderr))
     end
   end, 10000)
 end
@@ -1159,12 +1180,6 @@ local function listAreas()
   end
 end
 
-local function urlPathPart(value)
-  return tostring(value):gsub("([^%w%._%-])", function(character)
-    return string.format("%%%02X", string.byte(character))
-  end)
-end
-
 local function cameraImageDestination(entityId)
   local dataDir, err = noctalia.pluginDataDir()
   if not dataDir then
@@ -1342,6 +1357,8 @@ noctalia.state.watch("ha.command", function(command)
     refresh()
   elseif command.action == "open_dashboard" then
     openDashboard()
+  elseif command.action == "open_entity" then
+    openEntityInHomeAssistant(command.entity_id)
   elseif command.action == "open_camera_stream" then
     openCameraStream(command.entity_id)
   elseif command.action == "toggle" then

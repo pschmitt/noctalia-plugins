@@ -956,7 +956,16 @@ local function detailsView()
   end
   content[#content + 1] = activityCard(entity)
   local detailsCard = {
-    ui.label({ text = "Details", fontSize = 13, fontWeight = "semibold" }),
+    ui.row({ align = "center", justify = "space_between" }, {
+      ui.label({ text = "Details", fontSize = 13, fontWeight = "semibold" }),
+      ui.button({
+        glyph = "external-link",
+        variant = "ghost",
+        controlSize = "sm",
+        tooltip = "Open entity in Home Assistant",
+        onClick = "onOpenEntityInHomeAssistant",
+      }),
+    }),
     detailRow("Entity", details.entity_id),
     detailRow("State", details.state),
     detailRow("Last changed", details.last_changed),
@@ -1857,6 +1866,10 @@ end
 
 function onOpenDashboard()
   sendCommand({ action = "open_dashboard" })
+end
+
+function onOpenEntityInHomeAssistant()
+  sendCommand({ action = "open_entity", entity_id = detailsEntityId or details.entity_id })
 end
 
 function onSettings()
