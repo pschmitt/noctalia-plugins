@@ -978,6 +978,20 @@ local function detailsView()
   local entity = detailsEntity()
   local controls = detailsControls(entity)
   local content = {}
+  if not configuredSet()[entity.entity_id] then
+    content[#content + 1] = ui.column(CARD_STYLE, {
+      ui.row({ align = "center", justify = "space_between" }, {
+        ui.label({ text = "Dashboard", fontSize = 13, fontWeight = "semibold" }),
+        ui.button({
+          text = "Add to dashboard",
+          glyph = "plus",
+          variant = "primary",
+          controlSize = "sm",
+          onClick = "onAddDetailsEntity",
+        }),
+      }),
+    })
+  end
   if controls then
     content[#content + 1] = ui.column(CARD_STYLE, {
       ui.label({ text = "Controls", fontSize = 13, fontWeight = "semibold" }),
@@ -1921,6 +1935,11 @@ end
 
 function onOpenEntityInHomeAssistant()
   sendCommand({ action = "open_entity", entity_id = detailsEntityId or details.entity_id })
+end
+
+function onAddDetailsEntity()
+  local entityId = detailsEntityId or details.entity_id
+  if entityId then sendCommand({ action = "add", entity_id = entityId }) end
 end
 
 function onSettings()
