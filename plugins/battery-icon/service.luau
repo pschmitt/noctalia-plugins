@@ -840,33 +840,22 @@ local function isStrobeSafe(color)
   return color:match("^#%x%x%x%x%x%x$") ~= nil
 end
 
-local CHARGE_BOLT_FLASHES = 3
-local CHARGE_BOLT_ON_MS = 260
-local CHARGE_BOLT_OFF_MS = 260
-local CHARGE_BOLT_FLASH_COLOR = "#FFD600"
-local CHARGE_FILL_STEPS = 4 -- frames per rise, e.g. 25/50/75/100% of the real level
+local CHARGE_FILL_STEPS = 4 -- frames per rise from the real level to 100%
 local CHARGE_FILL_STEP_MS = 260
 local CHARGE_FILL_CYCLES = 3
 
--- The classic "plugged in" animation: the bolt flashes yellow a few times
--- (lead-in only, on an empty body), then the level fill rises from empty up
--- to the real charge level, repeated a few times -- like the level is
--- actively climbing, not just snapping to its new number. The level bar
--- always rises toward and ends exactly at the real percent (never fabricates
--- a fuller charge than what's actually there); only the fill and the bolt
--- tint animate, the printed number stays the real percent throughout. The
--- color itself never changes here (it's always the real chargingColor) --
--- unlike startCriticalPulse, which strobes the *color* because there's no
--- "level" to animate on a low-battery edge.
+-- The classic "plugged in" animation: when external power is connected,
+-- sweep the visible level from the battery's real level up to 100%. The
+-- final non-animation frame restores the real level, since the icon must not
+-- claim that the battery is actually full. The printed number stays the real
+-- percent throughout.
 local function chargeSweepFrames(percent)
   local frames = {}
-  for _ = 1, CHARGE_BOLT_FLASHES do
-    table.insert(frames, { fillPercent = 0, boltColor = CHARGE_BOLT_FLASH_COLOR, ms = CHARGE_BOLT_ON_MS })
-    table.insert(frames, { fillPercent = 0, ms = CHARGE_BOLT_OFF_MS })
-  end
+  local startPercent = math.clamp(percent, 0, 100)
   for _ = 1, CHARGE_FILL_CYCLES do
     for step = 1, CHARGE_FILL_STEPS do
-      table.insert(frames, { fillPercent = math.floor(percent * step / CHARGE_FILL_STEPS), ms = CHARGE_FILL_STEP_MS })
+      local fillPercent = startPercent + (100 - startPercent) * step / CHARGE_FILL_STEPS
+      table.insert(frames, { fillPercent = math.floor(fillPercent + 0.5), ms = CHARGE_FILL_STEP_MS })
     end
   end
   return frames
@@ -891,17 +880,19 @@ local function startPulse(cfg, percent, charging, powerSaver, dataDir, lowPeriph
 end
 
 local CRITICAL_BLINKS = 3
-local CRITICAL_ON_MS = 450 -- slow, deliberate hold -- an alarm, not a flash
-local CRITICAL_OFF_MS = 200
+local CRITICAL_ON_MS = 350 -- deliberate, clearly visible permanent blink
+local CRITICAL_OFF_MS = 350
 local CRITICAL_COLOR = "#FF1E1E" -- more saturated than low_color, so this alarm reads as its own color, not just "the low-battery icon again"
 
--- A slower, longer-held strobe toward a distinct alarm red, fired once when
--- the battery *enters* the low tier (not on every poll while it stays
--- there). Deliberately paced differently from startPulse's quick flash
--- (long on / short off vs. short on / long off) so the two are never
+-- A slower, longer-held strobe toward a distinct alarm red. It starts when
+-- the battery enters the low tier and loops for as long as the battery stays
+-- low and unplugged. Deliberately paced differently from startPulse's quick
+-- flash (long on / short off vs. short on / long off) so the two are never
 -- mistaken for each other.
 local function startCriticalPulse(cfg, percent, charging, powerSaver, dataDir, lowPeripheral)
-  local target = tierColor(cfg, percent, charging)
+  -- Alternate a vivid alarm red with the empty level. Alternating two red
+  -- shades was technically animated but visually appeared static.
+  local target = cfg.emptyColor
   if not isStrobeSafe(target) then
     regenerate(cfg, percent, charging, powerSaver, dataDir, nil, nil, nil, lowPeripheral)
     return
@@ -1085,11 +1076,12 @@ local function poll()
           end
           lastCharging = charging
 
-          -- The low tier is implicitly discharging and at or below
-          -- low_threshold because tierColor forces chargingColor while
-          -- plugged in. Its critical strobe is continuous until this state
-          -- changes.
-          local isLow = tierColor(cfg, percent, charging) == cfg.lowColor
+          -- Low charge blinks only while the battery is discharging. A low
+          -- battery that is already plugged in gets the charging animation
+          -- (on the edge) or the steady charging colour (afterwards).
+          -- Use the discharging tier calculation so charge-limit rescaling
+          -- still applies without making charging itself look low.
+          local isLow = not charging and tierColor(cfg, percent, false) == cfg.lowColor
 
           readCaffeine(function(caffeineEnabled)
             noctalia.runAsync(detailsCommand(cfg.device), function(detailsResult)
@@ -1112,6 +1104,8 @@ local function poll()
                 .. (charging and "c" or "d")
                 .. (powerSaver and "s" or "n")
                 .. tostring(cfg.fullAt)
+                .. tostring(cfg.lowThreshold)
+                .. tostring(cfg.mediumThreshold)
                 .. cfg.lowColor
                 .. cfg.mediumColor
                 .. cfg.highColor
@@ -1131,10 +1125,15 @@ local function poll()
                 return
               end
 
-              if edge then
+              -- A plug-in edge gets the level sweep. On unplug, a low
+              -- battery must immediately enter its permanent warning strobe
+              -- instead of waiting for the next relaxed poll interval.
+              if edge and charging then
                 startPulse(cfg, percent, charging, powerSaver, dataDir, lowPeripheral)
               elseif isLow then
                 startCriticalPulse(cfg, percent, charging, powerSaver, dataDir, lowPeripheral)
+              elseif edge then
+                startPulse(cfg, percent, charging, powerSaver, dataDir, lowPeripheral)
               else
                 pendingAnim = nil
                 regenerate(cfg, percent, charging, powerSaver, dataDir, nil, nil, nil, lowPeripheral)

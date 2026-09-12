@@ -34,6 +34,7 @@ local detailsEntityId = nil
 local logbook = noctalia.state.get("ha.logbook") or {}
 local logbookLoading = false
 local logbookErrorMessage = noctalia.state.get("ha.logbook_error") or ""
+local logbookExpanded = false
 local CARD_STYLE = { fill = "surface_variant/0.58", radius = 12, padding = 10, gap = 2 }
 local ENTITY_DRAG_TYPE = "ha-entity"
 local SECTION_DRAG_TYPE = "ha-section"
@@ -87,6 +88,7 @@ local function openDetails(entityId)
   logbook = {}
   logbookLoading = true
   logbookErrorMessage = ""
+  logbookExpanded = false
   render()
   sendCommand({ action = "details", entity_id = entityId })
 end
@@ -779,14 +781,28 @@ local function activityCard(entity)
     body[#body + 1] = ui.label({ text = "No activity in the last 24 hours", fontSize = 12, color = "on_surface_variant" })
   else
     local rows = {}
+    local visibleCount = logbookExpanded and #logbook or math.min(5, #logbook)
     local previousDate = nil
-    for index, entry in ipairs(logbook) do
-      local rendered = activityEntry(entity, entry, index == #logbook)
+    for index = 1, visibleCount do
+      local rendered = activityEntry(entity, logbook[index], index == visibleCount)
       if rendered.date ~= previousDate then
-        rows[#rows + 1] = ui.label({ text = logbookDayLabel(rendered.date), fontSize = 11, fontWeight = "semibold", color = "on_surface_variant", paddingV = 6 })
+        rows[#rows + 1] = ui.label({ text = logbookDayLabel(rendered.date), fontSize = 11, fontWeight = "semibold", color = "on_surface_variant" })
         previousDate = rendered.date
       end
       rows[#rows + 1] = rendered.row
+    end
+    if #logbook > 5 then
+      rows[#rows + 1] = ui.row({ justify = "center" }, {
+        ui.button({
+          text = logbookExpanded and "Show less" or ("Show " .. tostring(#logbook - 5) .. " more"),
+          variant = "ghost",
+          controlSize = "sm",
+          onClick = function()
+            logbookExpanded = not logbookExpanded
+            render()
+          end,
+        }),
+      })
     end
     body[#body + 1] = ui.column({ gap = 0 }, rows)
   end
@@ -824,12 +840,13 @@ local function detailsView()
     })
   end
   content[#content + 1] = activityCard(entity)
-  content[#content + 1] = ui.column(CARD_STYLE, {
+  local detailsCard = {
+    ui.label({ text = "Details", fontSize = 13, fontWeight = "semibold" }),
     detailRow("Entity", details.entity_id),
     detailRow("State", details.state),
     detailRow("Last changed", details.last_changed),
     detailRow("Last updated", details.last_updated),
-  })
+  }
   local attributes = details.attributes or {}
   local keys = {}
   for key in pairs(attributes) do
@@ -845,14 +862,13 @@ local function detailsView()
       if index > 80 then break end
       attributeRows[#attributeRows + 1] = detailRow(key, attributes[key])
     end
-    content[#content + 1] = ui.column(CARD_STYLE, {
-      ui.label({ text = "Attributes", fontSize = 13, fontWeight = "semibold" }),
-      ui.column({ gap = 0 }, attributeRows),
-    })
+    detailsCard[#detailsCard + 1] = ui.label({ text = "Attributes", fontSize = 12, fontWeight = "semibold", color = "on_surface_variant" })
+    detailsCard[#detailsCard + 1] = ui.column({ gap = 0 }, attributeRows)
     if #keys > 80 then
-      content[#content + 1] = ui.label({ text = "Showing the first 80 attributes.", fontSize = 11, color = "on_surface_variant" })
+      detailsCard[#detailsCard + 1] = ui.label({ text = "Showing the first 80 attributes.", fontSize = 11, color = "on_surface_variant" })
     end
   end
+  content[#content + 1] = ui.column(CARD_STYLE, detailsCard)
   return ui.scroll({ flexGrow = 1, gap = 8 }, content)
 end
 
