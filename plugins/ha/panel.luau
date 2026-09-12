@@ -1598,11 +1598,26 @@ local function header()
   end
   local attributes = details.attributes or {}
   local title = attributes.friendly_name or details.entity_id or detailsEntityId or "Entity details"
+  local titleEntity
   local children = {
     ui.button({ glyph = "arrow-left", variant = "ghost", controlSize = "sm", onClick = "onBackToList" }),
   }
-  if not detailsLoading and detailsErrorMessage == "" then children[#children + 1] = entityIcon(detailsEntity(), 20) end
-  children[#children + 1] = ui.label({ text = title, fontSize = 15, fontWeight = "bold", flexGrow = 1, maxWidth = 280, maxLines = 1 })
+  if not detailsLoading and detailsErrorMessage == "" then
+    titleEntity = detailsEntity()
+    children[#children + 1] = entityIcon(titleEntity, 20)
+  end
+  local titleLabels = {
+    ui.label({ text = title, fontSize = 15, fontWeight = "bold", maxLines = 1 }),
+  }
+  if titleEntity then
+    titleLabels[#titleLabels + 1] = ui.label({
+      text = shared.statusText(titleEntity),
+      fontSize = 11,
+      color = "on_surface_variant",
+      maxLines = 1,
+    })
+  end
+  children[#children + 1] = ui.column({ gap = 0, flexGrow = 1 }, titleLabels)
   return ui.row({ align = "center", gap = 8 }, children)
 end
 

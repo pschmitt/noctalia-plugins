@@ -142,8 +142,9 @@ These edits are written to the state overlay, leaving a Home Manager-managed
 `ha.yaml` unchanged.
 
 Click an entity card outside edit mode to open its details view. The details
-card's external-link button opens the same entity in Home Assistant using its
-`more-info-entity-id` deep link. It fetches
+header repeats the entity's friendly state summary from the main view as a
+subtitle. Its external-link button opens the same entity in Home Assistant
+using its `more-info-entity-id` deep link. It fetches
 that entity from Home Assistant and shows its actual state, last-changed and
 last-updated timestamps, plus its attributes. While the view is open, details
 are refreshed every two seconds and again immediately after a control call, so
