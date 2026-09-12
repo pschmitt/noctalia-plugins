@@ -262,8 +262,12 @@ local function coverFavoriteButtons(entity)
   return #buttons > 0 and ui.row({ gap = 2 }, buttons) or nil
 end
 
+local function brightnessPercent(entity)
+  return entity.brightness and math.floor((entity.brightness / 255) * 100 + 0.5) or 0
+end
+
 local function brightnessSlider(entity)
-  local pct = entity.brightness and math.floor((entity.brightness / 255) * 100 + 0.5) or 0
+  local pct = brightnessPercent(entity)
   return previewSlider(entity, pct, function(target)
     sendCommand({ action = "set_brightness", entity_id = entity.entity_id, value = (target / 100) * 255 })
   end)
@@ -564,7 +568,9 @@ local function detailsControls(entity)
   if domain == "light" then
     if shared.isOn(entity.state) and entity.brightness ~= nil then
       rows[#rows + 1] = ui.row({ align = "center", gap = 6 }, {
-        ui.box({ width = 28, height = 1, fill = "on_surface/0" }),
+        ui.row({ width = 28, align = "center" }, {
+          ui.glyph({ name = "sun", size = 14, color = "on_surface_variant" }),
+        }),
         brightnessSlider(entity),
       })
     end
@@ -1099,9 +1105,13 @@ local function entityRow(entity)
     -- entity turns off), and a slider with nothing to show is worse than none.
     if domain == "light" then
       if on and entity.brightness ~= nil then
+        local shownBrightness = sliderPreviews[entity.entity_id] or brightnessPercent(entity)
         rows[#rows + 1] = ui.row({ align = "center", gap = 6 }, {
-          ui.box({ width = 28, height = 1, fill = "on_surface/0" }),
+          ui.row({ width = 28, align = "center" }, {
+            ui.glyph({ name = "sun", size = 14, color = "on_surface_variant" }),
+          }),
           brightnessSlider(entity),
+          ui.label({ text = tostring(shownBrightness) .. "%", width = 38, fontSize = 11, color = "on_surface_variant" }),
         })
       end
       local temperature = lightHasColorTemperature(entity) and lightColorTemperatureRow(entity) or nil
