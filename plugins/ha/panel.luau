@@ -31,10 +31,6 @@ local detailsEntityId = nil
 local CARD_STYLE = { fill = "surface_variant/0.58", radius = 12, padding = 10, gap = 2 }
 local ENTITY_DRAG_TYPE = "ha-entity"
 local SECTION_DRAG_TYPE = "ha-section"
-local animationFrame = 0
-local animationElapsedMs = 0
-local ANIMATION_FRAME_COUNT = 8
-local ANIMATION_FRAME_INTERVAL_MS = 90
 
 -- Forward-declared: referenced by action handlers defined before its real
 -- body below (they only ever run after the whole script has loaded once, so
@@ -63,7 +59,7 @@ local function entityIcon(entity, size)
   local hasOverride = type(entity.icon) == "string" and entity.icon ~= ""
   if domain == "fan" and not hasOverride and shared.isOn(entity.state) and panelAnimationActive() then
     return ui.image({
-      path = "assets/fan-propeller-" .. tostring(animationFrame) .. ".svg",
+      path = "assets/fan-propeller-animated.gif",
       width = size,
       height = size,
       fit = "contain",
@@ -1179,7 +1175,6 @@ render = function()
   end
   children[#children + 1] = view == "list" and listView() or (view == "browse" and browseView() or detailsView())
   if view == "list" and editMode then children[#children + 1] = footer() end
-  panel.setNeedsFrameTick(panelAnimationActive())
   panel.render(ui.column({ flexGrow = 1, padding = 12, gap = 8 }, children))
 end
 
@@ -1294,20 +1289,7 @@ end
 
 function onClose()
   panelOpen = false
-  panel.setNeedsFrameTick(false)
   sendCommand({ action = "details_close" })
-end
-
-function onFrameTick(deltaMs)
-  if not panelAnimationActive() then
-    panel.setNeedsFrameTick(false)
-    return
-  end
-  animationElapsedMs += tonumber(deltaMs) or ANIMATION_FRAME_INTERVAL_MS
-  if animationElapsedMs < ANIMATION_FRAME_INTERVAL_MS then return end
-  animationElapsedMs = animationElapsedMs % ANIMATION_FRAME_INTERVAL_MS
-  animationFrame = (animationFrame + 1) % ANIMATION_FRAME_COUNT
-  render()
 end
 
 function onOpenDashboard()

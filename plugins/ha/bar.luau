@@ -4,9 +4,6 @@ local shared = require("./shared.luau")
 local entities = noctalia.state.get("ha.entities") or {}
 local sections = noctalia.state.get("ha.sections") or {}
 local errorMessage = noctalia.state.get("ha.error") or ""
-local animationFrame = 0
-local ANIMATION_FRAME_COUNT = 8
-local ANIMATION_FRAME_INTERVAL_MS = 90
 local IDLE_UPDATE_INTERVAL_MS = 30000
 
 local function iconSize()
@@ -37,7 +34,7 @@ local function segment(entity)
   local hasOverride = type(entity.icon) == "string" and entity.icon ~= ""
   if domain == "fan" and not hasOverride and shared.isOn(entity.state) and animationActive() then
     return ui.image({
-      path = "assets/fan-propeller-" .. tostring(animationFrame) .. ".svg",
+      path = "assets/fan-propeller-animated.gif",
       width = iconSize(),
       height = iconSize(),
       fit = "contain",
@@ -113,7 +110,7 @@ local function render()
   local gap = tonumber(shared.config("bar_spacing", 6)) or 6
   barWidget.render(ui.row({ align = "center", gap = gap }, children))
   barWidget.setTooltip(tooltip())
-  noctalia.setUpdateInterval(animationActive() and ANIMATION_FRAME_INTERVAL_MS or IDLE_UPDATE_INTERVAL_MS)
+  noctalia.setUpdateInterval(IDLE_UPDATE_INTERVAL_MS)
 end
 
 noctalia.state.watch("ha.entities", function(value)
@@ -132,12 +129,10 @@ noctalia.state.watch("ha.error", function(value)
 end)
 
 function update()
-  if animationActive() then animationFrame = (animationFrame + 1) % ANIMATION_FRAME_COUNT end
   render()
 end
 
 function onConfigChanged()
-  animationFrame = 0
   render()
 end
 
