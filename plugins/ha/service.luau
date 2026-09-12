@@ -535,18 +535,30 @@ local function openCameraStream(entityId)
   end)
   local url = server:gsub("/+$", "") .. "/api/camera_proxy_stream/" .. encodedEntityId
   local header = "Authorization: Bearer " .. token
-  if noctalia.commandExists("mpv") then
-    local started = noctalia.runAsync({ "mpv", "--force-window=yes", "--http-header-fields=" .. header, url })
-    if not started then noctalia.notifyError("Camera stream", "Could not start mpv") end
+  -- VLC handles HA's multipart MJPEG response as a sequence of frames. Keep
+  -- this path first: mpv's current libavformat integration can display the
+  -- first JPEG part and then wait forever on this particular live response.
+  if noctalia.commandExists("vlc") and noctalia.commandExists("curl") then
+    local command = "curl --fail --silent --show-error --no-buffer --location --header " .. shq(header) .. " " .. shq(url) .. " | vlc --demux=mjpeg -"
+    local started = noctalia.runAsync(command)
+    if not started then noctalia.notifyError("Camera stream", "Could not start VLC") end
     return
   end
 
-  -- VLC does not expose an equivalent HTTP-header option on all supported
-  -- builds. Pipe the authenticated MJPEG response through curl instead.
-  if noctalia.commandExists("vlc") and noctalia.commandExists("curl") then
-    local command = "curl --fail --silent --show-error --location --header " .. shq(header) .. " " .. shq(url) .. " | vlc --demux=mjpeg -"
-    local started = noctalia.runAsync(command)
-    if not started then noctalia.notifyError("Camera stream", "Could not start VLC") end
+  if noctalia.commandExists("mpv") then
+    -- HA exposes this endpoint as multipart/x-mixed-replace. Force mpv to
+    -- use its MJPEG demuxer and disable caching for installations without
+    -- VLC. Some mpv/FFmpeg combinations still only render the first part.
+    local started = noctalia.runAsync({
+      "mpv",
+      "--force-window=yes",
+      "--cache=no",
+      "--demuxer=lavf",
+      "--demuxer-lavf-format=mpjpeg",
+      "--http-header-fields=" .. header,
+      url,
+    })
+    if not started then noctalia.notifyError("Camera stream", "Could not start mpv") end
     return
   end
 

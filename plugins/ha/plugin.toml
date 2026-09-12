@@ -1,6 +1,6 @@
 id = "pschmitt/ha"
 name = "Home Assistant"
-version = "0.13.39"
+version = "0.13.41"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -240,3 +240,4 @@ placement = "attached"
 position = "auto"
 open_near_click = true
 dismiss_on_outside_click = true
+capture_keys = ["ctrl+k"]

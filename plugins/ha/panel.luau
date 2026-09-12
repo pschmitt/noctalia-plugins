@@ -22,6 +22,10 @@ local areaFilter = "all"
 local areas = noctalia.state.get("ha.areas") or {} -- {id, name}, from Home Assistant's own area registry
 local searchText = ""
 local listSearchText = ""
+local focusListSearch = false
+local focusBrowseSearch = false
+local listSearchFocusRevision = 0
+local browseSearchFocusRevision = 0
 local browseRows = {}
 local browseOffset = 0
 local browseMore = false
@@ -701,6 +705,10 @@ local function detailRow(label, value, indented)
 end
 
 local function cameraPreview(entity)
+  -- Let the card stretch this content to its available inner width. A fixed
+  -- width overflows on narrower panel layouts (notably gk4); the fixed height
+  -- preserves the camera's 16:9 presentation while `contain` fits the image.
+  local previewHeight = 200
   local openStream = function()
     sendCommand({ action = "open_camera_stream", entity_id = entity.entity_id })
   end
@@ -708,16 +716,14 @@ local function cameraPreview(entity)
   if type(entity.camera_image) == "string" and entity.camera_image ~= "" then
     preview = ui.image({
       path = entity.camera_image,
-      width = 376,
-      height = 212,
+      height = previewHeight,
       radius = 8,
       fit = "contain",
       onClick = openStream,
     })
   else
     preview = ui.column({
-      width = 376,
-      height = 212,
+      height = previewHeight,
       radius = 8,
       fill = "surface/0.35",
       align = "center",
@@ -729,10 +735,10 @@ local function cameraPreview(entity)
       ui.label({ text = "No camera snapshot available", fontSize = 12, color = "on_surface_variant" }),
     })
   end
-  return ui.column({ width = 376, gap = 2 }, {
+  return ui.column({ gap = 2 }, {
     preview,
-    ui.row({ width = 376, height = 24, justify = "end", align = "center" }, {
-      ui.button({ glyph = "external-link", glyphSize = 14, width = 24, height = 24, variant = "ghost", tooltip = "Open camera stream in mpv/VLC", onClick = openStream }),
+    ui.row({ height = 36, justify = "end", align = "center" }, {
+      ui.button({ text = "Open stream", glyph = "external-link", glyphSize = 16, height = 32, variant = "ghost", tooltip = "Open camera stream in mpv/VLC", onClick = openStream }),
     }),
   })
 end
@@ -1064,9 +1070,10 @@ local function listView()
   local searchAtBottom = noctalia.getConfig("panel_search_position") ~= "top"
   local function entitySearch()
     return ui.input({
-      key = "ha_entity_search",
+      key = "ha_entity_search_" .. tostring(listSearchFocusRevision),
       placeholder = "Search entities…",
       value = listSearchText,
+      focus = focusListSearch,
       onChange = "onEntitySearchChange",
     })
   end
@@ -1337,7 +1344,13 @@ end
 
 local function browseView()
   local content = {
-    ui.input({ key = "ha_search", placeholder = "Search entities…", value = searchText, onChange = "onSearchChange" }),
+    ui.input({
+      key = "ha_search_" .. tostring(browseSearchFocusRevision),
+      placeholder = "Search entities…",
+      value = searchText,
+      focus = focusBrowseSearch,
+      onChange = "onSearchChange",
+    }),
     ui.row({ align = "center", gap = 8 }, {
       ui.label({ text = "Domain", width = 52, fontSize = 11, fontWeight = "semibold", color = "on_surface_variant" }),
       domainSelect(),
@@ -1618,6 +1631,7 @@ function onOpen()
   panelOpen = true
   view = "list"
   listSearchText = ""
+  focusListSearch = true
   collapsedSections = {}
   editMode = false
   editingEntityId = nil
@@ -1633,6 +1647,8 @@ end
 
 function onClose()
   panelOpen = false
+  focusListSearch = false
+  focusBrowseSearch = false
   panel.setNeedsFrameTick(false)
   sendCommand({ action = "details_close" })
 end
@@ -1664,6 +1680,8 @@ end
 function onOpenBrowser()
   view = "browse"
   searchText = ""
+  focusListSearch = false
+  focusBrowseSearch = false
   domainFilter = "all"
   areaFilter = "all"
   browseErrorMessage = ""
@@ -1682,10 +1700,29 @@ end
 
 function onSearchChange(value)
   searchText = value or ""
+  focusBrowseSearch = false
   render()
 end
 
 function onEntitySearchChange(value)
   listSearchText = value or ""
+  -- The focus request is only for the initial panel open. Once the user has
+  -- started typing, subsequent renders must not steal focus from other
+  -- controls in the panel.
+  focusListSearch = false
+  render()
+end
+
+function onKey(chord, pressed)
+  if chord ~= "ctrl+k" or pressed ~= true then return end
+  if view == "list" then
+    focusListSearch = true
+    listSearchFocusRevision += 1
+  elseif view == "browse" then
+    focusBrowseSearch = true
+    browseSearchFocusRevision += 1
+  else
+    return
+  end
   render()
 end
