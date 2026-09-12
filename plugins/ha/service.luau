@@ -70,6 +70,7 @@ local entityCacheGeneration = 0
 local entityCacheRequestActive = false
 local entityCacheComplete = false
 local entityCacheRefreshAt = 0
+local entitySearchGeneration = 0
 local activeDetailsEntityId = nil
 local cameraImagePaths = {}
 local cameraRequestGeneration = {}
@@ -963,6 +964,21 @@ local function pageSize()
   return math.max(50, math.min(250, n))
 end
 
+-- Search is intentionally a separate, bounded live query. The cache scan is
+-- useful for instant results after it has completed, but a freshly started
+-- plugin should not make a user wait for thousands of sorted entities before
+-- finding one near the end of that list.
+local function entitySearchTemplate(query)
+  local needle = quoteJinja(shared.trim(query):lower())
+  local limit = pageSize()
+  return "{% set ns = namespace(count=0) %}{% set needle = " .. needle .. " %}"
+    .. "{% for s in (states | sort(attribute='entity_id') | list) %}"
+    .. "{% set name = (s.name or s.entity_id) | string %}"
+    .. "{% if ns.count < " .. tostring(limit) .. " and (needle in (s.entity_id | lower) or needle in (name | lower)) %}"
+    .. "{{ s.entity_id }}\t{{ s.state }}\t{{ name | replace('\\t',' ') | replace('\\n',' ') }}\t{{ state_attr(s.entity_id,'current_position') or '' }}\n"
+    .. "{% set ns.count = ns.count + 1 %}{% endif %}{% endfor %}"
+end
+
 -- Areas come from Home Assistant's own area registry (see listAreas() below),
 -- not a fixed whitelist like domains -- quoteJinja() is what keeps an area id
 -- from breaking out of the template if it ever contained something odd.
@@ -1107,6 +1123,56 @@ cacheEntityPage = function(reset)
     noctalia.state.set("ha.entity_cache_loading", false)
     noctalia.state.set("ha.entity_cache_error", "Could not start Home Assistant entity cache request")
     entityCacheRefreshAt = os.time() + 60
+  end
+end
+
+local function searchEntities(query)
+  entitySearchGeneration += 1
+  local myGeneration = entitySearchGeneration
+  query = shared.trim(query)
+  if query == "" then
+    noctalia.state.set("ha.entity_search_loading", false)
+    noctalia.state.set("ha.entity_search_error", "")
+    noctalia.state.set("ha.entity_search_result", { generation = myGeneration, query = query, rows = {} })
+    return
+  end
+
+  local server, token, err = credentials()
+  if err then
+    noctalia.state.set("ha.entity_search_loading", false)
+    noctalia.state.set("ha.entity_search_error", err)
+    return
+  end
+
+  noctalia.state.set("ha.entity_search_loading", true)
+  noctalia.state.set("ha.entity_search_error", "")
+  local started = haRequest(server, token, entitySearchTemplate(query), function(response)
+    if myGeneration ~= entitySearchGeneration then return end
+    if not response.ok or response.status ~= 200 then
+      noctalia.state.set("ha.entity_search_loading", false)
+      noctalia.state.set("ha.entity_search_error", "Live Home Assistant search failed (HTTP " .. tostring(response.status) .. ")")
+      return
+    end
+
+    local rows = {}
+    for line in tostring(response.body or ""):gmatch("[^\n]+") do
+      local id, state, name, position = line:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$")
+      if id and id ~= "" then
+        rows[#rows + 1] = {
+          entity_id = id,
+          state = state,
+          name = (name ~= "" and name or id),
+          position = position ~= "" and tonumber(position) or nil,
+        }
+      end
+    end
+    mergeEntityCache(rows)
+    noctalia.state.set("ha.entity_search_result", { generation = myGeneration, query = query, rows = rows })
+    noctalia.state.set("ha.entity_search_loading", false)
+  end)
+  if not started then
+    noctalia.state.set("ha.entity_search_loading", false)
+    noctalia.state.set("ha.entity_search_error", "Could not start live Home Assistant search")
   end
 end
 
@@ -1355,6 +1421,8 @@ noctalia.state.watch("ha.command", function(command)
   if type(command) ~= "table" then return end
   if command.action == "refresh" then
     refresh()
+  elseif command.action == "search" then
+    searchEntities(command.query)
   elseif command.action == "open_dashboard" then
     openDashboard()
   elseif command.action == "open_entity" then

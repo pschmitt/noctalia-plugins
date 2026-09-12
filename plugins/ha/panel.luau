@@ -18,6 +18,9 @@ local entityCacheScanRows = {}
 local entityCacheScanIds = {}
 local entityCacheLoading = noctalia.state.get("ha.entity_cache_loading") == true
 local entityCacheError = noctalia.state.get("ha.entity_cache_error") or ""
+local entitySearchLoading = noctalia.state.get("ha.entity_search_loading") == true
+local entitySearchError = noctalia.state.get("ha.entity_search_error") or ""
+local liveSearchEntities = {}
 local entities = noctalia.state.get("ha.entities") or {}
 local hidden = noctalia.state.get("ha.hidden") or {}
 local sectionVisibility = noctalia.state.get("ha.section_visibility") or {}
@@ -1217,15 +1220,17 @@ local function entityRow(entity, isOther)
 end
 
 local function otherEntityRow(row)
-  -- Cached rows intentionally contain only the stable identity and friendly
-  -- name. Keep them lightweight in the result list; opening the card fetches
-  -- the native HA state and lets detailsEntity()/detailsControls() provide
-  -- the same live controls used by configured entities.
+  -- Cached rows contain only the stable identity and friendly name. Live
+  -- search rows additionally carry the current state, so the result list can
+  -- show the same state text as configured entities without waiting for the
+  -- details page request.
+  local live = liveSearchEntities[row.entity_id] or row
   return entityRow({
     entity_id = row.entity_id,
-    name = row.name or row.entity_id,
-    state = nil,
-    display_state = "Not configured",
+    name = live.name or row.name or row.entity_id,
+    state = live.state,
+    display_state = live.state or "Not configured",
+    position = live.position,
   }, true)
 end
 
@@ -1311,7 +1316,6 @@ local function listView()
       local key = tostring(index) .. ":" .. tostring(section.name)
       local collapsed = collapsedSections[key]
       if collapsed == nil then collapsed = section.collapsed == true end
-      if searchActive and sectionHasMatch then collapsed = false end
       local sectionHeader
       local headerKey = "ha-section-header-" .. tostring(index) .. ":" .. (editMode and "edit" or "view") .. ":" .. (editingSectionIndex == index and "rename" or "normal")
       if editingSectionIndex == index then
@@ -1449,13 +1453,13 @@ local function listView()
         if otherMatchCount > #otherRows then
           content[#content + 1] = ui.label({ text = "Showing the first " .. tostring(#otherRows) .. " of " .. tostring(otherMatchCount) .. " matches.", color = "on_surface_variant", fontSize = 11 })
         end
-      elseif entityCacheLoading then
+      elseif entitySearchLoading or entityCacheLoading then
         content[#content + 1] = ui.label({ text = "Searching other entities…", color = "on_surface_variant", fontSize = 12 })
-      elseif entityCacheError ~= "" and localMatchCount == 0 then
-        content[#content + 1] = ui.label({ text = "Other entities unavailable: " .. entityCacheError, color = "error", fontSize = 11 })
+      elseif (entitySearchError ~= "" or entityCacheError ~= "") and localMatchCount == 0 then
+        content[#content + 1] = ui.label({ text = "Other entities unavailable: " .. (entitySearchError ~= "" and entitySearchError or entityCacheError), color = "error", fontSize = 11 })
       end
     end
-    if searchActive and localMatchCount == 0 and #otherRows == 0 and not entityCacheLoading and entityCacheError == "" then
+    if searchActive and localMatchCount == 0 and #otherRows == 0 and not entitySearchLoading and not entityCacheLoading and entitySearchError == "" and entityCacheError == "" then
       content[#content + 1] = ui.label({ text = "No matching entities.", color = "on_surface_variant", fontSize = 12 })
     end
   end
@@ -1803,6 +1807,31 @@ noctalia.state.watch("ha.entity_cache_error", function(value)
   render()
 end)
 
+noctalia.state.watch("ha.entity_search_result", function(value)
+  if type(value) ~= "table" or value.query ~= shared.trim(listSearchText) then return end
+  liveSearchEntities = {}
+  for _, row in ipairs(value.rows or {}) do
+    if type(row) == "table" and type(row.entity_id) == "string" then
+      liveSearchEntities[row.entity_id] = row
+    end
+  end
+  rememberCachedRows(value.rows, entityCache, entityCacheIds)
+  if entityCacheScanGeneration ~= nil then
+    rememberCachedRows(value.rows, entityCacheScanRows, entityCacheScanIds)
+  end
+  render()
+end)
+
+noctalia.state.watch("ha.entity_search_loading", function(value)
+  entitySearchLoading = value == true
+  render()
+end)
+
+noctalia.state.watch("ha.entity_search_error", function(value)
+  entitySearchError = type(value) == "string" and value or ""
+  render()
+end)
+
 noctalia.state.watch("ha.entities", function(value)
   entities = type(value) == "table" and value or {}
   render()
@@ -1979,10 +2008,12 @@ end
 
 function onEntitySearchChange(value)
   listSearchText = value or ""
+  liveSearchEntities = {}
   -- The focus request is only for the initial panel open. Once the user has
   -- started typing, subsequent renders must not steal focus from other
   -- controls in the panel.
   focusListSearch = false
+  sendCommand({ action = "search", query = listSearchText })
   render()
 end
 

@@ -222,7 +222,9 @@ end
 -- the same thing.
 function M.statusText(entity)
   local domain = M.domainOf(entity.entity_id)
-  if M.isUnavailable(entity.state) then return "unavailable" end
+  -- A cached search result may not have fetched the entity's live state yet.
+  -- That is different from Home Assistant explicitly reporting unavailable.
+  if entity.state ~= nil and M.isUnavailable(entity.state) then return "unavailable" end
   local state = entity.display_state or entity.state or "—"
   local on = M.isOn(entity.state)
   if domain == "light" and on and entity.brightness ~= nil then
