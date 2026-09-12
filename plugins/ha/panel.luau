@@ -8,6 +8,7 @@ local view = "list" -- "list" | "browse" | "details"
 local configuredEntities = noctalia.state.get("ha.configured") or {}
 local sections = noctalia.state.get("ha.sections") or {}
 local entityRemotes = noctalia.state.get("ha.entity_remotes") or {}
+local favoritePositions = noctalia.state.get("ha.favorite_positions") or {}
 local entities = noctalia.state.get("ha.entities") or {}
 local hidden = noctalia.state.get("ha.hidden") or {}
 local sectionVisibility = noctalia.state.get("ha.section_visibility") or {}
@@ -31,6 +32,10 @@ local detailsEntityId = nil
 local CARD_STYLE = { fill = "surface_variant/0.58", radius = 12, padding = 10, gap = 2 }
 local ENTITY_DRAG_TYPE = "ha-entity"
 local SECTION_DRAG_TYPE = "ha-section"
+local animationFrame = 0
+local animationElapsedMs = 0
+local ANIMATION_FRAME_COUNT = 24
+local ANIMATION_FRAME_INTERVAL_MS = 30
 
 -- Forward-declared: referenced by action handlers defined before its real
 -- body below (they only ever run after the whole script has loaded once, so
@@ -59,7 +64,7 @@ local function entityIcon(entity, size)
   local hasOverride = type(entity.icon) == "string" and entity.icon ~= ""
   if domain == "fan" and not hasOverride and shared.isOn(entity.state) and panelAnimationActive() then
     return ui.image({
-      path = "assets/fan-propeller-animated.gif",
+      path = string.format("assets/fan-propeller-%02d.png", animationFrame),
       width = size,
       height = size,
       fit = "contain",
@@ -174,6 +179,28 @@ local function previewSlider(entity, value01to100, commit)
       commit(target)
     end,
   })
+end
+
+local function coverPositionSlider(entity)
+  return previewSlider(entity, entity.position or 0, function(target)
+    sendCommand({ action = "set_cover_position", entity_id = entity.entity_id, value = target })
+  end)
+end
+
+local function coverFavoriteButtons(entity)
+  local buttons = {}
+  for _, position in ipairs(entity.favorite_positions or {}) do
+    buttons[#buttons + 1] = ui.button({
+      text = tostring(position) .. "%",
+      variant = tonumber(entity.position) == position and "primary" or "ghost",
+      controlSize = "sm",
+      tooltip = "Move to " .. tostring(position) .. "%",
+      onClick = function()
+        sendCommand({ action = "set_cover_position", entity_id = entity.entity_id, value = position })
+      end,
+    })
+  end
+  return #buttons > 0 and ui.row({ gap = 2 }, buttons) or nil
 end
 
 local function brightnessSlider(entity)
@@ -303,6 +330,7 @@ local function detailsEntity()
     percentage = attributes.percentage,
     oscillating = attributes.oscillating,
     position = attributes.current_position,
+    favorite_positions = favoritePositions[details.entity_id or detailsEntityId],
     volume_level = attributes.volume_level,
     volume_muted = attributes.is_volume_muted == true,
     media_title = attributes.media_title,
@@ -325,7 +353,9 @@ local function detailToggleButtons(entity, domain)
     })
   end
   local on = shared.isOn(entity.state)
-  local toggleGlyph = domain == "light" and (on and "bulb" or "bulb-off") or "power"
+  -- The action glyph describes what the button will do: a lit bulb means
+  -- "turn on" while the crossed-out bulb means "turn off".
+  local toggleGlyph = domain == "light" and (on and "bulb-off" or "bulb") or "power"
   if domain == "fan" then
     local oscillationButton = fanOscillationButton(entity)
     if oscillationButton then buttons[#buttons + 1] = oscillationButton end
@@ -346,6 +376,16 @@ local function detailsControls(entity)
 
   if domain == "cover" then
     rows[#rows + 1] = coverButtons(entity)
+    if entity.position ~= nil then
+      local shownPosition = sliderPreviews[entity.entity_id] or entity.position
+      rows[#rows + 1] = ui.row({ align = "center", gap = 6 }, {
+        ui.glyph({ name = "arrows-vertical", size = 14, color = "on_surface_variant" }),
+        coverPositionSlider(entity),
+        ui.label({ text = tostring(math.floor(shownPosition + 0.5)) .. "%", width = 38, fontSize = 11, color = "on_surface_variant" }),
+      })
+    end
+    local favorites = coverFavoriteButtons(entity)
+    if favorites then rows[#rows + 1] = favorites end
   elseif domain == "media_player" then
     rows[#rows + 1] = mediaButtons(entity)
     local remote = remoteControls(entity)
@@ -699,10 +739,9 @@ local function entityRow(entity)
   elseif domain == "media_player" then
     header[#header + 1] = mediaButtons(entity)
   elseif shared.isToggleable(domain) then
-    -- Lights read better as an on/off toggle (bulb / bulb-off) than a
-    -- generic power glyph that never changes -- the bulb itself already
-    -- carries the state everywhere else this domain glyph shows up.
-    local toggleGlyph = domain == "light" and (on and "bulb" or "bulb-off") or "power"
+    -- The action glyph describes what the button will do, while the entity
+    -- icon above carries the current light state.
+    local toggleGlyph = domain == "light" and (on and "bulb-off" or "bulb") or "power"
     if not editMode and domain == "light" and lightHasColor(entity) then
       header[#header + 1] = ui.button({
         glyph = "palette",
@@ -1125,10 +1164,12 @@ local function header()
   end
   local attributes = details.attributes or {}
   local title = attributes.friendly_name or details.entity_id or detailsEntityId or "Entity details"
-  return ui.row({ align = "center", gap = 8 }, {
+  local children = {
     ui.button({ glyph = "arrow-left", variant = "ghost", controlSize = "sm", onClick = "onBackToList" }),
-    ui.label({ text = title, fontSize = 15, fontWeight = "bold", flexGrow = 1, maxWidth = 280, maxLines = 1 }),
-  })
+  }
+  if not detailsLoading and detailsErrorMessage == "" then children[#children + 1] = entityIcon(detailsEntity(), 20) end
+  children[#children + 1] = ui.label({ text = title, fontSize = 15, fontWeight = "bold", flexGrow = 1, maxWidth = 280, maxLines = 1 })
+  return ui.row({ align = "center", gap = 8 }, children)
 end
 
 -- Add controls stay in the footer while editing; the Edit/Done action lives in
@@ -1175,6 +1216,7 @@ render = function()
   end
   children[#children + 1] = view == "list" and listView() or (view == "browse" and browseView() or detailsView())
   if view == "list" and editMode then children[#children + 1] = footer() end
+  panel.setNeedsFrameTick(panelAnimationActive())
   panel.render(ui.column({ flexGrow = 1, padding = 12, gap = 8 }, children))
 end
 
@@ -1193,6 +1235,11 @@ end)
 
 noctalia.state.watch("ha.entity_remotes", function(value)
   entityRemotes = type(value) == "table" and value or {}
+  render()
+end)
+
+noctalia.state.watch("ha.favorite_positions", function(value)
+  favoritePositions = type(value) == "table" and value or {}
   render()
 end)
 
@@ -1283,13 +1330,28 @@ function onOpen()
   addingSection = false
   addingSectionDraft = ""
   detailsEntityId = nil
+  animationFrame = 0
+  animationElapsedMs = 0
   sendCommand({ action = "refresh" })
   render()
 end
 
 function onClose()
   panelOpen = false
+  panel.setNeedsFrameTick(false)
   sendCommand({ action = "details_close" })
+end
+
+function onFrameTick(deltaMs)
+  if not panelAnimationActive() then
+    panel.setNeedsFrameTick(false)
+    return
+  end
+  animationElapsedMs += tonumber(deltaMs) or ANIMATION_FRAME_INTERVAL_MS
+  if animationElapsedMs < ANIMATION_FRAME_INTERVAL_MS then return end
+  animationElapsedMs = animationElapsedMs % ANIMATION_FRAME_INTERVAL_MS
+  animationFrame = (animationFrame + 1) % ANIMATION_FRAME_COUNT
+  render()
 end
 
 function onOpenDashboard()

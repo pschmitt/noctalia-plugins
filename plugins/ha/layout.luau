@@ -3,7 +3,8 @@
 -- A deliberately small YAML subset for the user-facing HA layout file.
 -- The file is meant to be easy to maintain by hand, not to be a general YAML
 -- implementation: entities, sections, booleans, labels, conditions, per-media
--- player remotes, and small display-state overrides/templates are all we need.
+-- player remotes, bar control actions, and small display-state
+-- overrides/templates are all we need.
 
 local M = {}
 
@@ -39,6 +40,29 @@ local function addUnique(list, value)
   list[#list + 1] = value
 end
 
+local function isBarAction(key)
+  return key == "left_click" or key == "right_click" or key == "middle_click"
+    or key == "scroll_up" or key == "scroll_down"
+end
+
+local function positionList(value)
+  local values = scalar(value)
+  if type(values) ~= "table" then return nil end
+  local result = {}
+  for _, item in ipairs(values) do
+    local position = tonumber(item)
+    if position ~= nil then
+      position = math.max(0, math.min(100, math.floor(position + 0.5)))
+      local duplicate = false
+      for _, existing in ipairs(result) do
+        if existing == position then duplicate = true break end
+      end
+      if not duplicate then result[#result + 1] = position end
+    end
+  end
+  return #result > 0 and result or nil
+end
+
 local function setField(object, key, value)
   if key == "name" or key == "title" then
     if type(value) == "string" then object.name = value end
@@ -54,7 +78,7 @@ local function setField(object, key, value)
 end
 
 function M.parse(text)
-  local result = { entities = {}, entity_conditions = {}, entity_remotes = {}, sections = {}, labels = {}, icons = {}, state_attributes = {}, state_templates = {} }
+  local result = { entities = {}, entity_conditions = {}, entity_remotes = {}, sections = {}, labels = {}, icons = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_target = nil, bar_actions = {} }
   local mode = nil
   local section = nil
   local subsection = nil
@@ -111,6 +135,19 @@ function M.parse(text)
         elseif key == "remote" then
           local remote = scalar(value)
           if type(remote) == "string" and remote ~= "" then result.entity_remotes[entityEntry.id] = remote end
+        elseif key == "bar_target" then
+          if scalar(value) == true then result.bar_target = entityEntry.id end
+        elseif key == "bar_actions" then
+          subsection = "bar_actions"
+        elseif key == "favorite_positions" or key == "cover_positions" then
+          local positions = positionList(value)
+          if positions then result.favorite_positions[entityEntry.id] = positions end
+        end
+      elseif mode == "entities" and entityEntry and subsection == "bar_actions" and indent == 6 then
+        local key, value = content:match("^([%w_]+):%s*(.*)$")
+        if isBarAction(key) then
+          local action = scalar(value)
+          if type(action) == "string" and action ~= "" then result.bar_actions[key] = action end
         end
       elseif mode == "entities" and entityEntry and subsection == "entity_when" and indent == 6 then
         local key, value = content:match("^([%w_]+):%s*(.*)$")
@@ -137,7 +174,8 @@ function M.parse(text)
           subsection = nil
           setField(section, key, scalar(value))
         end
-      elseif mode == "sections" and section and subsection == "entities" and indent == 6 then
+      elseif mode == "sections" and section
+        and (subsection == "entities" or subsection == "section_entity_bar_actions") and indent == 6 then
         local value = content:match("^%-%s+(.+)$")
         local id = value and (value:match("^entity_id:%s*(.+)$") or value:match("^id:%s*(.+)$"))
         if id then
@@ -156,6 +194,20 @@ function M.parse(text)
         if key == "remote" then
           local remote = scalar(value)
           if type(remote) == "string" and remote ~= "" then result.entity_remotes[sectionEntityEntry.id] = remote end
+        elseif key == "bar_target" and scalar(value) == true then
+          result.bar_target = sectionEntityEntry.id
+        elseif key == "bar_actions" then
+          subsection = "section_entity_bar_actions"
+        elseif key == "favorite_positions" or key == "cover_positions" then
+          local positions = positionList(value)
+          if positions then result.favorite_positions[sectionEntityEntry.id] = positions end
+        end
+      elseif mode == "sections" and section and sectionEntityEntry
+        and subsection == "section_entity_bar_actions" and indent == 10 then
+        local key, value = content:match("^([%w_]+):%s*(.*)$")
+        if isBarAction(key) then
+          local action = scalar(value)
+          if type(action) == "string" and action ~= "" then result.bar_actions[key] = action end
         end
       elseif mode == "sections" and section and subsection == "section_when" and indent == 6 then
         local key, value = content:match("^([%w_]+):%s*(.*)$")
@@ -236,11 +288,23 @@ function M.serialize(layout)
     local stateAttr = layout.state_attributes and layout.state_attributes[entityId]
     local stateTemplate = layout.state_templates and layout.state_templates[entityId]
     local remote = layout.entity_remotes and layout.entity_remotes[entityId]
-    if (condition and condition.entity and condition.state ~= nil) or stateAttr or stateTemplate or remote then
+    local favoritePositions = layout.favorite_positions and layout.favorite_positions[entityId]
+    local barTarget = layout.bar_target == entityId
+    local barActions = barTarget and (layout.bar_actions or {}) or {}
+    local hasBarActions = next(barActions) ~= nil
+    if (condition and condition.entity and condition.state ~= nil) or stateAttr or stateTemplate or remote or favoritePositions or barTarget then
       lines[#lines + 1] = "  - entity_id: " .. quote(entityId)
       if stateAttr then lines[#lines + 1] = "    state_attr: " .. quote(stateAttr) end
       if stateTemplate then lines[#lines + 1] = "    state_template: " .. quote(stateTemplate) end
       if remote then lines[#lines + 1] = "    remote: " .. quote(remote) end
+      if favoritePositions then lines[#lines + 1] = "    favorite_positions: [" .. table.concat(favoritePositions, ", ") .. "]" end
+      if barTarget then lines[#lines + 1] = "    bar_target: true" end
+      if hasBarActions then
+        lines[#lines + 1] = "    bar_actions:"
+        for _, actionName in ipairs({ "left_click", "right_click", "middle_click", "scroll_up", "scroll_down" }) do
+          if barActions[actionName] then lines[#lines + 1] = "      " .. actionName .. ": " .. quote(barActions[actionName]) end
+        end
+      end
     end
     if condition and condition.entity and condition.state ~= nil then
       lines[#lines + 1] = "    conditions:"
@@ -248,7 +312,7 @@ function M.serialize(layout)
       lines[#lines + 1] = "      state: " .. quote(condition.state)
       if condition["not"] == true then lines[#lines + 1] = "      not: true" end
       if condition["for"] ~= nil then lines[#lines + 1] = "      for: " .. quote(condition["for"]) end
-    elseif not stateAttr and not stateTemplate and not remote then
+    elseif not stateAttr and not stateTemplate and not remote and not favoritePositions and not barTarget and not hasBarActions then
       lines[#lines + 1] = "  - " .. quote(entityId)
     end
   end
@@ -267,9 +331,21 @@ function M.serialize(layout)
     lines[#lines + 1] = "    entities:"
     for _, entityId in ipairs(section.entities or {}) do
       local remote = layout.entity_remotes and layout.entity_remotes[entityId]
-      if remote then
+      local favoritePositions = layout.favorite_positions and layout.favorite_positions[entityId]
+      local barTarget = layout.bar_target == entityId
+      local barActions = barTarget and (layout.bar_actions or {}) or {}
+      local hasBarActions = next(barActions) ~= nil
+      if remote or favoritePositions or barTarget or hasBarActions then
         lines[#lines + 1] = "      - entity_id: " .. quote(entityId)
-        lines[#lines + 1] = "        remote: " .. quote(remote)
+        if remote then lines[#lines + 1] = "        remote: " .. quote(remote) end
+        if favoritePositions then lines[#lines + 1] = "        favorite_positions: [" .. table.concat(favoritePositions, ", ") .. "]" end
+        if barTarget then lines[#lines + 1] = "        bar_target: true" end
+        if hasBarActions then
+          lines[#lines + 1] = "        bar_actions:"
+          for _, actionName in ipairs({ "left_click", "right_click", "middle_click", "scroll_up", "scroll_down" }) do
+            if barActions[actionName] then lines[#lines + 1] = "          " .. actionName .. ": " .. quote(barActions[actionName]) end
+          end
+        end
       else
         lines[#lines + 1] = "      - " .. quote(entityId)
       end

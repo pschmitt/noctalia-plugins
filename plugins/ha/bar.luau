@@ -4,6 +4,11 @@ local shared = require("./shared.luau")
 local entities = noctalia.state.get("ha.entities") or {}
 local sections = noctalia.state.get("ha.sections") or {}
 local errorMessage = noctalia.state.get("ha.error") or ""
+local barTargetEntity = noctalia.state.get("ha.bar_target")
+local barActions = noctalia.state.get("ha.bar_actions") or {}
+local animationFrame = 0
+local ANIMATION_FRAME_COUNT = 24
+local ANIMATION_FRAME_INTERVAL_MS = 30
 local IDLE_UPDATE_INTERVAL_MS = 30000
 
 local function iconSize()
@@ -34,7 +39,7 @@ local function segment(entity)
   local hasOverride = type(entity.icon) == "string" and entity.icon ~= ""
   if domain == "fan" and not hasOverride and shared.isOn(entity.state) and animationActive() then
     return ui.image({
-      path = "assets/fan-propeller-animated.gif",
+      path = string.format("assets/fan-propeller-%02d.png", animationFrame),
       width = iconSize(),
       height = iconSize(),
       fit = "contain",
@@ -110,7 +115,7 @@ local function render()
   local gap = tonumber(shared.config("bar_spacing", 6)) or 6
   barWidget.render(ui.row({ align = "center", gap = gap }, children))
   barWidget.setTooltip(tooltip())
-  noctalia.setUpdateInterval(IDLE_UPDATE_INTERVAL_MS)
+  noctalia.setUpdateInterval(animationActive() and ANIMATION_FRAME_INTERVAL_MS or IDLE_UPDATE_INTERVAL_MS)
 end
 
 noctalia.state.watch("ha.entities", function(value)
@@ -128,11 +133,23 @@ noctalia.state.watch("ha.error", function(value)
   render()
 end)
 
+noctalia.state.watch("ha.bar_target", function(value)
+  barTargetEntity = value
+  render()
+end)
+
+noctalia.state.watch("ha.bar_actions", function(value)
+  barActions = type(value) == "table" and value or {}
+  render()
+end)
+
 function update()
+  if animationActive() then animationFrame = (animationFrame + 1) % ANIMATION_FRAME_COUNT end
   render()
 end
 
 function onConfigChanged()
+  animationFrame = 0
   render()
 end
 
@@ -146,27 +163,60 @@ local ACTIONS = {
   open_dashboard = function() noctalia.state.set("ha.command", { action = "open_dashboard" }) end,
 }
 
-local function runAction(settingKey)
-  local action = ACTIONS[noctalia.getConfig(settingKey)]
+local DEFAULT_CONTROL_ACTIONS = {
+  light = { right_click = "toggle", scroll_up = "brightness_up", scroll_down = "brightness_down" },
+  media_player = { right_click = "play_pause", scroll_up = "volume_up", scroll_down = "volume_down" },
+  fan = { right_click = "toggle", scroll_up = "percentage_up", scroll_down = "percentage_down" },
+}
+
+local function controlEntity()
+  if type(barTargetEntity) ~= "string" or barTargetEntity == "" then return nil end
+  for _, entity in ipairs(entities) do
+    if entity.entity_id == barTargetEntity then return entity end
+  end
+  return nil
+end
+
+local function runControlAction(gesture)
+  local entity = controlEntity()
+  if not entity then return end
+  local action = barActions[gesture]
+  if type(action) ~= "string" or action == "" then
+    local defaults = DEFAULT_CONTROL_ACTIONS[shared.domainOf(entity.entity_id)]
+    action = defaults and defaults[gesture]
+  end
+  if action and action ~= "none" then
+    noctalia.state.set("ha.command", { action = "bar_service", entity_id = entity.entity_id, service = action })
+  end
+end
+
+local function runAction(settingKey, gesture)
+  local configured = noctalia.getConfig(settingKey)
+  if configured == "control_entity" then
+    runControlAction(gesture)
+    return
+  end
+  local action = ACTIONS[configured]
   if action then action() end
 end
 
 function onClick()
-  runAction("action_left_click")
+  runAction("action_left_click", "left_click")
 end
 
 function onRightClick()
-  runAction("action_right_click")
+  runAction("action_right_click", "right_click")
 end
 
 function onMiddleClick()
-  runAction("action_middle_click")
+  runAction("action_middle_click", "middle_click")
 end
 
 -- Same scroll convention as Noctalia's built-in widgets: positive steps are
 -- scroll-down.
 function onScroll(_axis, steps, _startsGesture)
-  runAction(steps > 0 and "action_scroll_down" or "action_scroll_up")
+  local gesture = steps > 0 and "scroll_down" or "scroll_up"
+  runAction("action_" .. gesture, gesture)
 end
 
 render()

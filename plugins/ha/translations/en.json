@@ -20,6 +20,7 @@
         "panel": "Open panel",
         "refresh": "Refresh now",
         "open_dashboard": "Open Home Assistant",
+        "control_entity": "Control entity",
         "none": "Nothing"
       }
     },

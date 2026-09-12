@@ -1,6 +1,6 @@
 id = "pschmitt/ha"
 name = "Home Assistant"
-version = "0.13.9"
+version = "0.13.13"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -103,6 +103,7 @@ options = [
   { value = "panel", label_key = "settings.action.options.panel" },
   { value = "refresh", label_key = "settings.action.options.refresh" },
   { value = "open_dashboard", label_key = "settings.action.options.open_dashboard" },
+  { value = "control_entity", label_key = "settings.action.options.control_entity" },
   { value = "none", label_key = "settings.action.options.none" },
 ]
 
@@ -116,6 +117,7 @@ options = [
   { value = "panel", label_key = "settings.action.options.panel" },
   { value = "refresh", label_key = "settings.action.options.refresh" },
   { value = "open_dashboard", label_key = "settings.action.options.open_dashboard" },
+  { value = "control_entity", label_key = "settings.action.options.control_entity" },
   { value = "none", label_key = "settings.action.options.none" },
 ]
 
@@ -129,6 +131,7 @@ options = [
   { value = "panel", label_key = "settings.action.options.panel" },
   { value = "refresh", label_key = "settings.action.options.refresh" },
   { value = "open_dashboard", label_key = "settings.action.options.open_dashboard" },
+  { value = "control_entity", label_key = "settings.action.options.control_entity" },
   { value = "none", label_key = "settings.action.options.none" },
 ]
 
@@ -142,6 +145,7 @@ options = [
   { value = "panel", label_key = "settings.action.options.panel" },
   { value = "refresh", label_key = "settings.action.options.refresh" },
   { value = "open_dashboard", label_key = "settings.action.options.open_dashboard" },
+  { value = "control_entity", label_key = "settings.action.options.control_entity" },
   { value = "none", label_key = "settings.action.options.none" },
 ]
 
@@ -155,6 +159,7 @@ options = [
   { value = "panel", label_key = "settings.action.options.panel" },
   { value = "refresh", label_key = "settings.action.options.refresh" },
   { value = "open_dashboard", label_key = "settings.action.options.open_dashboard" },
+  { value = "control_entity", label_key = "settings.action.options.control_entity" },
   { value = "none", label_key = "settings.action.options.none" },
 ]
 

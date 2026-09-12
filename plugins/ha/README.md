@@ -14,7 +14,7 @@ The status query also carries a light's brightness, a fan's speed and a cover's 
 
 Add `pschmitt/ha:bar` to a Noctalia bar. By default it shows one icon per configured entity, tinted to reflect its state, with a tooltip listing names and states grouped by section. Set **Bar: Display mode** to **Single icon** for a fixed bar slot instead — the real Home Assistant logo by default, that never grows, shrinks or recolors as entities are added or change state. **Bar: Single icon glyph** swaps that logo for a plain Tabler glyph instead, if you'd rather have that; leave it at its own default (`smart-home`) to keep the logo.
 
-What each bar interaction does is independently configurable -- **Bar: Left/Right/Middle click** and **Bar: Scroll up/down**, each a choice of Open panel, Refresh now, Open Home Assistant or Nothing. Defaults: left click opens the panel, right click refreshes, middle click opens Home Assistant, scrolling does nothing.
+What each bar interaction does is independently configurable -- **Bar: Left/Right/Middle click** and **Bar: Scroll up/down**, each a choice of Open panel, Refresh now, Open Home Assistant, Control entity or Nothing. Defaults: left click opens the panel, right click refreshes, middle click opens Home Assistant, scrolling does nothing. **Control entity** sends the gesture to the entity marked with `bar_target: true` in the layout. Its defaults are toggle on right click and brightness up/down on scroll for lights; play/pause and volume up/down for media players; and toggle and percentage up/down for fans. Add a `bar_actions` mapping to that entity to override a gesture with one of those aliases or a literal Home Assistant `domain.service` name.
 
 **Enable animations** controls visual plugin animations. It is on by default and currently rotates active fans' default propeller icons; custom entity icons remain static.
 
@@ -22,7 +22,7 @@ The panel header shows the real Home Assistant mark, a small connection status l
 
 - **My entities** — the configured list, each entity in its own card, showing its current state and domain-appropriate controls:
   - If **Panel: Show entity search** is enabled, the main view has a search bar that matches names, entity IDs, and displayed states; **Panel: Entity search position** places it at the top or bottom (the bottom position stays visible while the entity list scrolls); matching sections expand automatically while searching.
-  - **cover** gets a dedicated open/stop/close row instead of a toggle.
+  - **cover** gets a dedicated open/stop/close row instead of a toggle, plus a position slider when Home Assistant reports `current_position`. Favorite positions can be configured per entity with `favorite_positions: [0, 50, 100]` and appear as shortcut buttons in the details view.
   - **light** gets a state-aware bulb/bulb-off entity icon and an on/off toggle that swaps its own glyph to show state, plus a brightness slider under the row whenever it's on and Home Assistant reports a brightness (i.e. it's dimmable).
   - Color-capable **lights** show a **Color** button beside their on/off toggle. It opens Noctalia's native color picker and applies the selected RGB color through Home Assistant.
   - **fan** gets a propeller/propeller-off entity icon, a plain toggle, and an oscillation toggle whenever Home Assistant reports the `oscillating` attribute; it also gets a speed slider under the row whenever it's on and Home Assistant reports a percentage (i.e. it supports speed control).
@@ -55,11 +55,14 @@ entities:
     conditions:
       entity: input_boolean.garden_mode
       state: "on"
+  - entity_id: cover.office_blind
+    favorite_positions: [0, 50, 100]
 sections:
   - name: Office
     collapsed: true
     entities:
-      - light.hue_office_light
+      - entity_id: light.hue_office_light
+        bar_target: true
   - name: Garden
     conditions:
       entity: input_boolean.garden_mode
@@ -75,6 +78,11 @@ sections:
 
 An entity listed in a section is selected automatically, so the top-level
 `entities` list may be omitted when every entity belongs to a section. Set
+`bar_target: true` on one configured entity to make it the target for bar
+interactions set to **Control entity**. Optional `bar_actions` entries use
+`left_click`, `right_click`, `middle_click`, `scroll_up`, and `scroll_down` as
+keys; values can be the built-in aliases or a literal `domain.service` name.
+Set a value to `none` to disable that gesture. Set
 `state_attr` on an entity entry to display one of that entity's Home Assistant
 attributes in place of its normal state; the real state remains available for
 conditions, coloring, and controls. `state_template` accepts an HA-style Jinja

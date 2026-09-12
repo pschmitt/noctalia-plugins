@@ -57,6 +57,10 @@ local entityConditions = {}
 local entityRemotes = {}
 local stateAttributes = {}
 local stateTemplates = {}
+local favoritePositions = {}
+local barTargetEntity = nil
+local barActions = {}
+local currentRows = {}
 local activeDetailsEntityId = nil
 local fetchDetails
 local intervalMs
@@ -85,7 +89,7 @@ local function statePath()
 end
 
 local function emptyLayout()
-  return { entities = {}, sections = {}, labels = {}, icons = {}, entity_remotes = {}, state_attributes = {}, state_templates = {} }
+  return { entities = {}, sections = {}, labels = {}, icons = {}, entity_remotes = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_target = nil, bar_actions = {} }
 end
 
 local function readLayout(path)
@@ -99,6 +103,9 @@ local function publishLayout()
   noctalia.state.set("ha.configured", configuredEntities)
   noctalia.state.set("ha.sections", sections)
   noctalia.state.set("ha.entity_remotes", entityRemotes)
+  noctalia.state.set("ha.favorite_positions", favoritePositions)
+  noctalia.state.set("ha.bar_target", barTargetEntity)
+  noctalia.state.set("ha.bar_actions", barActions)
 end
 
 local function applyLayout(layout)
@@ -110,6 +117,9 @@ local function applyLayout(layout)
   entityRemotes = layout.entity_remotes or {}
   stateAttributes = layout.state_attributes or {}
   stateTemplates = layout.state_templates or {}
+  favoritePositions = layout.favorite_positions or {}
+  barTargetEntity = layout.bar_target
+  barActions = layout.bar_actions or {}
   publishLayout()
 end
 
@@ -123,6 +133,9 @@ local function currentLayout()
     entity_remotes = entityRemotes,
     state_attributes = stateAttributes,
     state_templates = stateTemplates,
+    favorite_positions = favoritePositions,
+    bar_target = barTargetEntity,
+    bar_actions = barActions,
   }
 end
 
@@ -377,6 +390,7 @@ local function refresh()
     local allRows = parseStatusResponse(response.body)
     local byId = {}
     for _, row in ipairs(allRows) do byId[row.entity_id] = row end
+    currentRows = byId
 
     local sectionVisibility = {}
     local sectionHiddenEntities = {}
@@ -548,6 +562,37 @@ local function mediaCommand(entityId, command, value)
   if service then callService("media_player", service, entityId) end
 end
 
+-- Bar control actions use short aliases for the common domain-aware actions;
+-- a literal `domain.service` value is also accepted as an override. The
+-- latter deliberately carries no extra service data, keeping the layout
+-- syntax small while still allowing any Home Assistant service to be used.
+local function barService(entityId, action)
+  if type(entityId) ~= "string" or entityId == "" or type(action) ~= "string" then return end
+  local domain = shared.domainOf(entityId)
+  if action == "toggle" then
+    toggleEntity(entityId)
+  elseif action == "brightness_up" and domain == "light" then
+    callService("light", "turn_on", entityId, { brightness_step_pct = 10 })
+  elseif action == "brightness_down" and domain == "light" then
+    callService("light", "turn_on", entityId, { brightness_step_pct = -10 })
+  elseif action == "volume_up" and domain == "media_player" then
+    callService("media_player", "volume_up", entityId)
+  elseif action == "volume_down" and domain == "media_player" then
+    callService("media_player", "volume_down", entityId)
+  elseif action == "play_pause" and domain == "media_player" then
+    callService("media_player", "media_play_pause", entityId)
+  elseif action == "percentage_up" and domain == "fan" then
+    local percentage = currentRows[entityId] and tonumber(currentRows[entityId].percentage)
+    if percentage ~= nil then setFanPercentage(entityId, percentage + 10) end
+  elseif action == "percentage_down" and domain == "fan" then
+    local percentage = currentRows[entityId] and tonumber(currentRows[entityId].percentage)
+    if percentage ~= nil then setFanPercentage(entityId, percentage - 10) end
+  else
+    local serviceDomain, service = action:match("^([%w_]+)%.([%w_]+)$")
+    if serviceDomain and service then callService(serviceDomain, service, entityId) end
+  end
+end
+
 local REMOTE_COMMANDS = {
   up = "DPAD_UP",
   down = "DPAD_DOWN",
@@ -601,6 +646,13 @@ local function removeEntity(entityId)
   end
   if entityRemotes[entityId] ~= nil then
     entityRemotes[entityId] = nil
+  end
+  if favoritePositions[entityId] ~= nil then
+    favoritePositions[entityId] = nil
+  end
+  if barTargetEntity == entityId then
+    barTargetEntity = nil
+    barActions = {}
   end
   saveLayout()
   refresh()
@@ -922,6 +974,11 @@ noctalia.state.watch("ha.command", function(command)
     toggleEntity(command.entity_id)
   elseif command.action == "cover" then
     coverCommand(command.entity_id, command.command)
+  elseif command.action == "set_cover_position" then
+    local position = tonumber(command.value)
+    if position ~= nil then
+      callService("cover", "set_cover_position", command.entity_id, { position = math.max(0, math.min(100, math.floor(position + 0.5))) })
+    end
   elseif command.action == "set_brightness" then
     setBrightness(command.entity_id, command.value)
   elseif command.action == "set_color" then
@@ -932,6 +989,8 @@ noctalia.state.watch("ha.command", function(command)
     setFanOscillation(command.entity_id, command.value)
   elseif command.action == "media" then
     mediaCommand(command.entity_id, command.command, command.value)
+  elseif command.action == "bar_service" then
+    barService(command.entity_id, command.service)
   elseif command.action == "remote" then
     remoteCommand(command.entity_id, command.command)
   elseif command.action == "add" then
