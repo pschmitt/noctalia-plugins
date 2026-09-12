@@ -1,6 +1,6 @@
 id = "pschmitt/ha"
 name = "Home Assistant"
-version = "0.13.41"
+version = "0.13.42"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"

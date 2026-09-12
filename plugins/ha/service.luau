@@ -267,7 +267,8 @@ local function quoteJinja(value)
 end
 
 -- brightness (light, 0-255), percentage (fan, 0-100), oscillating (fan),
--- current_position (cover, 0-100), icon, supported features, media-player metadata and last_changed
+-- current_position (cover, 0-100), icon, supported features, media-player metadata,
+-- color capabilities and last_changed
 -- (for duration-based conditions) ride along on every status query so the
 -- panel can draw sliders, transport controls and a richer subtitle without a
 -- second request per entity.
@@ -311,7 +312,11 @@ local function statusTemplate(ids)
       .. "{{ as_timestamp(states[id].last_changed) if states[id] else '' }}\t"
       .. "{{ state_attr(id,'oscillating') if state_attr(id,'oscillating') is not none else '' }}\t"
       .. "{{ state_attr(id,'supported_features') or '' }}\t"
-      .. "{{ state_attr(id,'icon') or '' }}\n{% endif %}"
+      .. "{{ state_attr(id,'icon') or '' }}\t"
+      .. "{{ (state_attr(id,'supported_color_modes') or []) | join(',') }}\t"
+      .. "{{ state_attr(id,'color_temp_kelvin') or '' }}\t"
+      .. "{{ state_attr(id,'min_color_temp_kelvin') or '' }}\t"
+      .. "{{ state_attr(id,'max_color_temp_kelvin') or '' }}\n{% endif %}"
   end
   return "{% for id in " .. list .. " %}" .. table.concat(rows) .. "{% endfor %}"
 end
@@ -343,7 +348,7 @@ end
 local function parseStatusResponse(body)
   local rows = {}
   for line in tostring(body or ""):gmatch("[^\n]+") do
-    local f = splitFields(line, 18)
+    local f = splitFields(line, 22)
     local id = f[1]
     if id and id ~= "" then
       local oscillating
@@ -369,6 +374,10 @@ local function parseStatusResponse(body)
         panel_controls = panelControls[id] or domainControls[shared.domainOf(id)],
         supported_features = f[17] ~= "" and tonumber(f[17]) or nil,
         icon = f[18] ~= "" and f[18] or nil,
+        supported_color_modes = f[19] ~= "" and f[19] or nil,
+        color_temp_kelvin = f[20] ~= "" and tonumber(f[20]) or nil,
+        min_color_temp_kelvin = f[21] ~= "" and tonumber(f[21]) or nil,
+        max_color_temp_kelvin = f[22] ~= "" and tonumber(f[22]) or nil,
       }
     end
   end
@@ -589,6 +598,12 @@ local function setLightColor(entityId, color)
     rgb[index] = math.max(0, math.min(255, math.floor(value + 0.5)))
   end
   callService("light", "turn_on", entityId, { rgb_color = rgb })
+end
+
+local function setLightColorTemperature(entityId, kelvin)
+  local value = math.floor((tonumber(kelvin) or 0) + 0.5)
+  if value <= 0 then return end
+  callService("light", "turn_on", entityId, { color_temp_kelvin = value })
 end
 
 local function setFanPercentage(entityId, percentage)
@@ -1210,6 +1225,8 @@ noctalia.state.watch("ha.command", function(command)
     setBrightness(command.entity_id, command.value)
   elseif command.action == "set_color" then
     setLightColor(command.entity_id, command.color)
+  elseif command.action == "set_color_temperature" then
+    setLightColorTemperature(command.entity_id, command.value)
   elseif command.action == "set_percentage" then
     setFanPercentage(command.entity_id, command.value)
   elseif command.action == "oscillate" then

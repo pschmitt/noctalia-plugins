@@ -217,8 +217,9 @@ end
 -- while dragging. onChange previews and re-renders on every tick; onDragEnd
 -- is the only point that actually calls Home Assistant, so a drag never
 -- floods it with a request per pixel moved.
-local function previewSlider(entity, value01to100, commit)
-  local previewed = sliderPreviews[entity.entity_id]
+local function previewSlider(entity, value01to100, commit, previewName)
+  local previewKey = entity.entity_id .. (previewName and (":" .. previewName) or "")
+  local previewed = sliderPreviews[previewKey]
   local value = previewed or value01to100 or 0
   return ui.slider({
     min = 0,
@@ -228,12 +229,12 @@ local function previewSlider(entity, value01to100, commit)
     width = 200,
     controlSize = "sm",
     onChange = function(nextValue)
-      sliderPreviews[entity.entity_id] = tonumber(nextValue) or value
+      sliderPreviews[previewKey] = tonumber(nextValue) or value
       render()
     end,
     onDragEnd = function(nextValue)
-      local target = sliderPreviews[entity.entity_id] or tonumber(nextValue) or value
-      sliderPreviews[entity.entity_id] = nil
+      local target = sliderPreviews[previewKey] or tonumber(nextValue) or value
+      sliderPreviews[previewKey] = nil
       commit(target)
     end,
   })
@@ -276,7 +277,27 @@ local function lightColorHex(entity)
 end
 
 local function lightHasColor(entity)
+  local modes = entity.supported_color_modes
+  if type(modes) == "string" and modes ~= "" then
+    for mode in modes:gmatch("[^,%s]+") do
+      if mode == "hs" or mode == "xy" or mode == "rgb" or mode == "rgbw" or mode == "rgbww" then
+        return true
+      end
+    end
+    return false
+  end
   return entity.rgb ~= nil and entity.rgb_g ~= nil and entity.rgb_b ~= nil
+end
+
+local function lightHasColorTemperature(entity)
+  local modes = entity.supported_color_modes
+  if type(modes) == "string" and modes ~= "" then
+    for mode in modes:gmatch("[^,%s]+") do
+      if mode == "color_temp" then return true end
+    end
+    return false
+  end
+  return entity.color_temp_kelvin ~= nil
 end
 
 local function openLightColor(entity)
@@ -290,6 +311,36 @@ local function openLightColor(entity)
       color = { tonumber(red, 16), tonumber(green, 16), tonumber(blue, 16) },
     })
   end)
+end
+
+local function lightColorTemperatureSlider(entity)
+  local minimum = tonumber(entity.min_color_temp_kelvin)
+  local maximum = tonumber(entity.max_color_temp_kelvin)
+  local current = tonumber(entity.color_temp_kelvin)
+  if not minimum or not maximum or not current or maximum <= minimum then return nil end
+  local pct = math.max(0, math.min(100, ((current - minimum) / (maximum - minimum)) * 100))
+  return previewSlider(entity, pct, function(target)
+    local kelvin = minimum + (target / 100) * (maximum - minimum)
+    sendCommand({ action = "set_color_temperature", entity_id = entity.entity_id, value = kelvin })
+  end, "color_temperature")
+end
+
+local function lightColorTemperatureRow(entity)
+  local slider = lightColorTemperatureSlider(entity)
+  if not slider then return nil end
+  local minimum = tonumber(entity.min_color_temp_kelvin)
+  local maximum = tonumber(entity.max_color_temp_kelvin)
+  local current = tonumber(entity.color_temp_kelvin)
+  local previewKey = entity.entity_id .. ":color_temperature"
+  local shown = sliderPreviews[previewKey]
+  local kelvin = shown and (minimum + (shown / 100) * (maximum - minimum)) or current
+  return ui.row({ align = "center", gap = 6 }, {
+    ui.row({ width = 28, align = "center" }, {
+      ui.glyph({ name = "temperature", size = 14, color = "on_surface_variant" }),
+    }),
+    slider,
+    ui.label({ text = tostring(math.floor(kelvin + 0.5)) .. " K", width = 52, fontSize = 11, color = "on_surface_variant" }),
+  })
 end
 
 local function fanSlider(entity)
@@ -438,6 +489,11 @@ local function detailsEntity()
     volume_muted = attributes.is_volume_muted == true,
     media_title = attributes.media_title,
     media_artist = attributes.media_artist,
+    supported_color_modes = type(attributes.supported_color_modes) == "table"
+      and table.concat(attributes.supported_color_modes, ",") or attributes.supported_color_modes,
+    color_temp_kelvin = attributes.color_temp_kelvin,
+    min_color_temp_kelvin = attributes.min_color_temp_kelvin,
+    max_color_temp_kelvin = attributes.max_color_temp_kelvin,
     rgb = type(rgb) == "table" and rgb[1] or nil,
     rgb_g = type(rgb) == "table" and rgb[2] or nil,
     rgb_b = type(rgb) == "table" and rgb[3] or nil,
@@ -505,11 +561,15 @@ local function detailsControls(entity)
     rows[#rows + 1] = detailToggleButtons(entity, domain)
   end
 
-  if domain == "light" and shared.isOn(entity.state) and entity.brightness ~= nil then
-    rows[#rows + 1] = ui.row({ align = "center", gap = 6 }, {
-      ui.box({ width = 28, height = 1, fill = "on_surface/0" }),
-      brightnessSlider(entity),
-    })
+  if domain == "light" then
+    if shared.isOn(entity.state) and entity.brightness ~= nil then
+      rows[#rows + 1] = ui.row({ align = "center", gap = 6 }, {
+        ui.box({ width = 28, height = 1, fill = "on_surface/0" }),
+        brightnessSlider(entity),
+      })
+    end
+    local temperature = lightHasColorTemperature(entity) and lightColorTemperatureRow(entity) or nil
+    if temperature then rows[#rows + 1] = temperature end
   elseif domain == "fan" and shared.isOn(entity.state) and entity.percentage ~= nil then
     rows[#rows + 1] = ui.row({ align = "center", gap = 6 }, {
       ui.box({ width = 28, height = 1, fill = "on_surface/0" }),
@@ -1037,11 +1097,15 @@ local function entityRow(entity)
     -- Only while on: an off light/fan carries no brightness/percentage
     -- attribute to seed the slider from (Home Assistant clears both when the
     -- entity turns off), and a slider with nothing to show is worse than none.
-    if domain == "light" and on and entity.brightness ~= nil then
-      rows[#rows + 1] = ui.row({ align = "center", gap = 6 }, {
-        ui.box({ width = 28, height = 1, fill = "on_surface/0" }),
-        brightnessSlider(entity),
-      })
+    if domain == "light" then
+      if on and entity.brightness ~= nil then
+        rows[#rows + 1] = ui.row({ align = "center", gap = 6 }, {
+          ui.box({ width = 28, height = 1, fill = "on_surface/0" }),
+          brightnessSlider(entity),
+        })
+      end
+      local temperature = lightHasColorTemperature(entity) and lightColorTemperatureRow(entity) or nil
+      if temperature then rows[#rows + 1] = temperature end
     elseif domain == "fan" and on and entity.percentage ~= nil then
       rows[#rows + 1] = ui.row({ align = "center", gap = 6 }, {
         ui.box({ width = 28, height = 1, fill = "on_surface/0" }),
