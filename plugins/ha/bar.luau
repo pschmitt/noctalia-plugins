@@ -4,6 +4,10 @@ local shared = require("./shared.luau")
 local entities = noctalia.state.get("ha.entities") or {}
 local sections = noctalia.state.get("ha.sections") or {}
 local errorMessage = noctalia.state.get("ha.error") or ""
+local animationFrame = 0
+local ANIMATION_FRAME_COUNT = 8
+local ANIMATION_FRAME_INTERVAL_MS = 90
+local IDLE_UPDATE_INTERVAL_MS = 30000
 
 local function iconSize()
   return tonumber(shared.config("bar_icon_size", 16)) or 16
@@ -15,9 +19,31 @@ end
 -- onRightClick pair -- see pschmitt/ha-ai-usage's note on the same
 -- constraint), so per-entity toggling lives in the panel, not here: clicking
 -- any part of this row opens it.
+local function animationsEnabled()
+  return shared.config("animations_enabled", true) ~= false
+end
+
+local function animationActive()
+  if not animationsEnabled() or shared.config("bar_display_mode", "entities") == "single" then return false end
+  for _, entity in ipairs(entities) do
+    local hasOverride = type(entity.icon) == "string" and entity.icon ~= ""
+    if shared.domainOf(entity.entity_id) == "fan" and not hasOverride and shared.isOn(entity.state) then return true end
+  end
+  return false
+end
+
 local function segment(entity)
   local domain = shared.domainOf(entity.entity_id)
-  return ui.glyph({ name = shared.glyphFor(domain, entity.icon), size = iconSize(), color = shared.colorFor(entity.state) })
+  local hasOverride = type(entity.icon) == "string" and entity.icon ~= ""
+  if domain == "fan" and not hasOverride and shared.isOn(entity.state) and animationActive() then
+    return ui.image({
+      path = "assets/fan-propeller-" .. tostring(animationFrame) .. ".svg",
+      width = iconSize(),
+      height = iconSize(),
+      fit = "contain",
+    })
+  end
+  return ui.glyph({ name = shared.glyphFor(domain, entity.icon, entity.state), size = iconSize(), color = shared.colorFor(entity.state) })
 end
 
 local function tooltip()
@@ -87,6 +113,7 @@ local function render()
   local gap = tonumber(shared.config("bar_spacing", 6)) or 6
   barWidget.render(ui.row({ align = "center", gap = gap }, children))
   barWidget.setTooltip(tooltip())
+  noctalia.setUpdateInterval(animationActive() and ANIMATION_FRAME_INTERVAL_MS or IDLE_UPDATE_INTERVAL_MS)
 end
 
 noctalia.state.watch("ha.entities", function(value)
@@ -105,10 +132,12 @@ noctalia.state.watch("ha.error", function(value)
 end)
 
 function update()
+  if animationActive() then animationFrame = (animationFrame + 1) % ANIMATION_FRAME_COUNT end
   render()
 end
 
 function onConfigChanged()
+  animationFrame = 0
   render()
 end
 

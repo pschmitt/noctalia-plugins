@@ -66,12 +66,14 @@ local MDI_TO_TABLER = {
   ["weather-sunny"] = "sun",
 }
 
-function M.glyphFor(domain, override)
+function M.glyphFor(domain, override, state)
   if type(override) == "string" and override ~= "" then
     local mdiName = override:match("^mdi:(.+)$")
     if mdiName then return MDI_TO_TABLER[mdiName] or mdiName end
     return override
   end
+  if domain == "light" then return M.isOn(state) and "bulb" or "bulb-off" end
+  if domain == "fan" then return M.isOn(state) and "propeller" or "propeller-off" end
   return DOMAIN_GLYPHS[domain] or "smart-home"
 end
 

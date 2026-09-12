@@ -1,6 +1,6 @@
 id = "pschmitt/ha"
 name = "Home Assistant"
-version = "0.13.4"
+version = "0.13.8"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -62,6 +62,13 @@ default = 200
 min = 50
 max = 250
 advanced = true
+
+[[setting]]
+key = "animations_enabled"
+type = "bool"
+label_key = "settings.animations_enabled.label"
+description_key = "settings.animations_enabled.description"
+default = true
 
 # ── Bar ──────────────────────────────────────────────────────────────────────
 

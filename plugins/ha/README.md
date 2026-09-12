@@ -16,14 +16,16 @@ Add `pschmitt/ha:bar` to a Noctalia bar. By default it shows one icon per config
 
 What each bar interaction does is independently configurable -- **Bar: Left/Right/Middle click** and **Bar: Scroll up/down**, each a choice of Open panel, Refresh now, Open Home Assistant or Nothing. Defaults: left click opens the panel, right click refreshes, middle click opens Home Assistant, scrolling does nothing.
 
+**Enable animations** controls visual plugin animations. It is on by default and currently rotates active fans' default propeller icons; custom entity icons remain static.
+
 The panel header shows the real Home Assistant mark, a small connection status line (a colored dot + Connecting…/Connected/Error, with a small external-link button that opens Home Assistant itself in the desktop's default browser -- **Panel: Home Assistant link path**, default `/`, picks what page), an **Edit** button and a settings button. The panel itself has two views:
 
 - **My entities** — the configured list, each entity in its own card, showing its current state and domain-appropriate controls:
   - If **Panel: Show entity search** is enabled, the main view has a search bar that matches names, entity IDs, and displayed states; **Panel: Entity search position** places it at the top or bottom (the bottom position stays visible while the entity list scrolls); matching sections expand automatically while searching.
   - **cover** gets a dedicated open/stop/close row instead of a toggle.
-  - **light** gets an on/off toggle that swaps its own glyph (bulb / bulb-off) to show state, plus a brightness slider under the row whenever it's on and Home Assistant reports a brightness (i.e. it's dimmable).
+  - **light** gets a state-aware bulb/bulb-off entity icon and an on/off toggle that swaps its own glyph to show state, plus a brightness slider under the row whenever it's on and Home Assistant reports a brightness (i.e. it's dimmable).
   - Color-capable **lights** show a **Color** button beside their on/off toggle. It opens Noctalia's native color picker and applies the selected RGB color through Home Assistant.
-  - **fan** gets a plain toggle plus an oscillation toggle whenever Home Assistant reports the `oscillating` attribute, and a speed slider under the row whenever it's on and Home Assistant reports a percentage (i.e. it supports speed control).
+  - **fan** gets a propeller/propeller-off entity icon, a plain toggle, and an oscillation toggle whenever Home Assistant reports the `oscillating` attribute; it also gets a speed slider under the row whenever it's on and Home Assistant reports a percentage (i.e. it supports speed control).
   - Every other toggleable domain (switches, scripts, automations, climate, locks, media players, and so on) gets a plain toggle button.
   - Sliders only call Home Assistant once dragging ends, not on every intermediate value, so dragging never floods it with requests.
   - The header's **Edit** button switches the whole list into edit mode at once: every card's normal controls (toggle, cover buttons, sliders) hide and a rename (pencil) and remove (trash) button take their place, so there's no risk of nudging a light while trying to rename it. **Done** switches back. Renaming only overrides what this plugin displays; it never touches the entity in Home Assistant.

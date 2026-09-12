@@ -31,6 +31,10 @@ local detailsEntityId = nil
 local CARD_STYLE = { fill = "surface_variant/0.58", radius = 12, padding = 10, gap = 2 }
 local ENTITY_DRAG_TYPE = "ha-entity"
 local SECTION_DRAG_TYPE = "ha-section"
+local animationFrame = 0
+local animationElapsedMs = 0
+local ANIMATION_FRAME_COUNT = 8
+local ANIMATION_FRAME_INTERVAL_MS = 90
 
 -- Forward-declared: referenced by action handlers defined before its real
 -- body below (they only ever run after the whole script has loaded once, so
@@ -39,6 +43,33 @@ local render
 
 local function sendCommand(command)
   noctalia.state.set("ha.command", command)
+end
+
+local function animationsEnabled()
+  return noctalia.getConfig("animations_enabled") ~= false
+end
+
+local function panelAnimationActive()
+  if not animationsEnabled() or view ~= "list" then return false end
+  for _, entity in ipairs(entities) do
+    local hasOverride = type(entity.icon) == "string" and entity.icon ~= ""
+    if shared.domainOf(entity.entity_id) == "fan" and not hasOverride and shared.isOn(entity.state) then return true end
+  end
+  return false
+end
+
+local function entityIcon(entity, size)
+  local domain = shared.domainOf(entity.entity_id)
+  local hasOverride = type(entity.icon) == "string" and entity.icon ~= ""
+  if domain == "fan" and not hasOverride and shared.isOn(entity.state) and panelAnimationActive() then
+    return ui.image({
+      path = "assets/fan-propeller-" .. tostring(animationFrame) .. ".svg",
+      width = size,
+      height = size,
+      fit = "contain",
+    })
+  end
+  return ui.glyph({ name = shared.glyphFor(domain, entity.icon, entity.state), size = size, color = shared.colorFor(entity.state) })
 end
 
 local function openDetails(entityId)
@@ -583,7 +614,7 @@ end
 
 local function renameRow(entity, domain)
   return ui.row({ align = "center", gap = 8 }, {
-    ui.glyph({ name = shared.glyphFor(domain, entity.icon), size = 20, color = shared.colorFor(entity.state) }),
+    entityIcon(entity, 20),
     ui.input({
       key = `ha-rename-{entity.entity_id}`,
       value = editingLabelDraft,
@@ -610,7 +641,7 @@ local function entityRow(entity)
 
   local on = shared.isOn(entity.state)
   local header = {
-    ui.glyph({ name = shared.glyphFor(domain, entity.icon), size = 20, color = shared.colorFor(entity.state) }),
+    entityIcon(entity, 20),
     ui.column({ gap = 0, flexGrow = 1 }, {
       ui.label({ text = entity.name or entity.entity_id, fontSize = 13, fontWeight = "semibold", maxLines = 1 }),
       ui.label({ text = shared.statusText(entity), fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
@@ -1148,6 +1179,7 @@ render = function()
   end
   children[#children + 1] = view == "list" and listView() or (view == "browse" and browseView() or detailsView())
   if view == "list" and editMode then children[#children + 1] = footer() end
+  panel.setNeedsFrameTick(panelAnimationActive())
   panel.render(ui.column({ flexGrow = 1, padding = 12, gap = 8 }, children))
 end
 
@@ -1262,7 +1294,20 @@ end
 
 function onClose()
   panelOpen = false
+  panel.setNeedsFrameTick(false)
   sendCommand({ action = "details_close" })
+end
+
+function onFrameTick(deltaMs)
+  if not panelAnimationActive() then
+    panel.setNeedsFrameTick(false)
+    return
+  end
+  animationElapsedMs += tonumber(deltaMs) or ANIMATION_FRAME_INTERVAL_MS
+  if animationElapsedMs < ANIMATION_FRAME_INTERVAL_MS then return end
+  animationElapsedMs = animationElapsedMs % ANIMATION_FRAME_INTERVAL_MS
+  animationFrame = (animationFrame + 1) % ANIMATION_FRAME_COUNT
+  render()
 end
 
 function onOpenDashboard()
