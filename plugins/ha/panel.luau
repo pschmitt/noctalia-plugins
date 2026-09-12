@@ -186,6 +186,19 @@ local function fanSlider(entity)
   end)
 end
 
+local function fanOscillationButton(entity)
+  if entity.oscillating == nil or not shared.isOn(entity.state) then return nil end
+  return ui.button({
+    glyph = "arrows-left-right",
+    variant = entity.oscillating and "primary" or "ghost",
+    controlSize = "sm",
+    tooltip = entity.oscillating and "Stop oscillation" or "Start oscillation",
+    onClick = function()
+      sendCommand({ action = "oscillate", entity_id = entity.entity_id, value = not entity.oscillating })
+    end,
+  })
+end
+
 local function mediaVolumeSlider(entity)
   local pct = entity.volume_level and math.floor(entity.volume_level * 100 + 0.5) or 0
   return previewSlider(entity, pct, function(target)
@@ -261,6 +274,7 @@ local function detailsEntity()
     remote = entityRemotes[details.entity_id or detailsEntityId],
     brightness = attributes.brightness,
     percentage = attributes.percentage,
+    oscillating = attributes.oscillating,
     position = attributes.current_position,
     volume_level = attributes.volume_level,
     volume_muted = attributes.is_volume_muted == true,
@@ -285,6 +299,10 @@ local function detailToggleButtons(entity, domain)
   end
   local on = shared.isOn(entity.state)
   local toggleGlyph = domain == "light" and (on and "bulb" or "bulb-off") or "power"
+  if domain == "fan" then
+    local oscillationButton = fanOscillationButton(entity)
+    if oscillationButton then buttons[#buttons + 1] = oscillationButton end
+  end
   buttons[#buttons + 1] = ui.button({
     glyph = toggleGlyph,
     variant = "ghost",
@@ -667,6 +685,10 @@ local function entityRow(entity)
         onClick = function() openLightColor(entity) end,
       })
     end
+    if domain == "fan" then
+      local oscillationButton = fanOscillationButton(entity)
+      if oscillationButton then header[#header + 1] = oscillationButton end
+    end
     header[#header + 1] = ui.button({
       glyph = toggleGlyph,
       variant = "ghost",
@@ -713,14 +735,17 @@ local function listView()
   local content = {}
   local searchActive = shared.trim(listSearchText) ~= ""
   local needle = shared.trim(listSearchText):lower()
-  if noctalia.getConfig("panel_show_search") == true then
-    content[#content + 1] = ui.input({
+  local showSearch = noctalia.getConfig("panel_show_search") == true
+  local searchAtBottom = noctalia.getConfig("panel_search_position") ~= "top"
+  local function entitySearch()
+    return ui.input({
       key = "ha_entity_search",
       placeholder = "Search entities…",
       value = listSearchText,
       onChange = "onEntitySearchChange",
     })
   end
+  if showSearch and not searchAtBottom then content[#content + 1] = entitySearch() end
   if #entities == 0 and #configuredEntities == 0 and #sections == 0 then
     content[#content + 1] = ui.label({
       text = "No entities configured yet. Tap + Add to browse Home Assistant and pick some.",
@@ -806,8 +831,10 @@ local function listView()
           ui.button({
             text = (collapsed and "▸ " or "▾ ") .. section.name,
             variant = "ghost",
-            controlSize = "sm",
+            height = 24,
             flexGrow = 1,
+            fontSize = 12,
+            contentAlign = "start",
             onClick = function()
               collapsedSections[key] = not collapsed
               render()
@@ -884,11 +911,15 @@ local function listView()
       sectionView(section, index)
     end
     if editMode then content[#content + 1] = sectionDropZone(#sections + 1) end
-    if searchActive and #ungrouped == 0 and #content == (noctalia.getConfig("panel_show_search") == true and 1 or 0) then
+    if searchActive and #ungrouped == 0 and #content == (showSearch and not searchAtBottom and 1 or 0) then
       content[#content + 1] = ui.label({ text = "No matching entities.", color = "on_surface_variant", fontSize = 12 })
     end
   end
-  return ui.scroll({ flexGrow = 1, gap = 8 }, content)
+  local entityList = ui.scroll({ flexGrow = 1, gap = 8 }, content)
+  if showSearch and searchAtBottom then
+    return ui.column({ flexGrow = 1, gap = 8 }, { entityList, entitySearch() })
+  end
+  return entityList
 end
 
 -- ── Browse view ──────────────────────────────────────────────────────────────
@@ -1045,10 +1076,16 @@ local function header()
     })
     -- No close button: dismiss_on_outside_click (plugin.toml) already closes
     -- the panel, and this repo's other panels don't duplicate that with an X.
-    local right = { ui.button({ glyph = "settings", variant = "ghost", tooltip = "Plugin settings", onClick = "onSettings" }) }
-    if noctalia.getConfig("panel_show_refresh_button") ~= false then
-      table.insert(right, 1, ui.button({ glyph = "refresh", variant = "ghost", tooltip = "Refresh", onClick = "onRefresh" }))
+    local right = {}
+    if editMode or not editButtonHidden() then
+      right[#right + 1] = ui.button({
+        glyph = editMode and "check" or "pencil",
+        variant = editMode and "primary" or "ghost",
+        tooltip = editMode and "Done editing" or "Rename or remove entities",
+        onClick = "onToggleEditMode",
+      })
     end
+    right[#right + 1] = ui.button({ glyph = "settings", variant = "ghost", tooltip = "Plugin settings", onClick = "onSettings" })
     return ui.row({ align = "center", justify = "space_between" }, {
       left,
       ui.row({ align = "center", gap = 2 }, right),
@@ -1067,7 +1104,8 @@ local function header()
   })
 end
 
--- Just Add/Edit down here -- Refresh and Settings moved up to the header.
+-- Add controls stay in the footer while editing; the Edit/Done action lives in
+-- the panel header alongside settings.
 local function footer()
   local children = {}
   if addingSection then
@@ -1091,16 +1129,6 @@ local function footer()
     })
   end
   local buttons = {}
-  if editMode or not editButtonHidden() then
-    buttons[#buttons + 1] = ui.button({
-      text = editMode and "Done" or "Edit",
-      glyph = editMode and "check" or "pencil",
-      variant = editMode and "primary" or "ghost",
-      controlSize = "sm",
-      tooltip = editMode and "Done editing" or "Rename or remove entities",
-      onClick = "onToggleEditMode",
-    })
-  end
   if editMode then
     buttons[#buttons + 1] = ui.button({ text = "Section", glyph = "layout-list", variant = "ghost", controlSize = "sm", tooltip = "Add section", onClick = startAddSection })
     buttons[#buttons + 1] = ui.button({ text = "Add", glyph = "plus", variant = "ghost", controlSize = "sm", tooltip = "Add entity", onClick = "onOpenBrowser" })
@@ -1119,7 +1147,7 @@ render = function()
     })
   end
   children[#children + 1] = view == "list" and listView() or (view == "browse" and browseView() or detailsView())
-  if view == "list" and (editMode or not editButtonHidden()) then children[#children + 1] = footer() end
+  if view == "list" and editMode then children[#children + 1] = footer() end
   panel.render(ui.column({ flexGrow = 1, padding = 12, gap = 8 }, children))
 end
 
@@ -1235,10 +1263,6 @@ end
 function onClose()
   panelOpen = false
   sendCommand({ action = "details_close" })
-end
-
-function onRefresh()
-  sendCommand({ action = "refresh" })
 end
 
 function onOpenDashboard()

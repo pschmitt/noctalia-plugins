@@ -239,11 +239,11 @@ local function quoteJinja(value)
   return "'" .. tostring(value):gsub("\\", "\\\\"):gsub("'", "\\'") .. "'"
 end
 
--- brightness (light, 0-255), percentage (fan, 0-100), current_position
--- (cover, 0-100), media-player metadata and last_changed (for duration-based
--- conditions) ride along on every status query so the panel can draw sliders,
--- transport controls and a richer subtitle without a second request per
--- entity.
+-- brightness (light, 0-255), percentage (fan, 0-100), oscillating (fan),
+-- current_position (cover, 0-100), media-player metadata and last_changed
+-- (for duration-based conditions) ride along on every status query so the
+-- panel can draw sliders, transport controls and a richer subtitle without a
+-- second request per entity.
 -- brightness/percentage are only ever present on an entity that is
 -- currently on and does support them, which is exactly the condition
 -- panel.luau's brightnessSlider()/fanSlider() gate on; current_position is
@@ -281,7 +281,8 @@ local function statusTemplate(ids)
       .. "{{ state_attr(id,'rgb_color')[0] if state_attr(id,'rgb_color') else '' }}\t"
       .. "{{ state_attr(id,'rgb_color')[1] if state_attr(id,'rgb_color') else '' }}\t"
       .. "{{ state_attr(id,'rgb_color')[2] if state_attr(id,'rgb_color') else '' }}\t"
-      .. "{{ as_timestamp(states[id].last_changed) if states[id] else '' }}\n{% endif %}"
+      .. "{{ as_timestamp(states[id].last_changed) if states[id] else '' }}\t"
+      .. "{{ state_attr(id,'oscillating') if state_attr(id,'oscillating') is not none else '' }}\n{% endif %}"
   end
   return "{% for id in " .. list .. " %}" .. table.concat(rows) .. "{% endfor %}"
 end
@@ -313,9 +314,11 @@ end
 local function parseStatusResponse(body)
   local rows = {}
   for line in tostring(body or ""):gmatch("[^\n]+") do
-    local f = splitFields(line, 15)
+    local f = splitFields(line, 16)
     local id = f[1]
     if id and id ~= "" then
+      local oscillating
+      if f[16] ~= "" then oscillating = f[16]:lower() == "true" end
       rows[#rows + 1] = {
         entity_id = id,
         state = f[2],
@@ -333,6 +336,7 @@ local function parseStatusResponse(body)
         rgb_g = f[13] ~= "" and tonumber(f[13]) or nil,
         rgb_b = f[14] ~= "" and tonumber(f[14]) or nil,
         last_changed = f[15] ~= "" and tonumber(f[15]) or nil,
+        oscillating = oscillating,
       }
     end
   end
@@ -514,6 +518,11 @@ end
 local function setFanPercentage(entityId, percentage)
   local value = math.floor((tonumber(percentage) or 0) + 0.5)
   callService("fan", "set_percentage", entityId, { percentage = math.max(0, math.min(100, value)) })
+end
+
+local function setFanOscillation(entityId, oscillating)
+  if type(oscillating) ~= "boolean" then return end
+  callService("fan", "oscillate", entityId, { oscillating = oscillating })
 end
 
 local MEDIA_SERVICES = {
@@ -919,6 +928,8 @@ noctalia.state.watch("ha.command", function(command)
     setLightColor(command.entity_id, command.color)
   elseif command.action == "set_percentage" then
     setFanPercentage(command.entity_id, command.value)
+  elseif command.action == "oscillate" then
+    setFanOscillation(command.entity_id, command.value)
   elseif command.action == "media" then
     mediaCommand(command.entity_id, command.command, command.value)
   elseif command.action == "remote" then

@@ -1,6 +1,6 @@
 id = "pschmitt/ha"
 name = "Home Assistant"
-version = "0.11.0"
+version = "0.13.4"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -154,13 +154,6 @@ options = [
 # ── Panel ────────────────────────────────────────────────────────────────────
 
 [[setting]]
-key = "panel_show_refresh_button"
-type = "bool"
-label_key = "settings.panel_show_refresh_button.label"
-description_key = "settings.panel_show_refresh_button.description"
-default = true
-
-[[setting]]
 key = "panel_dashboard_path"
 type = "string"
 label_key = "settings.panel_dashboard_path.label"
@@ -180,6 +173,17 @@ type = "bool"
 label_key = "settings.panel_show_search.label"
 description_key = "settings.panel_show_search.description"
 default = false
+
+[[setting]]
+key = "panel_search_position"
+type = "select"
+label_key = "settings.panel_search_position.label"
+description_key = "settings.panel_search_position.description"
+default = "bottom"
+options = [
+  { value = "top", label_key = "settings.panel_search_position.top" },
+  { value = "bottom", label_key = "settings.panel_search_position.bottom" },
+]
 
 [[service]]
 id = "poller"
