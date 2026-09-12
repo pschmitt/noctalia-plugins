@@ -1,6 +1,6 @@
 id = "pschmitt/ha"
 name = "Home Assistant"
-version = "0.13.24"
+version = "0.13.39"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -40,6 +40,14 @@ description_key = "settings.refresh_interval.description"
 default = 30
 min = 5
 max = 300
+
+[[setting]]
+key = "activity_user_names"
+type = "string_map"
+label_key = "settings.activity_user_names.label"
+description_key = "settings.activity_user_names.description"
+default = {}
+advanced = true
 
 # The picker's page size for browsing HA's full entity list. This is the knob
 # that keeps this plugin working at all on a large instance: pozzoo/hassio (the

@@ -267,7 +267,7 @@ local function quoteJinja(value)
 end
 
 -- brightness (light, 0-255), percentage (fan, 0-100), oscillating (fan),
--- current_position (cover, 0-100), supported features, media-player metadata and last_changed
+-- current_position (cover, 0-100), icon, supported features, media-player metadata and last_changed
 -- (for duration-based conditions) ride along on every status query so the
 -- panel can draw sliders, transport controls and a richer subtitle without a
 -- second request per entity.
@@ -310,7 +310,8 @@ local function statusTemplate(ids)
       .. "{{ state_attr(id,'rgb_color')[2] if state_attr(id,'rgb_color') else '' }}\t"
       .. "{{ as_timestamp(states[id].last_changed) if states[id] else '' }}\t"
       .. "{{ state_attr(id,'oscillating') if state_attr(id,'oscillating') is not none else '' }}\t"
-      .. "{{ state_attr(id,'supported_features') or '' }}\n{% endif %}"
+      .. "{{ state_attr(id,'supported_features') or '' }}\t"
+      .. "{{ state_attr(id,'icon') or '' }}\n{% endif %}"
   end
   return "{% for id in " .. list .. " %}" .. table.concat(rows) .. "{% endfor %}"
 end
@@ -342,7 +343,7 @@ end
 local function parseStatusResponse(body)
   local rows = {}
   for line in tostring(body or ""):gmatch("[^\n]+") do
-    local f = splitFields(line, 17)
+    local f = splitFields(line, 18)
     local id = f[1]
     if id and id ~= "" then
       local oscillating
@@ -367,6 +368,7 @@ local function parseStatusResponse(body)
         oscillating = oscillating,
         panel_controls = panelControls[id] or domainControls[shared.domainOf(id)],
         supported_features = f[17] ~= "" and tonumber(f[17]) or nil,
+        icon = f[18] ~= "" and f[18] or nil,
       }
     end
   end
@@ -585,6 +587,12 @@ end
 local function setFanOscillation(entityId, oscillating)
   if type(oscillating) ~= "boolean" then return end
   callService("fan", "oscillate", entityId, { oscillating = oscillating })
+end
+
+local function setFanDirection(entityId, direction)
+  direction = tostring(direction or ""):lower()
+  if direction ~= "forward" and direction ~= "reverse" then return end
+  callService("fan", "set_direction", entityId, { direction = direction })
 end
 
 local LOCK_SERVICES = { lock = "lock", unlock = "unlock", open = "open" }
@@ -1051,6 +1059,21 @@ local function logbookStartTimestamp()
   return os.date("!%Y-%m-%dT%H:%M:%S+00:00", os.time() - 24 * 60 * 60)
 end
 
+local function activityActor(entry)
+  local userId = type(entry) == "table" and entry.context_user_id or nil
+  if type(userId) ~= "string" or userId == "" then return nil end
+  local names = noctalia.getConfig("activity_user_names")
+  if type(names) ~= "table" then return nil end
+  local name = names[userId]
+  if type(name) ~= "string" then return nil end
+  name = shared.trim(name)
+  return name ~= "" and name or nil
+end
+
+local function isIntermediateState(state)
+  return state == "locking" or state == "unlocking" or state == "opening" or state == "closing"
+end
+
 local function fetchLogbook(server, token, entityId)
   logbookRequestGeneration += 1
   local requestId = logbookRequestGeneration
@@ -1078,8 +1101,11 @@ local function fetchLogbook(server, token, entityId)
     -- unavailable), not every underlying logbook event.
     local transitions = {}
     local previousState = nil
+    local previousActor = nil
     for _, entry in ipairs(raw) do
       if type(entry) == "table" and type(entry.state) == "string" and entry.state ~= "" then
+        local actor = activityActor(entry)
+        if actor then previousActor = actor end
         if previousState == nil or entry.state ~= previousState then
           transitions[#transitions + 1] = {
             when = entry.when,
@@ -1087,9 +1113,11 @@ local function fetchLogbook(server, token, entityId)
             message = entry.message,
             domain = entry.domain,
             state = entry.state,
+            actor = actor or (isIntermediateState(previousState) and previousActor or nil),
           }
         end
         previousState = entry.state
+        if not isIntermediateState(entry.state) then previousActor = nil end
       end
     end
 
@@ -1174,6 +1202,8 @@ noctalia.state.watch("ha.command", function(command)
     setFanPercentage(command.entity_id, command.value)
   elseif command.action == "oscillate" then
     setFanOscillation(command.entity_id, command.value)
+  elseif command.action == "direction" then
+    setFanDirection(command.entity_id, command.value)
   elseif command.action == "lock" then
     lockCommand(command.entity_id, command.command)
   elseif command.action == "media" then

@@ -45,7 +45,7 @@ local function segment(entity)
       fit = "contain",
     })
   end
-  return ui.glyph({ name = shared.glyphFor(domain, entity.icon, entity.state), size = iconSize(), color = shared.colorFor(entity.state) })
+  return ui.glyph({ name = shared.glyphFor(domain, entity.icon, entity.state), size = iconSize(), color = shared.iconColor(entity) })
 end
 
 local function tooltip()

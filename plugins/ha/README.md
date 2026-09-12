@@ -112,7 +112,7 @@ customization:
   lock:
     panel_controls:
       - service: lock.open
-        glyph: door-open
+        glyph: door-enter
         tooltip: Open door
       - service: lock.lock
         glyph: lock
@@ -121,7 +121,7 @@ entities:
   - entity_id: lock.front_door
     panel_controls:
       - service: lock.open
-        glyph: door-open
+        glyph: door-enter
         tooltip: Open door
 ```
 

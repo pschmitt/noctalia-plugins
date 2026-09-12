@@ -76,7 +76,7 @@ local function entityIcon(entity, size)
       fit = "contain",
     })
   end
-  return ui.glyph({ name = shared.glyphFor(domain, entity.icon, entity.state), size = size, color = shared.colorFor(entity.state) })
+  return ui.glyph({ name = shared.glyphFor(domain, entity.icon, entity.state), size = size, color = shared.iconColor(entity) })
 end
 
 local function openDetails(entityId)
@@ -172,7 +172,7 @@ local function defaultControlGlyph(serviceName)
   local domain, service = controlServiceParts(serviceName)
   if domain == "lock" and service == "lock" then return "lock" end
   if domain == "lock" and service == "unlock" then return "lock-open" end
-  if domain == "lock" and service == "open" then return "door-open" end
+  if domain == "lock" and service == "open" then return "door-enter" end
   if domain == "cover" and service == "open_cover" then return "arrow-up" end
   if domain == "cover" and service == "close_cover" then return "arrow-down" end
   if domain == "cover" and service == "stop_cover" then return "player-stop" end
@@ -307,6 +307,22 @@ local function fanOscillationButton(entity)
   })
 end
 
+local function fanDirectionButton(entity)
+  if not shared.fanSupportsDirection(entity) then return nil end
+  local direction = tostring(entity.direction or "forward"):lower()
+  if direction ~= "reverse" then direction = "forward" end
+  local nextDirection = direction == "forward" and "reverse" or "forward"
+  return ui.button({
+    glyph = "rotate-clockwise-2",
+    variant = "ghost",
+    controlSize = "sm",
+    tooltip = "Switch to " .. nextDirection .. " direction",
+    onClick = function()
+      sendCommand({ action = "direction", entity_id = entity.entity_id, value = nextDirection })
+    end,
+  })
+end
+
 local function lockButtons(entity, includeOpen)
   local locked = tostring(entity.state or ""):lower() == "locked"
   local buttons = {
@@ -322,7 +338,7 @@ local function lockButtons(entity, includeOpen)
   }
   if includeOpen and shared.lockSupportsOpen(entity) then
     buttons[#buttons + 1] = ui.button({
-      glyph = "door-open",
+      glyph = "door-enter",
       variant = "ghost",
       controlSize = "sm",
       tooltip = "Open door",
@@ -408,6 +424,7 @@ local function detailsEntity()
     brightness = attributes.brightness,
     percentage = attributes.percentage,
     oscillating = attributes.oscillating,
+    direction = attributes.direction,
     supported_features = attributes.supported_features,
     panel_controls = panelControls[details.entity_id or detailsEntityId]
       or domainControls[shared.domainOf(details.entity_id or detailsEntityId)],
@@ -440,6 +457,8 @@ local function detailToggleButtons(entity, domain)
   -- "turn on" while the crossed-out bulb means "turn off".
   local toggleGlyph = domain == "light" and (on and "bulb-off" or "bulb") or "power"
   if domain == "fan" then
+    local directionButton = fanDirectionButton(entity)
+    if directionButton then buttons[#buttons + 1] = directionButton end
     local oscillationButton = fanOscillationButton(entity)
     if oscillationButton then buttons[#buttons + 1] = oscillationButton end
   end
@@ -673,11 +692,12 @@ local function detailValue(value)
   return text
 end
 
-local function detailRow(label, value)
-  return ui.row({ align = "start", gap = 10, paddingV = 4 }, {
-    ui.label({ text = label, width = 125, fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
-    ui.label({ text = detailValue(value), flexGrow = 1, fontSize = 12, maxLines = 4 }),
-  })
+local function detailRow(label, value, indented)
+  local children = {}
+  if indented then children[#children + 1] = ui.box({ width = 10, height = 1, fill = "on_surface/0" }) end
+  children[#children + 1] = ui.label({ text = label, width = 125, fontSize = 11, color = "on_surface_variant", maxLines = 1 })
+  children[#children + 1] = ui.label({ text = detailValue(value), flexGrow = 1, fontSize = 12, maxLines = 4 })
+  return ui.row({ align = "start", gap = 10, paddingV = 4 }, children)
 end
 
 local function cameraPreview(entity)
@@ -733,10 +753,7 @@ local function logbookDayLabel(date)
 end
 
 local function logbookStateColor(entry)
-  if type(entry.state) == "string" and entry.state ~= "" then return shared.colorFor(entry.state) end
-  local message = tostring(entry.message or ""):lower()
-  if message:find(" off", 1, true) or message:match("^off") then return "on_surface_variant" end
-  return "primary"
+  return shared.activityColorFor(entry.state, entry.message)
 end
 
 local function logbookMessage(entry)
@@ -747,23 +764,28 @@ end
 local function activityEntry(entity, entry, isLast)
   local date, time = logbookTime(entry.when)
   local domain = type(entry.domain) == "string" and entry.domain or shared.domainOf(entity.entity_id)
+  local activityColor = logbookStateColor(entry)
   local rail = {
-    ui.box({ width = 8, height = 8, radius = 4, fill = logbookStateColor(entry) }),
+    ui.row({ width = 14, height = 18, align = "center", justify = "center" }, {
+      ui.glyph({ name = shared.glyphFor(domain, entity.icon, entry.state), size = 14, color = activityColor }),
+    }),
   }
   if not isLast then
-    rail[#rail + 1] = ui.box({ width = 2, flexGrow = 1, fill = "outline/0.55" })
+    rail[#rail + 1] = ui.box({ width = 2, height = 10, flexGrow = 1, fill = "outline/0.55" })
+  end
+  local activityText = {
+    ui.label({ text = tostring(logbookMessage(entry)), fontSize = 12, maxLines = 8 }),
+  }
+  if entry.actor then
+    activityText[#activityText + 1] = ui.label({ text = tostring(entry.actor), fontSize = 11, color = "on_surface_variant", maxLines = 3 })
   end
   return {
     date = date,
     row = ui.row({ align = "stretch", gap = 8 }, {
-      ui.column({ width = 14, align = "center", gap = 4 }, rail),
+      ui.column({ width = 14, align = "center", gap = 4, paddingV = 3 }, rail),
       ui.column({ flexGrow = 1, gap = 1, paddingV = 3 }, {
         ui.row({ align = "start", gap = 8 }, {
-          ui.glyph({ name = shared.glyphFor(domain, nil, entry.state), size = 14, color = logbookStateColor(entry) }),
-          ui.column({ flexGrow = 1, gap = 1 }, {
-            ui.label({ text = tostring(logbookMessage(entry)), fontSize = 12, maxLines = 8 }),
-            ui.label({ text = tostring(entry.name or entity.name or entity.entity_id), fontSize = 11, color = "on_surface_variant", maxLines = 3 }),
-          }),
+          ui.column({ flexGrow = 1, gap = 1 }, activityText),
           ui.label({ text = time, width = 40, fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
         }),
       }),
@@ -860,7 +882,7 @@ local function detailsView()
     local attributeRows = {}
     for index, key in ipairs(keys) do
       if index > 80 then break end
-      attributeRows[#attributeRows + 1] = detailRow(key, attributes[key])
+      attributeRows[#attributeRows + 1] = detailRow(key, attributes[key], true)
     end
     detailsCard[#detailsCard + 1] = ui.label({ text = "Attributes", fontSize = 12, fontWeight = "semibold", color = "on_surface_variant" })
     detailsCard[#detailsCard + 1] = ui.column({ gap = 0 }, attributeRows)
@@ -1133,7 +1155,7 @@ local function listView()
         local activeIcons = {}
         local activeCount = 0
         for _, id in ipairs(section.entities or {}) do
-          if sectionShown[id] and shared.isOn(rowFor(id).state) then
+          if sectionShown[id] and shared.domainOf(id) ~= "cover" and shared.isOn(rowFor(id).state) then
             activeCount += 1
             if #activeIcons < 8 then activeIcons[#activeIcons + 1] = entityIcon(rowFor(id), 14) end
           end

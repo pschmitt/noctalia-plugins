@@ -68,8 +68,10 @@ local MDI_TO_TABLER = {
 
 function M.glyphFor(domain, override, state)
   if type(override) == "string" and override ~= "" then
+    local tablerName = override:match("^tabler:(.+)$")
+    if tablerName and tablerName ~= "" then return tablerName end
     local mdiName = override:match("^mdi:(.+)$")
-    if mdiName then return MDI_TO_TABLER[mdiName] or mdiName end
+    if mdiName then return MDI_TO_TABLER[mdiName] or DOMAIN_GLYPHS[domain] or "smart-home" end
     -- HA integrations sometimes provide namespaced icons (for example
     -- `hue:bulb-classic-hung`). Those belong to HA's icon set, not
     -- Noctalia's glyph font. Fall back to the domain glyph so an
@@ -106,6 +108,57 @@ function M.colorFor(state)
   return "on_surface_variant"
 end
 
+local ACTIVITY_TRANSITION_STATES = {
+  opening = true, closing = true, locking = true, unlocking = true,
+  turning_on = true, turning_off = true, moving = true, pending = true,
+}
+
+-- Activity icons get a little more context than the normal entity color:
+-- transitions use the theme's secondary color, failures/unavailability use
+-- error, active/positive states use primary, and settled inactive states stay
+-- muted. This keeps a timeline readable without assigning colors per domain.
+function M.activityColorFor(state, message)
+  local stateText = tostring(state or ""):lower()
+  local messageText = tostring(message or ""):lower()
+  local text = stateText ~= "" and stateText or messageText
+  if text:find("unavailable", 1, true)
+    or text:find("unknown", 1, true)
+    or text:find("error", 1, true)
+    or text:find("failed", 1, true)
+    or text:find("fault", 1, true)
+  then
+    return "error"
+  end
+  if ACTIVITY_TRANSITION_STATES[stateText]
+    or messageText:find("opening", 1, true)
+    or messageText:find("closing", 1, true)
+    or messageText:find("locking", 1, true)
+    or messageText:find("unlocking", 1, true)
+  then
+    return "secondary"
+  end
+  if M.isOn(stateText) then return "primary" end
+  return "on_surface_variant"
+end
+
+-- Use Home Assistant's current RGB color for active lights when available.
+-- White-only lights and entities without an RGB attribute retain the normal
+-- state color, as do off and unavailable lights.
+function M.iconColor(entity)
+  if M.domainOf(entity.entity_id) == "light" and M.isOn(entity.state) then
+    local red = tonumber(entity.rgb)
+    local green = tonumber(entity.rgb_g)
+    local blue = tonumber(entity.rgb_b)
+    if red ~= nil and green ~= nil and blue ~= nil then
+      red = math.max(0, math.min(255, math.floor(red + 0.5)))
+      green = math.max(0, math.min(255, math.floor(green + 0.5)))
+      blue = math.max(0, math.min(255, math.floor(blue + 0.5)))
+      return string.format("#%02x%02x%02x", red, green, blue)
+    end
+  end
+  return M.colorFor(entity.state)
+end
+
 -- Domains a plain [[homeassistant.toggle]] service call meaningfully flips.
 -- Anything else (sensor, binary_sensor, person, device_tracker, camera, ...)
 -- is read-only here on purpose -- this plugin is a status/quick-toggle strip,
@@ -127,6 +180,15 @@ end
 function M.lockSupportsOpen(entity)
   local features = tonumber(entity and entity.supported_features)
   return features ~= nil and math.floor(features) % 2 == 1
+end
+
+-- Home Assistant's FanEntityFeature.DIRECTION is bit 2 (value 4) in the
+-- supported_features mask. Keep the control hidden for fans that cannot
+-- accept fan.set_direction rather than relying on the presence of an
+-- integration-specific direction attribute.
+function M.fanSupportsDirection(entity)
+  local features = tonumber(entity and entity.supported_features)
+  return features ~= nil and math.floor(features / 4) % 2 == 1
 end
 
 -- The domain filter chips the browser panel offers, in display order. Kept as
