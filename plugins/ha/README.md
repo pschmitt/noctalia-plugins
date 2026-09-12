@@ -26,7 +26,7 @@ The panel header shows the real Home Assistant mark, a small connection status l
   - **light** gets a state-aware bulb/bulb-off entity icon and an on/off toggle that swaps its own glyph to show state, plus a brightness slider under the row whenever it's on and Home Assistant reports a brightness (i.e. it's dimmable).
   - Color-capable **lights** show a **Color** button beside their on/off toggle. It opens Noctalia's native color picker and applies the selected RGB color through Home Assistant.
   - **fan** gets a propeller/propeller-off entity icon, a plain toggle, and an oscillation toggle whenever Home Assistant reports the `oscillating` attribute; it also gets a speed slider under the row whenever it's on and Home Assistant reports a percentage (i.e. it supports speed control).
-  - Every other toggleable domain (switches, scripts, automations, climate, locks, media players, and so on) gets a plain toggle button.
+  - **lock** gets separate Lock and Unlock buttons in the entity list. The details view adds an **Open door** button only when Home Assistant reports the lock's optional unlatch capability.
   - Sliders only call Home Assistant once dragging ends, not on every intermediate value, so dragging never floods it with requests.
   - The header's **Edit** button switches the whole list into edit mode at once: every card's normal controls (toggle, cover buttons, sliders) hide and a rename (pencil) and remove (trash) button take their place, so there's no risk of nudging a light while trying to rename it. **Done** switches back. Renaming only overrides what this plugin displays; it never touches the entity in Home Assistant.
   - **Add entity** and **Section** appear in the edit footer. **Panel: Hide edit button** removes the header button and disables panel layout editing; it is off by default.
@@ -98,6 +98,36 @@ entities are shown first, followed by sections in file order. `collapsed` is
 the initial state for each panel open; clicking a section header changes it
 for the current panel session.
 
+Panel controls can be customized for an entire domain, or overridden for one
+entity. Entity-level `panel_controls` always wins over the matching
+`customization.<domain>.panel_controls`, including an empty list to hide the
+primary controls. Each control may be a literal `domain.service` string or a
+mapping with a service, glyph, tooltip, and optional JSON service data:
+
+```yaml
+customization:
+  lock:
+    panel_controls:
+      - service: lock.open
+        glyph: door-open
+        tooltip: Open door
+      - service: lock.lock
+        glyph: lock
+        tooltip: Lock
+entities:
+  - entity_id: lock.front_door
+    panel_controls:
+      - service: lock.open
+        glyph: door-open
+        tooltip: Open door
+```
+
+This is not limited to locks: any configured Home Assistant service can be
+used, and the same override applies in the list and details views. Built-in
+domain controls remain the fallback when no customization is configured;
+capability checks apply to those defaults (for example, the default Open door
+button is shown only for locks that advertise the unlatch feature).
+
 In edit mode, drag an entity by its grip to reorder it or move it between a
 section and the section-less list; the up/down and move buttons remain as a
 keyboard-friendly fallback. Drag section headers to reorder categories, or
@@ -139,6 +169,6 @@ migrated as part of the rename.
 
 `server_file` and `token_file` point to files containing the Home Assistant URL and a long-lived access token, read only at request time — the same sops-nix runtime secret pattern `pschmitt/ha-ai-usage` uses, and in practice the same secret files.
 
-The plain toggle button calls Home Assistant's generic `homeassistant.toggle` service, which covers every domain the panel offers one for. Covers, light brightness/color, fan speed/oscillation call their own domain-specific services (`cover.open_cover`/`close_cover`/`stop_cover`, `light.turn_on` with `brightness`/`rgb_color`, `fan.set_percentage`/`oscillate`) instead.
+The plain toggle button calls Home Assistant's generic `homeassistant.toggle` service, which covers every domain the panel offers one for. Covers, locks, light brightness/color, fan speed/oscillation call their own domain-specific services (`cover.open_cover`/`close_cover`/`stop_cover`, `lock.lock`/`unlock`/`open`, `light.turn_on` with `brightness`/`rgb_color`, `fan.set_percentage`/`oscillate`) instead. The lock's Open door button is gated by Home Assistant's `supported_features` capability mask, so locks without unlatching support never expose or call that action.
 
 `assets/home-assistant-icon.png` is Home Assistant's own icon mark, from the project's [home-assistant/brands](https://github.com/home-assistant/brands) repo (`core_integrations/_homeassistant/icon@2x.png`) -- the same repo every third-party Home Assistant integration and companion app sources its branding from.

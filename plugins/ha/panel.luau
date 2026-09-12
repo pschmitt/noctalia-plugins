@@ -8,6 +8,8 @@ local view = "list" -- "list" | "browse" | "details"
 local configuredEntities = noctalia.state.get("ha.configured") or {}
 local sections = noctalia.state.get("ha.sections") or {}
 local entityRemotes = noctalia.state.get("ha.entity_remotes") or {}
+local panelControls = noctalia.state.get("ha.panel_controls") or {}
+local domainControls = noctalia.state.get("ha.domain_controls") or {}
 local favoritePositions = noctalia.state.get("ha.favorite_positions") or {}
 local entities = noctalia.state.get("ha.entities") or {}
 local hidden = noctalia.state.get("ha.hidden") or {}
@@ -154,6 +156,50 @@ local function coverButtons(entity)
   })
 end
 
+local function controlServiceParts(serviceName)
+  return type(serviceName) == "string" and serviceName:match("^([%w_]+)%.([%w_]+)$")
+end
+
+local function defaultControlGlyph(serviceName)
+  local domain, service = controlServiceParts(serviceName)
+  if domain == "lock" and service == "lock" then return "lock" end
+  if domain == "lock" and service == "unlock" then return "lock-open" end
+  if domain == "lock" and service == "open" then return "door-open" end
+  if domain == "cover" and service == "open_cover" then return "arrow-up" end
+  if domain == "cover" and service == "close_cover" then return "arrow-down" end
+  if domain == "cover" and service == "stop_cover" then return "player-stop" end
+  if service == "toggle" then return "power" end
+  return "settings"
+end
+
+local function defaultControlTooltip(serviceName)
+  local _, service = controlServiceParts(serviceName)
+  return service and (service:gsub("_", " ")) or serviceName
+end
+
+local function customPanelControls(entity)
+  if entity.panel_controls == nil then return nil end
+  local buttons = {}
+  for _, control in ipairs(entity.panel_controls) do
+    local serviceName = type(control) == "string" and control or control.service
+    if type(serviceName) == "string" and serviceName ~= "" then
+      local glyph = type(control) == "table" and control.glyph or nil
+      local tooltip = type(control) == "table" and control.tooltip or nil
+      local data = type(control) == "table" and control.data or nil
+      buttons[#buttons + 1] = ui.button({
+        glyph = glyph or defaultControlGlyph(serviceName),
+        variant = "ghost",
+        controlSize = "sm",
+        tooltip = tooltip or defaultControlTooltip(serviceName),
+        onClick = function()
+          sendCommand({ action = "panel_service", entity_id = entity.entity_id, service = serviceName, data = data })
+        end,
+      })
+    end
+  end
+  return #buttons > 0 and ui.row({ gap = 2 }, buttons) or nil
+end
+
 -- Shared by brightnessSlider/fanSlider: `value01to100` is what's currently
 -- known (from the last refresh, converted to 0-100), overridden by a preview
 -- while dragging. onChange previews and re-renders on every tick; onDragEnd
@@ -253,6 +299,35 @@ local function fanOscillationButton(entity)
   })
 end
 
+local function lockButtons(entity, includeOpen)
+  local buttons = {
+    ui.button({
+      glyph = "lock-open",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = "Unlock",
+      onClick = function() sendCommand({ action = "lock", entity_id = entity.entity_id, command = "unlock" }) end,
+    }),
+    ui.button({
+      glyph = "lock",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = "Lock",
+      onClick = function() sendCommand({ action = "lock", entity_id = entity.entity_id, command = "lock" }) end,
+    }),
+  }
+  if includeOpen and shared.lockSupportsOpen(entity) then
+    buttons[#buttons + 1] = ui.button({
+      glyph = "door-open",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = "Open door",
+      onClick = function() sendCommand({ action = "lock", entity_id = entity.entity_id, command = "open" }) end,
+    })
+  end
+  return ui.row({ gap = 2 }, buttons)
+end
+
 local function mediaVolumeSlider(entity)
   local pct = entity.volume_level and math.floor(entity.volume_level * 100 + 0.5) or 0
   return previewSlider(entity, pct, function(target)
@@ -329,6 +404,9 @@ local function detailsEntity()
     brightness = attributes.brightness,
     percentage = attributes.percentage,
     oscillating = attributes.oscillating,
+    supported_features = attributes.supported_features,
+    panel_controls = panelControls[details.entity_id or detailsEntityId]
+      or domainControls[shared.domainOf(details.entity_id or detailsEntityId)],
     position = attributes.current_position,
     favorite_positions = favoritePositions[details.entity_id or detailsEntityId],
     volume_level = attributes.volume_level,
@@ -374,7 +452,10 @@ local function detailsControls(entity)
   local domain = shared.domainOf(entity.entity_id)
   local rows = {}
 
-  if domain == "cover" then
+  if entity.panel_controls ~= nil then
+    local custom = customPanelControls(entity)
+    if custom then rows[#rows + 1] = custom end
+  elseif domain == "cover" then
     rows[#rows + 1] = coverButtons(entity)
     if entity.position ~= nil then
       local shownPosition = sliderPreviews[entity.entity_id] or entity.position
@@ -390,6 +471,8 @@ local function detailsControls(entity)
     rows[#rows + 1] = mediaButtons(entity)
     local remote = remoteControls(entity)
     if remote then rows[#rows + 1] = remote end
+  elseif domain == "lock" then
+    rows[#rows + 1] = lockButtons(entity, true)
   elseif shared.isToggleable(domain) then
     rows[#rows + 1] = detailToggleButtons(entity, domain)
   end
@@ -734,10 +817,15 @@ local function entityRow(entity)
       tooltip = "Remove from bar",
       onClick = function() sendCommand({ action = "remove", entity_id = entity.entity_id }) end,
     })
+  elseif entity.panel_controls ~= nil then
+    local custom = customPanelControls(entity)
+    if custom then header[#header + 1] = custom end
   elseif domain == "cover" then
     header[#header + 1] = coverButtons(entity)
   elseif domain == "media_player" then
     header[#header + 1] = mediaButtons(entity)
+  elseif domain == "lock" then
+    header[#header + 1] = lockButtons(entity, false)
   elseif shared.isToggleable(domain) then
     -- The action glyph describes what the button will do, while the entity
     -- icon above carries the current light state.
@@ -1235,6 +1323,16 @@ end)
 
 noctalia.state.watch("ha.entity_remotes", function(value)
   entityRemotes = type(value) == "table" and value or {}
+  render()
+end)
+
+noctalia.state.watch("ha.panel_controls", function(value)
+  panelControls = type(value) == "table" and value or {}
+  render()
+end)
+
+noctalia.state.watch("ha.domain_controls", function(value)
+  domainControls = type(value) == "table" and value or {}
   render()
 end)
 

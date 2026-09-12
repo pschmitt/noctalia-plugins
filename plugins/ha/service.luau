@@ -55,6 +55,8 @@ local labels = {}
 local icons = {}
 local entityConditions = {}
 local entityRemotes = {}
+local panelControls = {}
+local domainControls = {}
 local stateAttributes = {}
 local stateTemplates = {}
 local favoritePositions = {}
@@ -89,7 +91,7 @@ local function statePath()
 end
 
 local function emptyLayout()
-  return { entities = {}, sections = {}, labels = {}, icons = {}, entity_remotes = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_target = nil, bar_actions = {} }
+  return { entities = {}, sections = {}, labels = {}, icons = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_target = nil, bar_actions = {} }
 end
 
 local function readLayout(path)
@@ -103,6 +105,8 @@ local function publishLayout()
   noctalia.state.set("ha.configured", configuredEntities)
   noctalia.state.set("ha.sections", sections)
   noctalia.state.set("ha.entity_remotes", entityRemotes)
+  noctalia.state.set("ha.panel_controls", panelControls)
+  noctalia.state.set("ha.domain_controls", domainControls)
   noctalia.state.set("ha.favorite_positions", favoritePositions)
   noctalia.state.set("ha.bar_target", barTargetEntity)
   noctalia.state.set("ha.bar_actions", barActions)
@@ -115,6 +119,8 @@ local function applyLayout(layout)
   icons = layout.icons or {}
   entityConditions = layout.entity_conditions or {}
   entityRemotes = layout.entity_remotes or {}
+  panelControls = layout.panel_controls or {}
+  domainControls = layout.domain_controls or {}
   stateAttributes = layout.state_attributes or {}
   stateTemplates = layout.state_templates or {}
   favoritePositions = layout.favorite_positions or {}
@@ -131,6 +137,8 @@ local function currentLayout()
     labels = labels,
     icons = icons,
     entity_remotes = entityRemotes,
+    panel_controls = panelControls,
+    domain_controls = domainControls,
     state_attributes = stateAttributes,
     state_templates = stateTemplates,
     favorite_positions = favoritePositions,
@@ -253,7 +261,7 @@ local function quoteJinja(value)
 end
 
 -- brightness (light, 0-255), percentage (fan, 0-100), oscillating (fan),
--- current_position (cover, 0-100), media-player metadata and last_changed
+-- current_position (cover, 0-100), supported features, media-player metadata and last_changed
 -- (for duration-based conditions) ride along on every status query so the
 -- panel can draw sliders, transport controls and a richer subtitle without a
 -- second request per entity.
@@ -295,7 +303,8 @@ local function statusTemplate(ids)
       .. "{{ state_attr(id,'rgb_color')[1] if state_attr(id,'rgb_color') else '' }}\t"
       .. "{{ state_attr(id,'rgb_color')[2] if state_attr(id,'rgb_color') else '' }}\t"
       .. "{{ as_timestamp(states[id].last_changed) if states[id] else '' }}\t"
-      .. "{{ state_attr(id,'oscillating') if state_attr(id,'oscillating') is not none else '' }}\n{% endif %}"
+      .. "{{ state_attr(id,'oscillating') if state_attr(id,'oscillating') is not none else '' }}\t"
+      .. "{{ state_attr(id,'supported_features') or '' }}\n{% endif %}"
   end
   return "{% for id in " .. list .. " %}" .. table.concat(rows) .. "{% endfor %}"
 end
@@ -327,7 +336,7 @@ end
 local function parseStatusResponse(body)
   local rows = {}
   for line in tostring(body or ""):gmatch("[^\n]+") do
-    local f = splitFields(line, 16)
+    local f = splitFields(line, 17)
     local id = f[1]
     if id and id ~= "" then
       local oscillating
@@ -350,6 +359,8 @@ local function parseStatusResponse(body)
         rgb_b = f[14] ~= "" and tonumber(f[14]) or nil,
         last_changed = f[15] ~= "" and tonumber(f[15]) or nil,
         oscillating = oscillating,
+        panel_controls = panelControls[id] or domainControls[shared.domainOf(id)],
+        supported_features = f[17] ~= "" and tonumber(f[17]) or nil,
       }
     end
   end
@@ -539,6 +550,14 @@ local function setFanOscillation(entityId, oscillating)
   callService("fan", "oscillate", entityId, { oscillating = oscillating })
 end
 
+local LOCK_SERVICES = { lock = "lock", unlock = "unlock", open = "open" }
+
+local function lockCommand(entityId, command)
+  local service = LOCK_SERVICES[command]
+  if not service then return end
+  callService("lock", service, entityId)
+end
+
 local MEDIA_SERVICES = {
   play_pause = "media_play_pause",
 }
@@ -590,6 +609,16 @@ local function barService(entityId, action)
   else
     local serviceDomain, service = action:match("^([%w_]+)%.([%w_]+)$")
     if serviceDomain and service then callService(serviceDomain, service, entityId) end
+  end
+end
+
+-- Panel control overrides use the same literal `domain.service` form as bar
+-- overrides, but may also carry a small JSON object as service data.
+local function panelService(entityId, serviceName, data)
+  if type(entityId) ~= "string" or entityId == "" or type(serviceName) ~= "string" then return end
+  local serviceDomain, service = serviceName:match("^([%w_]+)%.([%w_]+)$")
+  if serviceDomain and service then
+    callService(serviceDomain, service, entityId, type(data) == "table" and data or nil)
   end
 end
 
@@ -987,10 +1016,14 @@ noctalia.state.watch("ha.command", function(command)
     setFanPercentage(command.entity_id, command.value)
   elseif command.action == "oscillate" then
     setFanOscillation(command.entity_id, command.value)
+  elseif command.action == "lock" then
+    lockCommand(command.entity_id, command.command)
   elseif command.action == "media" then
     mediaCommand(command.entity_id, command.command, command.value)
   elseif command.action == "bar_service" then
     barService(command.entity_id, command.service)
+  elseif command.action == "panel_service" then
+    panelService(command.entity_id, command.service, command.data)
   elseif command.action == "remote" then
     remoteCommand(command.entity_id, command.command)
   elseif command.action == "add" then

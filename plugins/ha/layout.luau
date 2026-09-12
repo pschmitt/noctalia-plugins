@@ -3,8 +3,8 @@
 -- A deliberately small YAML subset for the user-facing HA layout file.
 -- The file is meant to be easy to maintain by hand, not to be a general YAML
 -- implementation: entities, sections, booleans, labels, conditions, per-media
--- player remotes, bar control actions, and small display-state
--- overrides/templates are all we need.
+-- player remotes, panel control actions, bar control actions, and small
+-- display-state overrides/templates are all we need.
 
 local M = {}
 
@@ -63,6 +63,20 @@ local function positionList(value)
   return #result > 0 and result or nil
 end
 
+local function panelControlList(value)
+  local values = scalar(value)
+  if type(values) ~= "table" then return nil end
+  local result = {}
+  for _, item in ipairs(values) do
+    if type(item) == "string" and item ~= "" then
+      result[#result + 1] = { service = item }
+    elseif type(item) == "table" and type(item.service) == "string" and item.service ~= "" then
+      result[#result + 1] = item
+    end
+  end
+  return result
+end
+
 local function setField(object, key, value)
   if key == "name" or key == "title" then
     if type(value) == "string" then object.name = value end
@@ -78,12 +92,14 @@ local function setField(object, key, value)
 end
 
 function M.parse(text)
-  local result = { entities = {}, entity_conditions = {}, entity_remotes = {}, sections = {}, labels = {}, icons = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_target = nil, bar_actions = {} }
+  local result = { entities = {}, entity_conditions = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, sections = {}, labels = {}, icons = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_target = nil, bar_actions = {} }
   local mode = nil
   local section = nil
   local subsection = nil
   local entityEntry = nil
   local sectionEntityEntry = nil
+  local panelControlEntry = nil
+  local customizationDomain = nil
   local labelEntity = nil
 
   for rawLine in tostring(text or ""):gmatch("[^\n]+") do
@@ -98,6 +114,8 @@ function M.parse(text)
         subsection = nil
         entityEntry = nil
         sectionEntityEntry = nil
+        panelControlEntry = nil
+        customizationDomain = nil
         labelEntity = nil
         if key == "entities" then
           if inline ~= "" then addUnique(result.entities, scalar(inline)) end
@@ -115,6 +133,7 @@ function M.parse(text)
           entityEntry = { id = id, when = {} }
           result.entity_conditions[id] = entityEntry.when
           subsection = nil
+          panelControlEntry = nil
         else
           entityEntry = nil
           addUnique(result.entities, value and scalar(value) or nil)
@@ -139,6 +158,14 @@ function M.parse(text)
           if scalar(value) == true then result.bar_target = entityEntry.id end
         elseif key == "bar_actions" then
           subsection = "bar_actions"
+        elseif key == "panel_controls" or key == "controls" then
+          subsection = "panel_controls"
+          local controls = panelControlList(value)
+          if controls then
+            result.panel_controls[entityEntry.id] = controls
+          elseif trim(value) == "" then
+            result.panel_controls[entityEntry.id] = {}
+          end
         elseif key == "favorite_positions" or key == "cover_positions" then
           local positions = positionList(value)
           if positions then result.favorite_positions[entityEntry.id] = positions end
@@ -148,6 +175,34 @@ function M.parse(text)
         if isBarAction(key) then
           local action = scalar(value)
           if type(action) == "string" and action ~= "" then result.bar_actions[key] = action end
+        end
+      elseif mode == "entities" and entityEntry and subsection == "panel_controls" and indent == 6 then
+        local inline = content:match("^%-%s*(.*)$")
+        if inline then
+          local control = {}
+          local key, value = inline:match("^([%w_]+):%s*(.*)$")
+          if key then
+            if key == "service" or key == "action" then control.service = scalar(value) end
+          else
+            control.service = scalar(inline)
+          end
+          if type(control.service) == "string" and control.service ~= "" then
+            if not result.panel_controls[entityEntry.id] then result.panel_controls[entityEntry.id] = {} end
+            result.panel_controls[entityEntry.id][#result.panel_controls[entityEntry.id] + 1] = control
+            panelControlEntry = control
+          end
+        end
+      elseif mode == "entities" and entityEntry and panelControlEntry and subsection == "panel_controls" and indent == 8 then
+        local key, value = content:match("^([%w_]+):%s*(.*)$")
+        if key == "service" or key == "action" then
+          panelControlEntry.service = scalar(value)
+        elseif key == "glyph" or key == "tooltip" then
+          local textValue = scalar(value)
+          if type(textValue) == "string" and textValue ~= "" then panelControlEntry[key] = textValue end
+        elseif key == "data" or key == "service_data" then
+          local data = scalar(value)
+          if type(data) == "string" then data = noctalia.json.decode(data) end
+          if type(data) == "table" then panelControlEntry.data = data end
         end
       elseif mode == "entities" and entityEntry and subsection == "entity_when" and indent == 6 then
         local key, value = content:match("^([%w_]+):%s*(.*)$")
@@ -175,13 +230,15 @@ function M.parse(text)
           setField(section, key, scalar(value))
         end
       elseif mode == "sections" and section
-        and (subsection == "entities" or subsection == "section_entity_bar_actions") and indent == 6 then
+        and (subsection == "entities" or subsection == "section_entity_bar_actions"
+          or subsection == "section_entity_panel_controls") and indent == 6 then
         local value = content:match("^%-%s+(.+)$")
         local id = value and (value:match("^entity_id:%s*(.+)$") or value:match("^id:%s*(.+)$"))
         if id then
           id = scalar(id)
           addUnique(section.entities, id)
           sectionEntityEntry = { id = id }
+          panelControlEntry = nil
           -- Keep the sequence subsection active so the next `- ...` item is
           -- still recognized after this mapping's extra fields.
           subsection = "entities"
@@ -198,6 +255,14 @@ function M.parse(text)
           result.bar_target = sectionEntityEntry.id
         elseif key == "bar_actions" then
           subsection = "section_entity_bar_actions"
+        elseif key == "panel_controls" or key == "controls" then
+          subsection = "section_entity_panel_controls"
+          local controls = panelControlList(value)
+          if controls then
+            result.panel_controls[sectionEntityEntry.id] = controls
+          elseif trim(value) == "" then
+            result.panel_controls[sectionEntityEntry.id] = {}
+          end
         elseif key == "favorite_positions" or key == "cover_positions" then
           local positions = positionList(value)
           if positions then result.favorite_positions[sectionEntityEntry.id] = positions end
@@ -208,6 +273,80 @@ function M.parse(text)
         if isBarAction(key) then
           local action = scalar(value)
           if type(action) == "string" and action ~= "" then result.bar_actions[key] = action end
+        end
+      elseif mode == "sections" and section and sectionEntityEntry
+        and subsection == "section_entity_panel_controls" and indent == 10 then
+        local inline = content:match("^%-%s*(.*)$")
+        if inline then
+          local control = {}
+          local key, value = inline:match("^([%w_]+):%s*(.*)$")
+          if key then
+            if key == "service" or key == "action" then control.service = scalar(value) end
+          else
+            control.service = scalar(inline)
+          end
+          if type(control.service) == "string" and control.service ~= "" then
+            if not result.panel_controls[sectionEntityEntry.id] then result.panel_controls[sectionEntityEntry.id] = {} end
+            result.panel_controls[sectionEntityEntry.id][#result.panel_controls[sectionEntityEntry.id] + 1] = control
+            panelControlEntry = control
+          end
+        end
+      elseif mode == "sections" and section and sectionEntityEntry and panelControlEntry
+        and subsection == "section_entity_panel_controls" and indent == 12 then
+        local key, value = content:match("^([%w_]+):%s*(.*)$")
+        if key == "service" or key == "action" then
+          panelControlEntry.service = scalar(value)
+        elseif key == "glyph" or key == "tooltip" then
+          local textValue = scalar(value)
+          if type(textValue) == "string" and textValue ~= "" then panelControlEntry[key] = textValue end
+        elseif key == "data" or key == "service_data" then
+          local data = scalar(value)
+          if type(data) == "string" then data = noctalia.json.decode(data) end
+          if type(data) == "table" then panelControlEntry.data = data end
+        end
+      elseif mode == "customization" and indent == 2 then
+        customizationDomain = content:match("^([%w_]+):%s*$")
+        subsection = nil
+      elseif mode == "customization" and customizationDomain and indent == 4 then
+        local key, value = content:match("^([%w_]+):%s*(.*)$")
+        if key == "panel_controls" or key == "controls" then
+          subsection = "domain_panel_controls"
+          local controls = panelControlList(value)
+          if controls then
+            result.domain_controls[customizationDomain] = controls
+          elseif trim(value) == "" then
+            result.domain_controls[customizationDomain] = {}
+          end
+        end
+      elseif mode == "customization" and customizationDomain
+        and subsection == "domain_panel_controls" and indent == 6 then
+        local inline = content:match("^%-%s*(.*)$")
+        if inline then
+          local control = {}
+          local key, value = inline:match("^([%w_]+):%s*(.*)$")
+          if key then
+            if key == "service" or key == "action" then control.service = scalar(value) end
+          else
+            control.service = scalar(inline)
+          end
+          if type(control.service) == "string" and control.service ~= "" then
+            if not result.domain_controls[customizationDomain] then result.domain_controls[customizationDomain] = {} end
+            result.domain_controls[customizationDomain][#result.domain_controls[customizationDomain] + 1] = control
+            panelControlEntry = control
+          end
+        end
+      elseif mode == "customization" and customizationDomain and panelControlEntry
+        and subsection == "domain_panel_controls" and indent == 8 then
+        local key, value = content:match("^([%w_]+):%s*(.*)$")
+        if key == "service" or key == "action" then
+          panelControlEntry.service = scalar(value)
+        elseif key == "glyph" or key == "tooltip" then
+          local textValue = scalar(value)
+          if type(textValue) == "string" and textValue ~= "" then panelControlEntry[key] = textValue end
+        elseif key == "data" or key == "service_data" then
+          local data = scalar(value)
+          if type(data) == "string" then data = noctalia.json.decode(data) end
+          if type(data) == "table" then panelControlEntry.data = data end
         end
       elseif mode == "sections" and section and subsection == "section_when" and indent == 6 then
         local key, value = content:match("^([%w_]+):%s*(.*)$")
@@ -289,15 +428,25 @@ function M.serialize(layout)
     local stateTemplate = layout.state_templates and layout.state_templates[entityId]
     local remote = layout.entity_remotes and layout.entity_remotes[entityId]
     local favoritePositions = layout.favorite_positions and layout.favorite_positions[entityId]
+    local panelControls = layout.panel_controls and layout.panel_controls[entityId]
     local barTarget = layout.bar_target == entityId
     local barActions = barTarget and (layout.bar_actions or {}) or {}
     local hasBarActions = next(barActions) ~= nil
-    if (condition and condition.entity and condition.state ~= nil) or stateAttr or stateTemplate or remote or favoritePositions or barTarget then
+    if (condition and condition.entity and condition.state ~= nil) or stateAttr or stateTemplate or remote or favoritePositions or panelControls or barTarget then
       lines[#lines + 1] = "  - entity_id: " .. quote(entityId)
       if stateAttr then lines[#lines + 1] = "    state_attr: " .. quote(stateAttr) end
       if stateTemplate then lines[#lines + 1] = "    state_template: " .. quote(stateTemplate) end
       if remote then lines[#lines + 1] = "    remote: " .. quote(remote) end
       if favoritePositions then lines[#lines + 1] = "    favorite_positions: [" .. table.concat(favoritePositions, ", ") .. "]" end
+      if panelControls then
+        lines[#lines + 1] = "    panel_controls:"
+        for _, control in ipairs(panelControls) do
+          lines[#lines + 1] = "      - service: " .. quote(control.service)
+          if control.glyph then lines[#lines + 1] = "        glyph: " .. quote(control.glyph) end
+          if control.tooltip then lines[#lines + 1] = "        tooltip: " .. quote(control.tooltip) end
+          if control.data then lines[#lines + 1] = "        data: " .. quote(noctalia.json.encode(control.data)) end
+        end
+      end
       if barTarget then lines[#lines + 1] = "    bar_target: true" end
       if hasBarActions then
         lines[#lines + 1] = "    bar_actions:"
@@ -312,7 +461,7 @@ function M.serialize(layout)
       lines[#lines + 1] = "      state: " .. quote(condition.state)
       if condition["not"] == true then lines[#lines + 1] = "      not: true" end
       if condition["for"] ~= nil then lines[#lines + 1] = "      for: " .. quote(condition["for"]) end
-    elseif not stateAttr and not stateTemplate and not remote and not favoritePositions and not barTarget and not hasBarActions then
+    elseif not stateAttr and not stateTemplate and not remote and not favoritePositions and not panelControls and not barTarget and not hasBarActions then
       lines[#lines + 1] = "  - " .. quote(entityId)
     end
   end
@@ -332,13 +481,23 @@ function M.serialize(layout)
     for _, entityId in ipairs(section.entities or {}) do
       local remote = layout.entity_remotes and layout.entity_remotes[entityId]
       local favoritePositions = layout.favorite_positions and layout.favorite_positions[entityId]
+      local panelControls = layout.panel_controls and layout.panel_controls[entityId]
       local barTarget = layout.bar_target == entityId
       local barActions = barTarget and (layout.bar_actions or {}) or {}
       local hasBarActions = next(barActions) ~= nil
-      if remote or favoritePositions or barTarget or hasBarActions then
+      if remote or favoritePositions or panelControls or barTarget or hasBarActions then
         lines[#lines + 1] = "      - entity_id: " .. quote(entityId)
         if remote then lines[#lines + 1] = "        remote: " .. quote(remote) end
         if favoritePositions then lines[#lines + 1] = "        favorite_positions: [" .. table.concat(favoritePositions, ", ") .. "]" end
+        if panelControls then
+          lines[#lines + 1] = "        panel_controls:"
+          for _, control in ipairs(panelControls) do
+            lines[#lines + 1] = "          - service: " .. quote(control.service)
+            if control.glyph then lines[#lines + 1] = "            glyph: " .. quote(control.glyph) end
+            if control.tooltip then lines[#lines + 1] = "            tooltip: " .. quote(control.tooltip) end
+            if control.data then lines[#lines + 1] = "            data: " .. quote(noctalia.json.encode(control.data)) end
+          end
+        end
         if barTarget then lines[#lines + 1] = "        bar_target: true" end
         if hasBarActions then
           lines[#lines + 1] = "        bar_actions:"
@@ -348,6 +507,23 @@ function M.serialize(layout)
         end
       else
         lines[#lines + 1] = "      - " .. quote(entityId)
+      end
+    end
+  end
+
+  local domains = {}
+  for domain in pairs(layout.domain_controls or {}) do domains[#domains + 1] = domain end
+  table.sort(domains)
+  if #domains > 0 then
+    lines[#lines + 1] = "customization:"
+    for _, domain in ipairs(domains) do
+      lines[#lines + 1] = "  " .. domain .. ":"
+      lines[#lines + 1] = "    panel_controls:"
+      for _, control in ipairs(layout.domain_controls[domain] or {}) do
+        lines[#lines + 1] = "      - service: " .. quote(control.service)
+        if control.glyph then lines[#lines + 1] = "        glyph: " .. quote(control.glyph) end
+        if control.tooltip then lines[#lines + 1] = "        tooltip: " .. quote(control.tooltip) end
+        if control.data then lines[#lines + 1] = "        data: " .. quote(noctalia.json.encode(control.data)) end
       end
     end
   end

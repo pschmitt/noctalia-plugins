@@ -112,6 +112,14 @@ function M.isToggleable(domain)
   return TOGGLEABLE_DOMAINS[domain] == true
 end
 
+-- Home Assistant's LockEntityFeature.OPEN is the low bit of the
+-- supported_features mask. Lock and unlock are part of every lock entity;
+-- only the unlatch/open action is optional.
+function M.lockSupportsOpen(entity)
+  local features = tonumber(entity and entity.supported_features)
+  return features ~= nil and math.floor(features) % 2 == 1
+end
+
 -- The domain filter chips the browser panel offers, in display order. Kept as
 -- a fixed, known-safe list: it is interpolated directly into a Jinja
 -- `states.<domain>` accessor (see service.luau's browseSource()), so this
