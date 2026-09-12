@@ -149,8 +149,9 @@ that entity from Home Assistant and shows its actual state, last-changed and
 last-updated timestamps, plus its attributes. While the view is open, details
 are refreshed every two seconds and again immediately after a control call, so
 the displayed state follows interactions without leaving the page. Attribute
-values are bounded for display, and the view never requests the full HA state
-list. Controllable entities also show their controls there: media players
+values are bounded for display; double-click any displayed value to copy its
+full value to the clipboard. The view never requests the full HA state list.
+Controllable entities also show their controls there: media players
 include play/pause, mute, power, and a volume slider, while lights, fans, and
 covers expose their corresponding controls. Read-only entities only show
 their details.

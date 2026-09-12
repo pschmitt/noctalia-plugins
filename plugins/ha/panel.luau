@@ -42,6 +42,7 @@ local details = noctalia.state.get("ha.details") or {}
 local detailsLoading = false
 local detailsErrorMessage = noctalia.state.get("ha.details_error") or ""
 local detailsEntityId = nil
+local lastDetailValueClickAt = {}
 local logbook = noctalia.state.get("ha.logbook") or {}
 local logbookLoading = false
 local logbookErrorMessage = noctalia.state.get("ha.logbook_error") or ""
@@ -110,6 +111,7 @@ local function openDetails(entityId)
   details = {}
   detailsLoading = true
   detailsErrorMessage = ""
+  lastDetailValueClickAt = {}
   logbook = {}
   logbookLoading = true
   logbookErrorMessage = ""
@@ -783,11 +785,45 @@ local function detailValue(value)
   return text
 end
 
+local function detailClipboardValue(value)
+  local text
+  if type(value) == "table" then
+    text = noctalia.json.encode(value)
+  elseif value == nil then
+    text = "—"
+  else
+    text = tostring(value)
+  end
+  return text or "—"
+end
+
+local function copyDetailValueOnDoubleClick(label, value)
+  local now = noctalia.nowMs()
+  local previous = lastDetailValueClickAt[label] or 0
+  if previous > 0 and now - previous <= 400 then
+    lastDetailValueClickAt[label] = 0
+    local copied = noctalia.copyToClipboard(detailClipboardValue(value), "text/plain")
+    if copied then
+      noctalia.notify("Home Assistant", "Copied " .. label .. " to clipboard")
+    else
+      noctalia.notifyError("Home Assistant", "Could not copy " .. label .. " to clipboard")
+    end
+  else
+    lastDetailValueClickAt[label] = now
+  end
+end
+
 local function detailRow(label, value, indented)
   local children = {}
   if indented then children[#children + 1] = ui.box({ width = 10, height = 1, fill = "on_surface/0" }) end
   children[#children + 1] = ui.label({ text = label, width = 125, fontSize = 11, color = "on_surface_variant", maxLines = 1 })
-  children[#children + 1] = ui.label({ text = detailValue(value), flexGrow = 1, fontSize = 12, maxLines = 4 })
+  children[#children + 1] = ui.row({
+    key = "ha-detail-value-" .. label,
+    flexGrow = 1,
+    onClick = function() copyDetailValueOnDoubleClick(label, value) end,
+  }, {
+    ui.label({ text = detailValue(value), flexGrow = 1, fontSize = 12, maxLines = 4 }),
+  })
   return ui.row({ align = "start", gap = 10, paddingV = 4 }, children)
 end
 
