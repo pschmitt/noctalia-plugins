@@ -63,6 +63,13 @@ local favoritePositions = {}
 local barTargetEntity = nil
 local barActions = {}
 local currentRows = {}
+local entityCacheRows = {}
+local entityCacheScanRows = nil
+local entityCacheOffset = 0
+local entityCacheGeneration = 0
+local entityCacheRequestActive = false
+local entityCacheComplete = false
+local entityCacheRefreshAt = 0
 local activeDetailsEntityId = nil
 local cameraImagePaths = {}
 local cameraRequestGeneration = {}
@@ -71,6 +78,7 @@ local logbookRequestGeneration = 0
 local lastLogbookEntityId = nil
 local lastLogbookFetchedAt = 0
 local fetchDetails
+local cacheEntityPage
 local intervalMs
 -- A details page is deliberately more eager than the normal bar refresh:
 -- controls should settle visibly within a couple of seconds after a service
@@ -395,6 +403,7 @@ local function refresh()
     publishError(err)
     return
   end
+  if cacheEntityPage then cacheEntityPage(false) end
   if #configuredEntities == 0 then
     noctalia.state.set("ha.entities", {})
     noctalia.state.set("ha.hidden", {})
@@ -959,6 +968,127 @@ local function browseTemplate(domain, area, offset, limit)
     .. "{% endfor %}"
 end
 
+-- Keep a bounded cache of Home Assistant's state-backed entity list for the
+-- main panel search. This deliberately uses the same paginated template as
+-- the Add entity browser instead of `/api/states`: the latter is an
+-- unbounded, multi-megabyte response on a large Home Assistant instance and
+-- can exceed both HA's template limit and Noctalia's callback CPU budget.
+local function publishEntityCacheScanStart()
+  noctalia.state.set("ha.entity_cache_scan", {
+    generation = entityCacheGeneration,
+    reset = true,
+  })
+end
+
+local function publishEntityCachePage(rows, source, complete)
+  noctalia.state.set("ha.entity_cache_page", {
+    generation = entityCacheGeneration,
+    rows = rows or {},
+    source = source,
+    complete = complete == true,
+  })
+end
+
+local function cacheRows(rows)
+  local cached = {}
+  for _, row in ipairs(rows or {}) do
+    if type(row) == "table" and type(row.entity_id) == "string" and row.entity_id ~= "" then
+      cached[row.entity_id] = {
+        entity_id = row.entity_id,
+        name = type(row.name) == "string" and row.name ~= "" and row.name or row.entity_id,
+      }
+    end
+  end
+  return cached
+end
+
+local function mergeEntityCache(rows)
+  local cached = cacheRows(rows)
+  for entityId, row in pairs(cached) do entityCacheRows[entityId] = row end
+  if entityCacheScanRows then
+    for entityId, row in pairs(cached) do entityCacheScanRows[entityId] = row end
+  end
+end
+
+cacheEntityPage = function(reset)
+  if entityCacheRequestActive then return end
+  if entityCacheComplete then
+    if os.time() < entityCacheRefreshAt then return end
+    reset = true
+  end
+  if reset then
+    entityCacheGeneration += 1
+    entityCacheOffset = 0
+    entityCacheScanRows = {}
+    entityCacheComplete = false
+    entityCacheRefreshAt = 0
+    publishEntityCacheScanStart()
+  end
+  if not entityCacheScanRows then
+    entityCacheScanRows = {}
+    publishEntityCacheScanStart()
+  end
+
+  local server, token, err = credentials()
+  if err then
+    noctalia.state.set("ha.entity_cache_loading", false)
+    noctalia.state.set("ha.entity_cache_error", err)
+    entityCacheRefreshAt = os.time() + 60
+    return
+  end
+
+  local pageOffset = entityCacheOffset
+  local pageLimit = pageSize()
+  local myGeneration = entityCacheGeneration
+  entityCacheRequestActive = true
+  noctalia.state.set("ha.entity_cache_loading", true)
+  noctalia.state.set("ha.entity_cache_error", "")
+
+  local started = haRequest(server, token, browseTemplate("all", "all", pageOffset, pageLimit), function(response)
+    if myGeneration ~= entityCacheGeneration then return end
+    entityCacheRequestActive = false
+    if not response.ok or response.status ~= 200 then
+      noctalia.state.set("ha.entity_cache_loading", false)
+      noctalia.state.set("ha.entity_cache_error", "Could not cache Home Assistant entities (HTTP " .. tostring(response.status) .. ")")
+      entityCacheRefreshAt = os.time() + 60
+      return
+    end
+
+    local rows = {}
+    for line in tostring(response.body or ""):gmatch("[^\n]+") do
+      local id, name = line:match("^([^\t]*)\t(.*)$")
+      if id and id ~= "" then
+        rows[#rows + 1] = { entity_id = id, name = (name ~= "" and name or id) }
+      end
+    end
+    local cached = cacheRows(rows)
+    for entityId, row in pairs(cached) do entityCacheScanRows[entityId] = row end
+
+    if #rows >= pageLimit then
+      publishEntityCachePage(rows, "scan", false)
+      entityCacheOffset += pageLimit
+      -- Continue one page at a time. Each callback only decodes one bounded
+      -- response, while the asynchronous request chain fills the cache
+      -- without making the user click through every page.
+      cacheEntityPage(false)
+    else
+      entityCacheComplete = true
+      entityCacheRows = entityCacheScanRows
+      entityCacheScanRows = nil
+      publishEntityCachePage(rows, "scan", true)
+      entityCacheRefreshAt = os.time() + 15 * 60
+      noctalia.state.set("ha.entity_cache_loading", false)
+      noctalia.state.set("ha.entity_cache_updated_at", os.time())
+    end
+  end)
+  if not started then
+    entityCacheRequestActive = false
+    noctalia.state.set("ha.entity_cache_loading", false)
+    noctalia.state.set("ha.entity_cache_error", "Could not start Home Assistant entity cache request")
+    entityCacheRefreshAt = os.time() + 60
+  end
+end
+
 local function browse(domain, area, offset)
   local server, token, err = credentials()
   if err then
@@ -980,6 +1110,8 @@ local function browse(domain, area, offset)
         rows[#rows + 1] = { entity_id = id, name = (name ~= "" and name or id) }
       end
     end
+    mergeEntityCache(rows)
+    publishEntityCachePage(rows, "browse", false)
     noctalia.state.set("ha.browse_error", "")
     noctalia.state.set("ha.browse_result", {
       domain = domain or "all",

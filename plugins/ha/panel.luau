@@ -11,6 +11,13 @@ local entityRemotes = noctalia.state.get("ha.entity_remotes") or {}
 local panelControls = noctalia.state.get("ha.panel_controls") or {}
 local domainControls = noctalia.state.get("ha.domain_controls") or {}
 local favoritePositions = noctalia.state.get("ha.favorite_positions") or {}
+local entityCache = noctalia.state.get("ha.entity_cache") or {}
+local entityCacheIds = {}
+local entityCacheScanGeneration = nil
+local entityCacheScanRows = {}
+local entityCacheScanIds = {}
+local entityCacheLoading = noctalia.state.get("ha.entity_cache_loading") == true
+local entityCacheError = noctalia.state.get("ha.entity_cache_error") or ""
 local entities = noctalia.state.get("ha.entities") or {}
 local hidden = noctalia.state.get("ha.hidden") or {}
 local sectionVisibility = noctalia.state.get("ha.section_visibility") or {}
@@ -46,11 +53,25 @@ local animationFrame = 0
 local animationElapsedMs = 0
 local ANIMATION_FRAME_COUNT = 24
 local ANIMATION_FRAME_INTERVAL_MS = 30
+local OTHER_RESULT_LIMIT = 200
 
 -- Forward-declared: referenced by action handlers defined before its real
 -- body below (they only ever run after the whole script has loaded once, so
 -- this only needs to resolve as an upvalue, not have a body yet).
 local render
+
+local function rememberCachedRows(rows, target, seen)
+  for _, row in ipairs(rows or {}) do
+    if type(row) == "table" and type(row.entity_id) == "string" and row.entity_id ~= "" and not seen[row.entity_id] then
+      target[#target + 1] = row
+      seen[row.entity_id] = true
+    end
+  end
+end
+
+local initialEntityCache = entityCache
+entityCache = {}
+rememberCachedRows(initialEntityCache, entityCache, entityCacheIds)
 
 local function sendCommand(command)
   noctalia.state.set("ha.command", command)
@@ -995,9 +1016,9 @@ local function renameRow(entity, domain)
   })
 end
 
-local function entityRow(entity)
+local function entityRow(entity, isOther)
   local domain = shared.domainOf(entity.entity_id)
-  if editingEntityId == entity.entity_id then
+  if not isOther and editingEntityId == entity.entity_id then
     return ui.column(CARD_STYLE, { renameRow(entity, domain) })
   end
 
@@ -1009,7 +1030,7 @@ local function entityRow(entity)
       ui.label({ text = shared.statusText(entity), fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
     }),
   }
-  if editMode then
+  if editMode and not isOther then
     local targetSection = nextSectionIndex(entity.entity_id)
     table.insert(header, 1, ui.dragSource({
       key = "ha-entity-grip-" .. entity.entity_id,
@@ -1060,16 +1081,16 @@ local function entityRow(entity)
       tooltip = "Remove from bar",
       onClick = function() sendCommand({ action = "remove", entity_id = entity.entity_id }) end,
     })
-  elseif entity.panel_controls ~= nil then
+  elseif not isOther and entity.panel_controls ~= nil then
     local custom = customPanelControls(entity)
     if custom then header[#header + 1] = custom end
-  elseif domain == "cover" then
+  elseif not isOther and domain == "cover" then
     header[#header + 1] = coverButtons(entity)
-  elseif domain == "media_player" then
+  elseif not isOther and domain == "media_player" then
     header[#header + 1] = mediaButtons(entity)
-  elseif domain == "lock" then
+  elseif not isOther and domain == "lock" then
     header[#header + 1] = lockButtons(entity, false)
-  elseif shared.isToggleable(domain) then
+  elseif not isOther and shared.isToggleable(domain) then
     -- The action glyph describes what the button will do, while the entity
     -- icon above carries the current light state.
     local toggleGlyph = domain == "light" and (on and "bulb-off" or "bulb") or "power"
@@ -1099,7 +1120,7 @@ local function entityRow(entity)
   -- Hidden in edit mode along with the toggle/cover controls above -- edit
   -- mode is for layout/name changes, not a place to also nudge a light's
   -- brightness by accident.
-  if not editMode then
+  if not editMode and not isOther then
     -- Only while on: an off light/fan carries no brightness/percentage
     -- attribute to seed the slider from (Home Assistant clears both when the
     -- entity turns off), and a slider with nothing to show is worse than none.
@@ -1136,6 +1157,24 @@ local function entityRow(entity)
   return ui.column(cardStyle, rows)
 end
 
+local function otherEntityRow(row)
+  -- Cached rows intentionally contain only the stable identity and friendly
+  -- name. Keep them lightweight in the result list; opening the card fetches
+  -- the native HA state and lets detailsEntity()/detailsControls() provide
+  -- the same live controls used by configured entities.
+  return entityRow({
+    entity_id = row.entity_id,
+    name = row.name or row.entity_id,
+    state = nil,
+    display_state = "Not configured",
+  }, true)
+end
+
+local function matchesCachedEntity(row, needle)
+  local text = (row.entity_id or "") .. " " .. (row.name or row.entity_id or "")
+  return text:lower():find(needle, 1, true) ~= nil
+end
+
 local function listView()
   local content = {}
   local searchActive = shared.trim(listSearchText) ~= ""
@@ -1152,7 +1191,7 @@ local function listView()
     })
   end
   if showSearch and not searchAtBottom then content[#content + 1] = entitySearch() end
-  if #entities == 0 and #configuredEntities == 0 and #sections == 0 then
+  if #entities == 0 and #configuredEntities == 0 and #sections == 0 and not searchActive then
     content[#content + 1] = ui.label({
       text = "No entities configured yet. Tap + Add to browse Home Assistant and pick some.",
       color = "on_surface_variant",
@@ -1177,6 +1216,7 @@ local function listView()
     end
 
     local sectionEntities = {}
+    local localMatchCount = 0
     for _, section in ipairs(sections) do
       for _, id in ipairs(section.entities or {}) do sectionEntities[id] = true end
     end
@@ -1201,6 +1241,7 @@ local function listView()
         if not hidden[id] and matches(rowFor(id)) and not shown[id] and not sectionShown[id] then
           if editMode then sectionRows[#sectionRows + 1] = entityDropZone(index, id) end
           sectionRows[#sectionRows + 1] = entityRow(rowFor(id))
+          localMatchCount += 1
           sectionShown[id] = true
           shown[id] = true
         end
@@ -1318,6 +1359,7 @@ local function listView()
     for _, id in ipairs(configuredEntities) do
       if not sectionEntities[id] and not hidden[id] and matches(rowFor(id)) then
         ungrouped[#ungrouped + 1] = id
+        localMatchCount += 1
         shown[id] = true
       end
     end
@@ -1331,7 +1373,30 @@ local function listView()
       sectionView(section, index)
     end
     if editMode then content[#content + 1] = sectionDropZone(#sections + 1) end
-    if searchActive and #ungrouped == 0 and #content == (showSearch and not searchAtBottom and 1 or 0) then
+
+    local otherRows = {}
+    local otherMatchCount = 0
+    if searchActive and not editMode then
+      local configured = configuredSet()
+      for _, row in ipairs(entityCache) do
+        if not configured[row.entity_id] and matchesCachedEntity(row, needle) then
+          otherMatchCount += 1
+          if #otherRows < OTHER_RESULT_LIMIT then otherRows[#otherRows + 1] = row end
+        end
+      end
+      if #otherRows > 0 then
+        content[#content + 1] = ui.label({ text = "Other", fontSize = 12, fontWeight = "semibold", color = "on_surface_variant" })
+        for _, row in ipairs(otherRows) do content[#content + 1] = otherEntityRow(row) end
+        if otherMatchCount > #otherRows then
+          content[#content + 1] = ui.label({ text = "Showing the first " .. tostring(#otherRows) .. " of " .. tostring(otherMatchCount) .. " matches.", color = "on_surface_variant", fontSize = 11 })
+        end
+      elseif entityCacheLoading then
+        content[#content + 1] = ui.label({ text = "Searching other entities…", color = "on_surface_variant", fontSize = 12 })
+      elseif entityCacheError ~= "" and localMatchCount == 0 then
+        content[#content + 1] = ui.label({ text = "Other entities unavailable: " .. entityCacheError, color = "error", fontSize = 11 })
+      end
+    end
+    if searchActive and localMatchCount == 0 and #otherRows == 0 and not entityCacheLoading and entityCacheError == "" then
       content[#content + 1] = ui.label({ text = "No matching entities.", color = "on_surface_variant", fontSize = 12 })
     end
   end
@@ -1610,6 +1675,57 @@ end)
 
 noctalia.state.watch("ha.favorite_positions", function(value)
   favoritePositions = type(value) == "table" and value or {}
+  render()
+end)
+
+noctalia.state.watch("ha.entity_cache", function(value)
+  local rows = type(value) == "table" and value or {}
+  entityCache = {}
+  entityCacheIds = {}
+  rememberCachedRows(rows, entityCache, entityCacheIds)
+  render()
+end)
+
+noctalia.state.watch("ha.entity_cache_scan", function(value)
+  if type(value) ~= "table" or value.reset ~= true then return end
+  entityCacheScanGeneration = tonumber(value.generation)
+  entityCacheScanRows = {}
+  entityCacheScanIds = {}
+end)
+
+noctalia.state.watch("ha.entity_cache_page", function(value)
+  if type(value) ~= "table" then return end
+  local generation = tonumber(value.generation)
+  if value.source == "scan" then
+    if entityCacheScanGeneration ~= generation then
+      entityCacheScanGeneration = generation
+      entityCacheScanRows = {}
+      entityCacheScanIds = {}
+    end
+    rememberCachedRows(value.rows, entityCacheScanRows, entityCacheScanIds)
+    if value.complete == true then
+      entityCache = entityCacheScanRows
+      entityCacheIds = entityCacheScanIds
+      entityCacheScanGeneration = nil
+      entityCacheScanRows = {}
+      entityCacheScanIds = {}
+    end
+  else
+    rememberCachedRows(value.rows, entityCache, entityCacheIds)
+    if entityCacheScanGeneration ~= nil then
+      rememberCachedRows(value.rows, entityCacheScanRows, entityCacheScanIds)
+    end
+  end
+  render()
+end)
+
+noctalia.state.watch("ha.entity_cache_loading", function(value)
+  entityCacheLoading = value == true
+  render()
+end)
+
+noctalia.state.watch("ha.entity_cache_error", function(value)
+  entityCacheError = type(value) == "string" and value or ""
   render()
 end)
 
