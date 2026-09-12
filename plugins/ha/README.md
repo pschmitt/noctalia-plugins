@@ -21,12 +21,15 @@ What each bar interaction does is independently configurable -- **Bar: Left/Righ
 The panel header shows the real Home Assistant mark, a small connection status line (a colored dot + Connecting…/Connected/Error, with a small external-link button that opens Home Assistant itself in the desktop's default browser -- **Panel: Home Assistant link path**, default `/`, picks what page), an **Edit** button and a settings button. The panel itself has two views:
 
 - **My entities** — the configured list, each entity in its own card, showing its current state and domain-appropriate controls:
+  - Section headers show small glyphs for the entities in that section that are currently active, with an overflow count when needed.
   - If **Panel: Show entity search** is enabled, the main view has a search bar that matches names, entity IDs, and displayed states; **Panel: Entity search position** places it at the top or bottom (the bottom position stays visible while the entity list scrolls); matching sections expand automatically while searching.
   - **cover** gets a dedicated open/stop/close row instead of a toggle, plus a position slider when Home Assistant reports `current_position`. Favorite positions can be configured per entity with `favorite_positions: [0, 50, 100]` and appear as shortcut buttons in the details view.
   - **light** gets a state-aware bulb/bulb-off entity icon and an on/off toggle that swaps its own glyph to show state, plus a brightness slider under the row whenever it's on and Home Assistant reports a brightness (i.e. it's dimmable).
   - Color-capable **lights** show a **Color** button beside their on/off toggle. It opens Noctalia's native color picker and applies the selected RGB color through Home Assistant.
   - **fan** gets a propeller/propeller-off entity icon, a plain toggle, and an oscillation toggle whenever Home Assistant reports the `oscillating` attribute; it also gets a speed slider under the row whenever it's on and Home Assistant reports a percentage (i.e. it supports speed control).
-  - **lock** gets separate Lock and Unlock buttons in the entity list. The details view adds an **Open door** button only when Home Assistant reports the lock's optional unlatch capability.
+  - **lock** gets one state-aware Lock or Unlock button in the entity list. The details view adds the same state-aware button plus an **Open door** button only when Home Assistant reports the lock's optional unlatch capability.
+  - **camera** shows an automatically refreshed snapshot in its details view. Noctalia's image widget accepts local files rather than remote streams, so the plugin downloads Home Assistant's tokenized camera proxy image while the details view is open. A small external-link button at the preview's lower-right edge opens the authenticated MJPEG stream in `mpv`, or in `vlc` through `curl` when `mpv` is unavailable.
+  - The details view includes the last 24 hours of Home Assistant Activity (the Logbook), showing the newest 50 entries for that entity in a compact timeline grouped by day.
   - Sliders only call Home Assistant once dragging ends, not on every intermediate value, so dragging never floods it with requests.
   - The header's **Edit** button switches the whole list into edit mode at once: every card's normal controls (toggle, cover buttons, sliders) hide and a rename (pencil) and remove (trash) button take their place, so there's no risk of nudging a light while trying to rename it. **Done** switches back. Renaming only overrides what this plugin displays; it never touches the entity in Home Assistant.
   - **Add entity** and **Section** appear in the edit footer. **Panel: Hide edit button** removes the header button and disables panel layout editing; it is off by default.
@@ -147,6 +150,11 @@ list. Controllable entities also show their controls there: media players
 include play/pause, mute, power, and a volume slider, while lights, fans, and
 covers expose their corresponding controls. Read-only entities only show
 their details.
+
+Camera previews use Home Assistant's `entity_picture` camera-proxy URL and
+refresh with the details page. This is a live snapshot preview rather than a
+native MJPEG/WebRTC stream; the current Noctalia UI API does not embed remote
+stream content directly.
 
 Media-player cards additionally show play/pause, mute, power, and volume
 controls. The power button uses Home Assistant's generic toggle service. The

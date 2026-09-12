@@ -26,10 +26,6 @@ local lastKey = ""
 -- edge does.
 local lastCharging = nil
 
--- Same nil-on-(re)start convention as lastCharging: an already-low battery
--- when the service (re)starts must not immediately fire the critical alarm.
-local lastLow = nil
-
 -- Last successfully read power profile. A failed or empty `powerprofilesctl`
 -- read is "unknown", not "off": several poll()s fire at once when the shell
 -- restarts (the initial poll plus every stream's first line), and treating a
@@ -762,7 +758,31 @@ local function advanceAnim()
     return false
   end
   local anim = pendingAnim
+  -- A low battery keeps the critical strobe alive until a subsequent power
+  -- or charge event replaces it with a non-low render.
+  if anim.loop and anim.index > #anim.frames then
+    anim.index = 1
+  end
   local frame = anim.index <= #anim.frames and anim.frames[anim.index] or nil
+  if anim.loop then
+    anim.index += 1
+    if anim.index > #anim.frames then
+      anim.index = 1
+    end
+    noctalia.setUpdateInterval((frame and frame.ms) or ANIM_SETTLE_MS)
+    regenerate(
+      anim.cfg,
+      anim.percent,
+      anim.charging,
+      anim.powerSaver,
+      anim.dataDir,
+      frame and frame.color,
+      frame and frame.fillPercent,
+      frame and frame.boltColor,
+      anim.lowPeripheral
+    )
+    return true
+  end
   anim.index += 1
   local finished = anim.index > #anim.frames + 1
   if finished then
@@ -797,7 +817,7 @@ local function strobeFrames(targetColor, flashColor, blinks, onMs, offMs)
   return frames
 end
 
-local function startStrobe(cfg, percent, charging, powerSaver, dataDir, frames, lowPeripheral)
+local function startStrobe(cfg, percent, charging, powerSaver, dataDir, frames, lowPeripheral, loop)
   pendingAnim = {
     cfg = cfg,
     percent = percent,
@@ -807,6 +827,7 @@ local function startStrobe(cfg, percent, charging, powerSaver, dataDir, frames, 
     frames = frames,
     index = 1,
     lowPeripheral = lowPeripheral,
+    loop = loop == true,
   }
   advanceAnim()
 end
@@ -892,7 +913,8 @@ local function startCriticalPulse(cfg, percent, charging, powerSaver, dataDir, l
     powerSaver,
     dataDir,
     strobeFrames(target, CRITICAL_COLOR, CRITICAL_BLINKS, CRITICAL_ON_MS, CRITICAL_OFF_MS),
-    lowPeripheral
+    lowPeripheral,
+    true
   )
 end
 
@@ -1063,14 +1085,11 @@ local function poll()
           end
           lastCharging = charging
 
-          -- Entering the low tier (tierColor already forces chargingColor
-          -- while plugged in, so this is implicitly "discharging and at or
-          -- below low_threshold"). Same nil-guard as edge: never fires on
-          -- the first read, and only on the false->true transition, not on
-          -- every poll while the battery stays low.
+          -- The low tier is implicitly discharging and at or below
+          -- low_threshold because tierColor forces chargingColor while
+          -- plugged in. Its critical strobe is continuous until this state
+          -- changes.
           local isLow = tierColor(cfg, percent, charging) == cfg.lowColor
-          local lowEdge = lastLow ~= nil and not lastLow and isLow
-          lastLow = isLow
 
           readCaffeine(function(caffeineEnabled)
             noctalia.runAsync(detailsCommand(cfg.device), function(detailsResult)
@@ -1114,9 +1133,10 @@ local function poll()
 
               if edge then
                 startPulse(cfg, percent, charging, powerSaver, dataDir, lowPeripheral)
-              elseif lowEdge then
+              elseif isLow then
                 startCriticalPulse(cfg, percent, charging, powerSaver, dataDir, lowPeripheral)
               else
+                pendingAnim = nil
                 regenerate(cfg, percent, charging, powerSaver, dataDir, nil, nil, nil, lowPeripheral)
               end
             end, 5000)

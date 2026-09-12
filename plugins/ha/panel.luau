@@ -31,6 +31,9 @@ local details = noctalia.state.get("ha.details") or {}
 local detailsLoading = false
 local detailsErrorMessage = noctalia.state.get("ha.details_error") or ""
 local detailsEntityId = nil
+local logbook = noctalia.state.get("ha.logbook") or {}
+local logbookLoading = false
+local logbookErrorMessage = noctalia.state.get("ha.logbook_error") or ""
 local CARD_STYLE = { fill = "surface_variant/0.58", radius = 12, padding = 10, gap = 2 }
 local ENTITY_DRAG_TYPE = "ha-entity"
 local SECTION_DRAG_TYPE = "ha-section"
@@ -81,6 +84,9 @@ local function openDetails(entityId)
   details = {}
   detailsLoading = true
   detailsErrorMessage = ""
+  logbook = {}
+  logbookLoading = true
+  logbookErrorMessage = ""
   render()
   sendCommand({ action = "details", entity_id = entityId })
 end
@@ -98,7 +104,7 @@ end
 -- service.luau's browseSource() checks against.
 local PANEL_DOMAIN_CHIPS = {
   "light", "switch", "script", "automation", "scene", "fan", "lock", "cover",
-  "climate", "media_player", "sensor", "binary_sensor", "input_boolean",
+  "climate", "media_player", "sensor", "binary_sensor", "input_boolean", "camera",
 }
 
 local function fetchBrowsePage(reset)
@@ -300,20 +306,16 @@ local function fanOscillationButton(entity)
 end
 
 local function lockButtons(entity, includeOpen)
+  local locked = tostring(entity.state or ""):lower() == "locked"
   local buttons = {
     ui.button({
-      glyph = "lock-open",
+      glyph = locked and "lock-open" or "lock",
       variant = "ghost",
       controlSize = "sm",
-      tooltip = "Unlock",
-      onClick = function() sendCommand({ action = "lock", entity_id = entity.entity_id, command = "unlock" }) end,
-    }),
-    ui.button({
-      glyph = "lock",
-      variant = "ghost",
-      controlSize = "sm",
-      tooltip = "Lock",
-      onClick = function() sendCommand({ action = "lock", entity_id = entity.entity_id, command = "lock" }) end,
+      tooltip = locked and "Unlock" or "Lock",
+      onClick = function()
+        sendCommand({ action = "lock", entity_id = entity.entity_id, command = locked and "unlock" or "lock" })
+      end,
     }),
   }
   if includeOpen and shared.lockSupportsOpen(entity) then
@@ -416,6 +418,7 @@ local function detailsEntity()
     rgb = type(rgb) == "table" and rgb[1] or nil,
     rgb_g = type(rgb) == "table" and rgb[2] or nil,
     rgb_b = type(rgb) == "table" and rgb[3] or nil,
+    camera_image = details.camera_image,
   }
 end
 
@@ -675,6 +678,124 @@ local function detailRow(label, value)
   })
 end
 
+local function cameraPreview(entity)
+  local openStream = function()
+    sendCommand({ action = "open_camera_stream", entity_id = entity.entity_id })
+  end
+  local preview
+  if type(entity.camera_image) == "string" and entity.camera_image ~= "" then
+    preview = ui.image({
+      path = entity.camera_image,
+      width = 376,
+      height = 212,
+      radius = 8,
+      fit = "contain",
+      onClick = openStream,
+    })
+  else
+    preview = ui.column({
+      width = 376,
+      height = 212,
+      radius = 8,
+      fill = "surface/0.35",
+      align = "center",
+      justify = "center",
+      gap = 8,
+      onClick = openStream,
+    }, {
+      ui.glyph({ name = "camera-off", size = 32, color = "on_surface_variant" }),
+      ui.label({ text = "No camera snapshot available", fontSize = 12, color = "on_surface_variant" }),
+    })
+  end
+  return ui.column({ width = 376, gap = 2 }, {
+    preview,
+    ui.row({ width = 376, height = 24, justify = "end", align = "center" }, {
+      ui.button({ glyph = "external-link", glyphSize = 14, width = 24, height = 24, variant = "ghost", tooltip = "Open camera stream in mpv/VLC", onClick = openStream }),
+    }),
+  })
+end
+
+local function logbookTime(value)
+  local text = tostring(value or "")
+  local date, time = text:match("^(%d%d%d%d%-%d%d%-%d%d)T(%d%d:%d%d)")
+  return date, time or text:sub(1, 16)
+end
+
+local function logbookDayLabel(date)
+  if not date then return "Activity" end
+  local today = os.date("%Y-%m-%d")
+  if date == today then return "Today" end
+  local yesterday = os.date("%Y-%m-%d", os.time() - 24 * 60 * 60)
+  if date == yesterday then return "Yesterday" end
+  return date
+end
+
+local function logbookStateColor(entry)
+  if type(entry.state) == "string" and entry.state ~= "" then return shared.colorFor(entry.state) end
+  local message = tostring(entry.message or ""):lower()
+  if message:find(" off", 1, true) or message:match("^off") then return "on_surface_variant" end
+  return "primary"
+end
+
+local function logbookMessage(entry)
+  if type(entry.state) == "string" and entry.state ~= "" then return entry.state end
+  return entry.message or "Activity"
+end
+
+local function activityEntry(entity, entry, isLast)
+  local date, time = logbookTime(entry.when)
+  local domain = type(entry.domain) == "string" and entry.domain or shared.domainOf(entity.entity_id)
+  local rail = {
+    ui.box({ width = 8, height = 8, radius = 4, fill = logbookStateColor(entry) }),
+  }
+  if not isLast then
+    rail[#rail + 1] = ui.box({ width = 2, flexGrow = 1, fill = "outline/0.55" })
+  end
+  return {
+    date = date,
+    row = ui.row({ align = "stretch", gap = 8 }, {
+      ui.column({ width = 14, align = "center", gap = 4 }, rail),
+      ui.column({ flexGrow = 1, gap = 1, paddingV = 3 }, {
+        ui.row({ align = "start", gap = 8 }, {
+          ui.glyph({ name = shared.glyphFor(domain, nil, entry.state), size = 14, color = logbookStateColor(entry) }),
+          ui.column({ flexGrow = 1, gap = 1 }, {
+            ui.label({ text = tostring(logbookMessage(entry)), fontSize = 12, maxLines = 8 }),
+            ui.label({ text = tostring(entry.name or entity.name or entity.entity_id), fontSize = 11, color = "on_surface_variant", maxLines = 3 }),
+          }),
+          ui.label({ text = time, width = 40, fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
+        }),
+      }),
+    }),
+  }
+end
+
+local function activityCard(entity)
+  local body = {}
+  if logbookErrorMessage ~= "" then
+    body[#body + 1] = ui.label({ text = logbookErrorMessage, fontSize = 12, color = "error" })
+  elseif logbookLoading then
+    body[#body + 1] = ui.label({ text = "Loading activity…", fontSize = 12, color = "on_surface_variant" })
+  elseif #logbook == 0 then
+    body[#body + 1] = ui.label({ text = "No activity in the last 24 hours", fontSize = 12, color = "on_surface_variant" })
+  else
+    local rows = {}
+    local previousDate = nil
+    for index, entry in ipairs(logbook) do
+      local rendered = activityEntry(entity, entry, index == #logbook)
+      if rendered.date ~= previousDate then
+        rows[#rows + 1] = ui.label({ text = logbookDayLabel(rendered.date), fontSize = 11, fontWeight = "semibold", color = "on_surface_variant", paddingV = 6 })
+        previousDate = rendered.date
+      end
+      rows[#rows + 1] = rendered.row
+    end
+    body[#body + 1] = ui.column({ gap = 0 }, rows)
+  end
+  return ui.column(CARD_STYLE, {
+    ui.label({ text = "Activity", fontSize = 13, fontWeight = "semibold" }),
+    ui.column({ gap = 0 }, body),
+  })
+end
+
 local function detailsView()
   if detailsLoading then
     return ui.column({ flexGrow = 1, gap = 10 }, {
@@ -696,6 +817,13 @@ local function detailsView()
       controls,
     })
   end
+  if shared.domainOf(entity.entity_id) == "camera" then
+    content[#content + 1] = ui.column(CARD_STYLE, {
+      ui.label({ text = "Live preview", fontSize = 13, fontWeight = "semibold" }),
+      cameraPreview(entity),
+    })
+  end
+  content[#content + 1] = activityCard(entity)
   content[#content + 1] = ui.column(CARD_STYLE, {
     detailRow("Entity", details.entity_id),
     detailRow("State", details.state),
@@ -704,7 +832,12 @@ local function detailsView()
   })
   local attributes = details.attributes or {}
   local keys = {}
-  for key in pairs(attributes) do keys[#keys + 1] = tostring(key) end
+  for key in pairs(attributes) do
+    -- entity_picture contains HA's short-lived camera proxy token. It is used
+    -- by the service to download the preview, but should not be exposed in
+    -- the details panel's attribute dump.
+    if tostring(key) ~= "entity_picture" then keys[#keys + 1] = tostring(key) end
+  end
   table.sort(keys)
   if #keys > 0 then
     local attributeRows = {}
@@ -981,6 +1114,17 @@ local function listView()
           ui.button({ glyph = "x", variant = "ghost", controlSize = "sm", tooltip = "Cancel", onClick = cancelRenameSection }),
         })
       else
+        local activeIcons = {}
+        local activeCount = 0
+        for _, id in ipairs(section.entities or {}) do
+          if sectionShown[id] and shared.isOn(rowFor(id).state) then
+            activeCount += 1
+            if #activeIcons < 8 then activeIcons[#activeIcons + 1] = entityIcon(rowFor(id), 14) end
+          end
+        end
+        if activeCount > #activeIcons then
+          activeIcons[#activeIcons + 1] = ui.label({ text = "+" .. tostring(activeCount - #activeIcons), fontSize = 10, color = "on_surface_variant" })
+        end
         local sectionHeaderChildren = {
           ui.button({
             text = (collapsed and "▸ " or "▾ ") .. section.name,
@@ -995,6 +1139,9 @@ local function listView()
             end,
           }),
         }
+        if #activeIcons > 0 then
+          sectionHeaderChildren[#sectionHeaderChildren + 1] = ui.row({ align = "center", gap = 2 }, activeIcons)
+        end
         if editMode then
           table.insert(sectionHeaderChildren, 1, ui.dragSource({
             key = "ha-section-grip-" .. tostring(index),
@@ -1375,6 +1522,18 @@ end)
 noctalia.state.watch("ha.details_error", function(value)
   detailsErrorMessage = type(value) == "string" and value or ""
   if detailsErrorMessage ~= "" then detailsLoading = false end
+  render()
+end)
+
+noctalia.state.watch("ha.logbook", function(value)
+  logbook = type(value) == "table" and value or {}
+  logbookLoading = false
+  render()
+end)
+
+noctalia.state.watch("ha.logbook_error", function(value)
+  logbookErrorMessage = type(value) == "string" and value or ""
+  if logbookErrorMessage ~= "" then logbookLoading = false end
   render()
 end)
 

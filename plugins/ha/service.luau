@@ -64,6 +64,12 @@ local barTargetEntity = nil
 local barActions = {}
 local currentRows = {}
 local activeDetailsEntityId = nil
+local cameraImagePaths = {}
+local cameraRequestGeneration = {}
+local detailsRequestGeneration = 0
+local logbookRequestGeneration = 0
+local lastLogbookEntityId = nil
+local lastLogbookFetchedAt = 0
 local fetchDetails
 local intervalMs
 -- A details page is deliberately more eager than the normal bar refresh:
@@ -514,6 +520,37 @@ local function openDashboard()
   end, 10000)
 end
 
+local function openCameraStream(entityId)
+  if shared.domainOf(entityId) ~= "camera" then return end
+  local server, token, err = credentials()
+  if err then
+    publishError(err)
+    return
+  end
+
+  local encodedEntityId = tostring(entityId):gsub("([^%w%._%-])", function(character)
+    return string.format("%%%02X", string.byte(character))
+  end)
+  local url = server:gsub("/+$", "") .. "/api/camera_proxy_stream/" .. encodedEntityId
+  local header = "Authorization: Bearer " .. token
+  if noctalia.commandExists("mpv") then
+    local started = noctalia.runAsync({ "mpv", "--force-window=yes", "--http-header-fields=" .. header, url })
+    if not started then noctalia.notifyError("Camera stream", "Could not start mpv") end
+    return
+  end
+
+  -- VLC does not expose an equivalent HTTP-header option on all supported
+  -- builds. Pipe the authenticated MJPEG response through curl instead.
+  if noctalia.commandExists("vlc") and noctalia.commandExists("curl") then
+    local command = "curl --fail --silent --show-error --location --header " .. shq(header) .. " " .. shq(url) .. " | vlc --demux=mjpeg -"
+    local started = noctalia.runAsync(command)
+    if not started then noctalia.notifyError("Camera stream", "Could not start VLC") end
+    return
+  end
+
+  noctalia.notifyError("Camera stream", "Install mpv or VLC (and curl for the VLC fallback)")
+end
+
 local COVER_SERVICES = { open = "open_cover", close = "close_cover", stop = "stop_cover" }
 
 local function coverCommand(entityId, command)
@@ -961,6 +998,114 @@ local function urlPathPart(value)
   end)
 end
 
+local function cameraImageDestination(entityId)
+  local dataDir, err = noctalia.pluginDataDir()
+  if not dataDir then
+    noctalia.log("ha: cannot download camera preview: " .. tostring(err))
+    return nil
+  end
+  local filePart = tostring(entityId):gsub("[^%w_-]", "_")
+  return dataDir .. "/camera-" .. filePart .. "-" .. tostring(math.floor(noctalia.nowMs())) .. ".jpg"
+end
+
+local function downloadCameraImage(server, entityId, parsed)
+  if shared.domainOf(entityId) ~= "camera" then return end
+  local attributes = parsed.attributes or {}
+  local picture = attributes.entity_picture
+  if type(picture) ~= "string" or picture == "" then return end
+
+  local url = picture
+  if picture:match("^https?://") == nil then
+    url = server .. (picture:sub(1, 1) == "/" and picture or "/" .. picture)
+  end
+  local destination = cameraImageDestination(entityId)
+  if not destination then return end
+
+  local requestId = (cameraRequestGeneration[entityId] or 0) + 1
+  cameraRequestGeneration[entityId] = requestId
+  local started = noctalia.download(url, destination, function(ok)
+    if not ok then
+      noctalia.log("ha: camera preview download failed for " .. entityId)
+      return
+    end
+    if activeDetailsEntityId ~= entityId or cameraRequestGeneration[entityId] ~= requestId then
+      noctalia.removeFile(destination)
+      return
+    end
+
+    local previous = cameraImagePaths[entityId]
+    cameraImagePaths[entityId] = destination
+    local current = noctalia.state.get("ha.details")
+    if type(current) == "table" and current.entity_id == entityId then
+      current.camera_image = destination
+      noctalia.state.set("ha.details", current)
+    end
+    if previous and previous ~= destination then noctalia.removeFile(previous) end
+  end)
+  if not started then
+    noctalia.log("ha: could not start camera preview download for " .. entityId)
+  end
+end
+
+local function logbookStartTimestamp()
+  return os.date("!%Y-%m-%dT%H:%M:%S+00:00", os.time() - 24 * 60 * 60)
+end
+
+local function fetchLogbook(server, token, entityId)
+  logbookRequestGeneration += 1
+  local requestId = logbookRequestGeneration
+  local url = server .. "/api/logbook/" .. urlPathPart(logbookStartTimestamp()) .. "?entity=" .. urlPathPart(entityId)
+  local started = noctalia.http({
+    url = url,
+    method = "GET",
+    headers = { "Authorization: Bearer " .. token, "Content-Type: application/json" },
+    allow_insecure_tls = noctalia.getConfig("allow_insecure_tls") == true,
+  }, function(response)
+    if activeDetailsEntityId ~= entityId or requestId ~= logbookRequestGeneration then return end
+    if not response.ok or response.status ~= 200 then
+      noctalia.state.set("ha.logbook_error", "Could not load activity (HTTP " .. tostring(response.status) .. ")")
+      return
+    end
+    local raw = noctalia.json.decode(response.body or "")
+    if type(raw) ~= "table" then
+      noctalia.state.set("ha.logbook_error", "Home Assistant returned invalid activity data")
+      return
+    end
+    -- HA returns the oldest entry first. The raw logbook also contains
+    -- repeated rows for attribute updates and service calls. Keep only rows
+    -- carrying a state and collapse consecutive duplicates so the timeline
+    -- represents actual state transitions (for example, recording ->
+    -- unavailable), not every underlying logbook event.
+    local transitions = {}
+    local previousState = nil
+    for _, entry in ipairs(raw) do
+      if type(entry) == "table" and type(entry.state) == "string" and entry.state ~= "" then
+        if previousState == nil or entry.state ~= previousState then
+          transitions[#transitions + 1] = {
+            when = entry.when,
+            name = entry.name,
+            message = entry.message,
+            domain = entry.domain,
+            state = entry.state,
+          }
+        end
+        previousState = entry.state
+      end
+    end
+
+    local entries = {}
+    for index = #transitions, 1, -1 do
+      entries[#entries + 1] = transitions[index]
+      if #entries >= 50 then break end
+    end
+    noctalia.state.set("ha.logbook_error", "")
+    noctalia.state.set("ha.logbook", entries)
+  end)
+  if not started then
+    noctalia.state.set("ha.logbook_error", "Could not start activity request")
+  end
+end
+
 fetchDetails = function(entityId)
   if type(entityId) ~= "string" or entityId == "" then return end
   local server, token, err = credentials()
@@ -968,6 +1113,8 @@ fetchDetails = function(entityId)
     noctalia.state.set("ha.details_error", err)
     return
   end
+  detailsRequestGeneration += 1
+  local requestId = detailsRequestGeneration
   noctalia.state.set("ha.details_error", "")
   local started = noctalia.http({
     url = server .. "/api/states/" .. urlPathPart(entityId),
@@ -975,6 +1122,7 @@ fetchDetails = function(entityId)
     headers = { "Authorization: Bearer " .. token, "Content-Type: application/json" },
     allow_insecure_tls = noctalia.getConfig("allow_insecure_tls") == true,
   }, function(response)
+    if activeDetailsEntityId ~= entityId or requestId ~= detailsRequestGeneration then return end
     if not response.ok or response.status ~= 200 then
       noctalia.state.set("ha.details_error", "Could not load details (HTTP " .. tostring(response.status) .. ")")
       return
@@ -984,7 +1132,15 @@ fetchDetails = function(entityId)
       noctalia.state.set("ha.details_error", "Home Assistant returned invalid entity details")
       return
     end
+    parsed.camera_image = cameraImagePaths[entityId]
     noctalia.state.set("ha.details", parsed)
+    downloadCameraImage(server, entityId, parsed)
+    local now = os.time()
+    if lastLogbookEntityId ~= entityId or now - lastLogbookFetchedAt >= 15 then
+      lastLogbookEntityId = entityId
+      lastLogbookFetchedAt = now
+      fetchLogbook(server, token, entityId)
+    end
   end)
   if not started then
     noctalia.state.set("ha.details_error", "Could not start entity details request")
@@ -999,6 +1155,8 @@ noctalia.state.watch("ha.command", function(command)
     refresh()
   elseif command.action == "open_dashboard" then
     openDashboard()
+  elseif command.action == "open_camera_stream" then
+    openCameraStream(command.entity_id)
   elseif command.action == "toggle" then
     toggleEntity(command.entity_id)
   elseif command.action == "cover" then
@@ -1052,10 +1210,19 @@ noctalia.state.watch("ha.command", function(command)
     listAreas()
   elseif command.action == "details" then
     activeDetailsEntityId = command.entity_id
+    lastLogbookEntityId = nil
+    lastLogbookFetchedAt = 0
+    noctalia.state.set("ha.logbook_error", "")
     noctalia.setUpdateInterval(DETAILS_REFRESH_INTERVAL_MS)
     fetchDetails(command.entity_id)
   elseif command.action == "details_close" then
     activeDetailsEntityId = nil
+    detailsRequestGeneration += 1
+    logbookRequestGeneration += 1
+    lastLogbookEntityId = nil
+    lastLogbookFetchedAt = 0
+    noctalia.state.set("ha.logbook", {})
+    noctalia.state.set("ha.logbook_error", "")
     noctalia.setUpdateInterval(intervalMs())
   end
 end)
