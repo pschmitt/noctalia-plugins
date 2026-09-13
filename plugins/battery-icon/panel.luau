@@ -133,7 +133,7 @@ end
 local function batteryRows()
   local rows = {
     metricRow(
-      "heartbeat",
+      "activity-heartbeat",
       noctalia.tr("panel.battery_health"),
       details.health and tostring(details.health) or noctalia.tr("panel.not_available"),
       details.health and "%" or nil
