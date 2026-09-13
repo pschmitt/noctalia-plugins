@@ -971,12 +971,25 @@ end
 local function entitySearchTemplate(query)
   local needle = quoteJinja(shared.trim(query):lower())
   local limit = pageSize()
-  return "{% set ns = namespace(count=0) %}{% set needle = " .. needle .. " %}"
-    .. "{% for s in (states | sort(attribute='entity_id') | list) %}"
-    .. "{% set name = (s.name or s.entity_id) | string %}"
-    .. "{% if ns.count < " .. tostring(limit) .. " and (needle in (s.entity_id | lower) or needle in (name | lower)) %}"
+  return "{% set ns = namespace(count=0) -%}"
+    .. "{% set needle = " .. needle .. " -%}"
+    .. "{% set terms = needle.replace('.', ' ').replace('_', ' ').replace('-', ' ').split() -%}"
+    .. "{% for s in (states | sort(attribute='entity_id') | list) -%}"
+    .. "{% set name = (s.name or s.entity_id) | string -%}"
+    .. "{% set eid = s.entity_id | lower -%}"
+    .. "{% set name_lower = name | lower -%}"
+    .. "{% set haystack = eid ~ ' ' ~ eid.replace('.', ' ').replace('_', ' ') ~ ' ' ~ name_lower ~ ' ' ~ (s.state | string | lower) -%}"
+    .. "{% set match = namespace(ok=true) -%}"
+    .. "{% for t in terms -%}"
+    .. "{% if t not in haystack -%}"
+    .. "{% set match.ok = false -%}"
+    .. "{% endif -%}"
+    .. "{% endfor -%}"
+    .. "{% if ((terms | length > 0 and match.ok) or needle in eid or needle in name_lower) and ns.count < " .. tostring(limit) .. " -%}"
     .. "{{ s.entity_id }}\t{{ s.state }}\t{{ name | replace('\\t',' ') | replace('\\n',' ') }}\t{{ state_attr(s.entity_id,'current_position') or '' }}\n"
-    .. "{% set ns.count = ns.count + 1 %}{% endif %}{% endfor %}"
+    .. "{% set ns.count = ns.count + 1 -%}"
+    .. "{% endif -%}"
+    .. "{% endfor -%}"
 end
 
 -- Areas come from Home Assistant's own area registry (see listAreas() below),

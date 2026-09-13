@@ -244,4 +244,119 @@ function M.statusText(entity)
   return state
 end
 
+local function isSubsequence(pattern, str)
+  local pLen = #pattern
+  local sLen = #str
+  if pLen == 0 then return true end
+  if pLen > sLen then return false end
+  local pIdx = 1
+  local pByte = string.byte(pattern, 1)
+  for sIdx = 1, sLen do
+    if string.byte(str, sIdx) == pByte then
+      pIdx = pIdx + 1
+      if pIdx > pLen then return true end
+      pByte = string.byte(pattern, pIdx)
+    end
+  end
+  return false
+end
+
+-- Fuzzy relevance scoring for entities across their ID, friendly name,
+-- section/area, and state/status. Returns a positive score (higher = better
+-- match), or nil if query does not match.
+function M.fuzzyScore(target, query)
+  local q = M.trim(query):lower()
+  if q == "" then return 1 end
+
+  local entityId = ""
+  local name = ""
+  local section = ""
+  local state = ""
+
+  if type(target) == "table" then
+    entityId = tostring(target.entity_id or ""):lower()
+    name = tostring(target.name or target.friendly_name or ""):lower()
+    section = tostring(target.section or ""):lower()
+    state = tostring(target.display_state or target.state or (type(target.statusText) == "string" and target.statusText) or ""):lower()
+  elseif type(target) == "string" then
+    entityId = target:lower()
+  end
+
+  local eidWords = entityId:gsub("[._-]", " ")
+  local haystack = entityId .. " " .. eidWords .. " " .. name .. " " .. section .. " " .. state
+
+  -- 1. Exact full-string match on entity_id or name
+  if (entityId ~= "" and entityId == q) or (name ~= "" and name == q) then
+    return 10000 - #entityId
+  end
+
+  -- 2. Exact prefix match on entity_id or name
+  if (entityId ~= "" and entityId:find(q, 1, true) == 1) or (name ~= "" and name:find(q, 1, true) == 1) then
+    return 8000 - #name
+  end
+
+  -- 3. Contiguous substring match of full query in haystack
+  local fullPos = haystack:find(q, 1, true)
+  if fullPos then
+    local bonus = (name ~= "" and name:find(q, 1, true) and 1000 or 0) + (entityId ~= "" and entityId:find(q, 1, true) and 500 or 0)
+    return 6000 + bonus - fullPos - #name
+  end
+
+  -- 4. Multi-term matching (all terms must match)
+  local terms = {}
+  for term in q:gsub("[._-]", " "):gmatch("%S+") do
+    terms[#terms + 1] = term
+  end
+
+  if #terms == 0 then return 1 end
+
+  local totalScore = 4000
+  for _, term in ipairs(terms) do
+    local tLen = #term
+    local termScore = 0
+
+    local inName = name ~= "" and name:find(term, 1, true)
+    local inEid = entityId ~= "" and entityId:find(term, 1, true)
+    local inWords = eidWords:find(term, 1, true)
+    local inSection = section ~= "" and section:find(term, 1, true)
+    local inState = state ~= "" and state:find(term, 1, true)
+
+    if inName then
+      termScore = 500 - inName
+      if inName == 1 or name:sub(inName - 1, inName - 1):match("%s") then
+        termScore = termScore + 200
+      end
+    elseif inEid or inWords then
+      local pos = inEid or inWords
+      termScore = 400 - pos
+      if pos == 1 or eidWords:sub(pos - 1, pos - 1):match("%s") then
+        termScore = termScore + 150
+      end
+    elseif inSection then
+      termScore = 300 - inSection
+      if inSection == 1 or section:sub(inSection - 1, inSection - 1):match("%s") then
+        termScore = termScore + 100
+      end
+    elseif inState then
+      termScore = 200 - inState
+    else
+      -- Subsequence match for terms of 2+ characters
+      if tLen >= 2 and ((name ~= "" and isSubsequence(term, name)) or (entityId ~= "" and isSubsequence(term, entityId))) then
+        termScore = 100 - tLen
+      else
+        return nil
+      end
+    end
+
+    totalScore = totalScore + termScore
+  end
+
+  totalScore = totalScore - (#name + #entityId) * 0.5
+  return totalScore
+end
+
+function M.fuzzyMatch(target, query)
+  return M.fuzzyScore(target, query) ~= nil
+end
+
 return M

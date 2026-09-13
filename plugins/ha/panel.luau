@@ -163,13 +163,19 @@ local function setAreaFilter(area)
 end
 
 local function filteredBrowseRows()
-  local needle = shared.trim(searchText):lower()
+  local needle = shared.trim(searchText)
   if needle == "" then return browseRows end
-  local out = {}
+  local scored = {}
   for _, row in ipairs(browseRows) do
-    if row.entity_id:lower():find(needle, 1, true) or (row.name or ""):lower():find(needle, 1, true) then
-      out[#out + 1] = row
+    local score = shared.fuzzyScore(row, needle)
+    if score then
+      scored[#scored + 1] = { row = row, score = score }
     end
+  end
+  table.sort(scored, function(a, b) return a.score > b.score end)
+  local out = {}
+  for _, s in ipairs(scored) do
+    out[#out + 1] = s.row
   end
   return out
 end
@@ -1239,14 +1245,19 @@ local function otherEntityRow(row)
 end
 
 local function matchesCachedEntity(row, needle)
-  local text = (row.entity_id or "") .. " " .. (row.name or row.entity_id or "")
-  return text:lower():find(needle, 1, true) ~= nil
+  local live = liveSearchEntities[row.entity_id] or row
+  local target = {
+    entity_id = row.entity_id,
+    name = live.name or row.name or row.entity_id,
+    display_state = live.state,
+    state = live.state,
+  }
+  return shared.fuzzyMatch(target, needle)
 end
 
 local function listView()
   local content = {}
   local searchActive = shared.trim(listSearchText) ~= ""
-  local needle = shared.trim(listSearchText):lower()
   local showSearch = noctalia.getConfig("panel_show_search") == true
   local searchAtBottom = noctalia.getConfig("panel_search_position") ~= "top"
   local function entitySearch()
@@ -1277,10 +1288,17 @@ local function listView()
       return byId[id] or { entity_id = id, state = nil, name = id }
     end
 
-    local function matches(entity)
+    local function matches(entity, sectionName)
       if not searchActive then return true end
-      local text = (entity.entity_id or "") .. " " .. (entity.name or "") .. " " .. shared.statusText(entity)
-      return text:lower():find(needle, 1, true) ~= nil
+      local target = {
+        entity_id = entity.entity_id,
+        name = entity.name,
+        section = sectionName,
+        display_state = entity.display_state,
+        state = entity.state,
+        statusText = shared.statusText(entity),
+      }
+      return shared.fuzzyMatch(target, listSearchText)
     end
 
     local sectionEntities = {}
@@ -1297,7 +1315,7 @@ local function listView()
       local sectionHasMatch = false
       if searchActive then
         for _, id in ipairs(section.entities or {}) do
-          if not hidden[id] and matches(rowFor(id)) then
+          if not hidden[id] and matches(rowFor(id), section.name) then
             sectionHasMatch = true
             break
           end
@@ -1306,7 +1324,7 @@ local function listView()
       end
       local sectionRows, sectionShown = {}, {}
       for _, id in ipairs(section.entities or {}) do
-        if not hidden[id] and matches(rowFor(id)) and not shown[id] and not sectionShown[id] then
+        if not hidden[id] and matches(rowFor(id), section.name) and not shown[id] and not sectionShown[id] then
           if editMode then sectionRows[#sectionRows + 1] = entityDropZone(index, id) end
           sectionRows[#sectionRows + 1] = entityRow(rowFor(id))
           localMatchCount += 1
@@ -1445,11 +1463,26 @@ local function listView()
     local otherMatchCount = 0
     if searchActive and not editMode then
       local configured = configuredSet()
+      local scored = {}
       for _, row in ipairs(entityCache) do
-        if not configured[row.entity_id] and matchesCachedEntity(row, needle) then
-          otherMatchCount += 1
-          if #otherRows < OTHER_RESULT_LIMIT then otherRows[#otherRows + 1] = row end
+        if not configured[row.entity_id] then
+          local live = liveSearchEntities[row.entity_id] or row
+          local target = {
+            entity_id = row.entity_id,
+            name = live.name or row.name or row.entity_id,
+            display_state = live.state,
+            state = live.state,
+          }
+          local score = shared.fuzzyScore(target, listSearchText)
+          if score then
+            scored[#scored + 1] = { row = row, score = score }
+          end
         end
+      end
+      table.sort(scored, function(a, b) return a.score > b.score end)
+      otherMatchCount = #scored
+      for i = 1, math.min(#scored, OTHER_RESULT_LIMIT) do
+        otherRows[#otherRows + 1] = scored[i].row
       end
       if #otherRows > 0 then
         content[#content + 1] = ui.label({ text = "Other", fontSize = 12, fontWeight = "semibold", color = "on_surface_variant" })
