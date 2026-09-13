@@ -241,6 +241,16 @@ function M.statusText(entity)
     if entity.media_artist and entity.media_artist ~= "" then track = track .. " · " .. entity.media_artist end
     return state .. " · " .. track
   end
+  local unit = entity.unit_of_measurement
+    or (type(entity.attributes) == "table" and entity.attributes.unit_of_measurement)
+    or entity.unit
+  if unit and unit ~= "" and state ~= "—" and not M.isUnavailable(state) then
+    local unitStr = M.trim(tostring(unit))
+    if unitStr ~= "" and not state:find(unitStr, 1, true) then
+      local sep = (unitStr == "%") and "" or " "
+      return state .. sep .. unitStr
+    end
+  end
   return state
 end
 
@@ -350,6 +360,9 @@ function M.isNumericEntity(entity)
     return true
   end
   if tonumber(entity.state) ~= nil then
+    return true
+  end
+  if entity.unit_of_measurement ~= nil and entity.unit_of_measurement ~= "" then
     return true
   end
   local attrs = entity.attributes

@@ -118,6 +118,14 @@ local function entityIcon(entity, size)
   return ui.glyph({ name = shared.glyphFor(domain, entity.icon, entity.state), size = size, color = shared.iconColor(entity) })
 end
 
+local function findConfiguredEntity(entityId)
+  if type(entityId) ~= "string" or entityId == "" then return nil end
+  for _, entity in ipairs(entities) do
+    if entity.entity_id == entityId then return entity end
+  end
+  return liveSearchEntities[entityId]
+end
+
 local function openDetails(entityId)
   view = "details"
   detailsEntityId = entityId
@@ -548,6 +556,8 @@ local function detailsEntity()
     rgb_g = type(rgb) == "table" and rgb[2] or nil,
     rgb_b = type(rgb) == "table" and rgb[3] or nil,
     camera_image = details.camera_image,
+    unit_of_measurement = attributes.unit_of_measurement,
+    attributes = attributes,
   }
 end
 
@@ -1037,7 +1047,8 @@ local function formatHistoryValue(val, unit)
     str = string.format("%.2f", num)
   end
   if unit and unit ~= "" then
-    return str .. " " .. unit
+    local sep = (unit == "%") and "" or " "
+    return str .. sep .. unit
   end
   return str
 end
@@ -1047,7 +1058,8 @@ local function historyCard(entity)
     return nil
   end
 
-  local unit = (entity.attributes and entity.attributes.unit_of_measurement)
+  local unit = entity.unit_of_measurement
+    or (entity.attributes and entity.attributes.unit_of_measurement)
     or (history and history.unit)
     or ""
 
@@ -1389,6 +1401,7 @@ local function otherEntityRow(row)
     state = live.state,
     display_state = live.state or "Not configured",
     position = live.position,
+    unit_of_measurement = live.unit_of_measurement or row.unit_of_measurement,
   }, true)
 end
 
@@ -1856,13 +1869,21 @@ local function header()
     })
   end
   local attributes = details.attributes or {}
-  local title = attributes.friendly_name or details.entity_id or detailsEntityId or "Entity details"
   local titleEntity
+  if not detailsLoading and detailsErrorMessage == "" then
+    titleEntity = detailsEntity()
+  else
+    titleEntity = findConfiguredEntity(detailsEntityId)
+  end
+  local title = attributes.friendly_name
+    or (titleEntity and titleEntity.name)
+    or details.entity_id
+    or detailsEntityId
+    or "Entity details"
   local children = {
     ui.button({ glyph = "arrow-left", variant = "ghost", controlSize = "sm", onClick = "onBackToList" }),
   }
-  if not detailsLoading and detailsErrorMessage == "" then
-    titleEntity = detailsEntity()
+  if titleEntity then
     children[#children + 1] = entityIcon(titleEntity, 20)
   end
   local titleLabels = {

@@ -328,7 +328,8 @@ local function statusTemplate(ids)
       .. "{{ (state_attr(id,'supported_color_modes') or []) | join(',') }}\t"
       .. "{{ state_attr(id,'color_temp_kelvin') or '' }}\t"
       .. "{{ state_attr(id,'min_color_temp_kelvin') or '' }}\t"
-      .. "{{ state_attr(id,'max_color_temp_kelvin') or '' }}\n{% endif %}"
+      .. "{{ state_attr(id,'max_color_temp_kelvin') or '' }}\t"
+      .. "{{ (state_attr(id,'unit_of_measurement') or '') | string | replace('\\t',' ') | replace('\\n',' ') }}\n{% endif %}"
   end
   return "{% for id in " .. list .. " %}" .. table.concat(rows) .. "{% endfor %}"
 end
@@ -360,7 +361,7 @@ end
 local function parseStatusResponse(body)
   local rows = {}
   for line in tostring(body or ""):gmatch("[^\n]+") do
-    local f = splitFields(line, 22)
+    local f = splitFields(line, 23)
     local id = f[1]
     if id and id ~= "" then
       local oscillating
@@ -390,6 +391,7 @@ local function parseStatusResponse(body)
         color_temp_kelvin = f[20] ~= "" and tonumber(f[20]) or nil,
         min_color_temp_kelvin = f[21] ~= "" and tonumber(f[21]) or nil,
         max_color_temp_kelvin = f[22] ~= "" and tonumber(f[22]) or nil,
+        unit_of_measurement = f[23] ~= "" and f[23] or nil,
       }
     end
   end
@@ -989,7 +991,7 @@ local function entitySearchTemplate(query)
     .. "{% endif -%}"
     .. "{% endfor -%}"
     .. "{% if ((terms | length > 0 and match.ok) or needle in eid or needle in name_lower) and ns.count < " .. tostring(limit) .. " -%}"
-    .. "{{ s.entity_id }}\t{{ s.state }}\t{{ name | replace('\\t',' ') | replace('\\n',' ') }}\t{{ state_attr(s.entity_id,'current_position') or '' }}\n"
+    .. "{{ s.entity_id }}\t{{ s.state }}\t{{ name | replace('\\t',' ') | replace('\\n',' ') }}\t{{ state_attr(s.entity_id,'current_position') or '' }}\t{{ (state_attr(s.entity_id,'unit_of_measurement') or '') | string | replace('\\t',' ') | replace('\\n',' ') }}\n"
     .. "{% set ns.count = ns.count + 1 -%}"
     .. "{% endif -%}"
     .. "{% endfor -%}"
@@ -1172,13 +1174,15 @@ local function searchEntities(query)
 
     local rows = {}
     for line in tostring(response.body or ""):gmatch("[^\n]+") do
-      local id, state, name, position = line:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$")
+      local f = splitFields(line, 5)
+      local id = f[1]
       if id and id ~= "" then
         rows[#rows + 1] = {
           entity_id = id,
-          state = state,
-          name = (name ~= "" and name or id),
-          position = position ~= "" and tonumber(position) or nil,
+          state = f[2],
+          name = (f[3] ~= "" and f[3] or id),
+          position = f[4] ~= "" and tonumber(f[4]) or nil,
+          unit_of_measurement = f[5] ~= "" and f[5] or nil,
         }
       end
     end
