@@ -205,6 +205,13 @@ options = [
   { value = "bottom", label_key = "settings.panel_search_position.bottom" },
 ]
 
+[[setting]]
+key = "panel_preserve_state"
+type = "bool"
+label_key = "settings.panel_preserve_state.label"
+description_key = "settings.panel_preserve_state.description"
+default = false
+
 [[service]]
 id = "poller"
 entry = "service.luau"

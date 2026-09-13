@@ -635,6 +635,10 @@ local function editButtonHidden()
   return noctalia.getConfig("panel_hide_edit_button") == true
 end
 
+local function preservePanelState()
+  return noctalia.getConfig("panel_preserve_state") == true
+end
+
 local function toggleEditMode()
   if not editMode and editButtonHidden() then return end
   editMode = not editMode
@@ -1922,19 +1926,54 @@ end
 
 function onOpen()
   panelOpen = true
-  view = "list"
-  listSearchText = ""
-  focusListSearch = true
-  collapsedSections = {}
+  local restoredDetailsEntityId
+  if preservePanelState() and view == "details" and type(detailsEntityId) == "string" and detailsEntityId ~= "" then
+    restoredDetailsEntityId = detailsEntityId
+  else
+    view = "list"
+  end
+  if preservePanelState() then
+    focusListSearch = shared.trim(listSearchText) == ""
+    liveSearchEntities = {}
+    if shared.trim(listSearchText) ~= "" then
+      sendCommand({ action = "search", query = listSearchText })
+    end
+  else
+    listSearchText = ""
+    focusListSearch = true
+    collapsedSections = {}
+    liveSearchEntities = {}
+    -- Invalidate any outstanding live query and make the input key change so
+    -- Noctalia cannot retain the old widget text after the Lua value resets.
+    listSearchFocusRevision += 1
+    sendCommand({ action = "search", query = "" })
+  end
   editMode = false
   editingEntityId = nil
   editingSectionIndex = nil
   addingSection = false
   addingSectionDraft = ""
-  detailsEntityId = nil
+  if restoredDetailsEntityId then
+    -- Closing the panel tells the service to stop polling details. Recreate
+    -- the loading state and request the entity again when restoring the view.
+    detailsEntityId = restoredDetailsEntityId
+    details = {}
+    detailsLoading = true
+    detailsErrorMessage = ""
+    lastDetailValueClickAt = {}
+    logbook = {}
+    logbookLoading = true
+    logbookErrorMessage = ""
+    logbookExpanded = false
+  else
+    detailsEntityId = nil
+  end
   animationFrame = 0
   animationElapsedMs = 0
   sendCommand({ action = "refresh" })
+  if restoredDetailsEntityId then
+    sendCommand({ action = "details", entity_id = restoredDetailsEntityId })
+  end
   render()
 end
 
