@@ -71,6 +71,12 @@ local render
 local function rememberCachedRows(rows, target, seen)
   for _, row in ipairs(rows or {}) do
     if type(row) == "table" and type(row.entity_id) == "string" and row.entity_id ~= "" and not seen[row.entity_id] then
+      if not row._eid_lower then
+        row._eid_lower = row.entity_id:lower()
+      end
+      if not row._name_lower then
+        row._name_lower = (row.name or row.entity_id):lower()
+      end
       target[#target + 1] = row
       seen[row.entity_id] = true
     end
@@ -171,11 +177,11 @@ local function setAreaFilter(area)
 end
 
 local function filteredBrowseRows()
-  local needle = shared.trim(searchText)
-  if needle == "" then return browseRows end
+  local pq = shared.prepareSearch(searchText)
+  if not pq then return browseRows end
   local scored = {}
   for _, row in ipairs(browseRows) do
-    local score = shared.fuzzyScore(row, needle)
+    local score = shared.fuzzyScore(row, pq)
     if score then
       scored[#scored + 1] = { row = row, score = score }
     end
@@ -1386,20 +1392,10 @@ local function otherEntityRow(row)
   }, true)
 end
 
-local function matchesCachedEntity(row, needle)
-  local live = liveSearchEntities[row.entity_id] or row
-  local target = {
-    entity_id = row.entity_id,
-    name = live.name or row.name or row.entity_id,
-    display_state = live.state,
-    state = live.state,
-  }
-  return shared.fuzzyMatch(target, needle)
-end
-
 local function listView()
   local content = {}
-  local searchActive = shared.trim(listSearchText) ~= ""
+  local pq = shared.prepareSearch(listSearchText)
+  local searchActive = pq ~= nil
   local showSearch = noctalia.getConfig("panel_show_search") == true
   local searchAtBottom = noctalia.getConfig("panel_search_position") ~= "top"
   local function entitySearch()
@@ -1432,15 +1428,13 @@ local function listView()
 
     local function matches(entity, sectionName)
       if not searchActive then return true end
-      local target = {
-        entity_id = entity.entity_id,
-        name = entity.name,
-        section = sectionName,
-        display_state = entity.display_state,
-        state = entity.state,
-        statusText = shared.statusText(entity),
-      }
-      return shared.fuzzyMatch(target, listSearchText)
+      return shared.matchScore(
+        entity._eid_lower or entity.entity_id,
+        entity._name_lower or entity.name,
+        sectionName,
+        entity.display_state or entity.state or shared.statusText(entity),
+        pq
+      ) ~= nil
     end
 
     local sectionEntities = {}
@@ -1605,26 +1599,58 @@ local function listView()
     local otherMatchCount = 0
     if searchActive and not editMode then
       local configured = configuredSet()
-      local scored = {}
+      local heap = {}
+      local heapSize = 0
+
       for _, row in ipairs(entityCache) do
-        if not configured[row.entity_id] then
-          local live = liveSearchEntities[row.entity_id] or row
-          local target = {
-            entity_id = row.entity_id,
-            name = live.name or row.name or row.entity_id,
-            display_state = live.state,
-            state = live.state,
-          }
-          local score = shared.fuzzyScore(target, listSearchText)
+        local eid = row.entity_id
+        if not configured[eid] then
+          local live = liveSearchEntities[eid]
+          local name = live and (live.name or live.entity_id) or row._name_lower or row.name or eid
+          local state = live and live.state or nil
+          local score = shared.matchScore(row._eid_lower or eid, name, nil, state, pq)
           if score then
-            scored[#scored + 1] = { row = row, score = score }
+            otherMatchCount += 1
+            if heapSize < OTHER_RESULT_LIMIT then
+              heapSize += 1
+              heap[heapSize] = { row = row, score = score }
+              local i = heapSize
+              while i > 1 do
+                local p = math.floor(i / 2)
+                if heap[i].score < heap[p].score then
+                  heap[i], heap[p] = heap[p], heap[i]
+                  i = p
+                else
+                  break
+                end
+              end
+            elseif score > heap[1].score then
+              heap[1] = { row = row, score = score }
+              local i = 1
+              while true do
+                local left = i * 2
+                local right = left + 1
+                local smallest = i
+                if left <= heapSize and heap[left].score < heap[smallest].score then
+                  smallest = left
+                end
+                if right <= heapSize and heap[right].score < heap[smallest].score then
+                  smallest = right
+                end
+                if smallest ~= i then
+                  heap[i], heap[smallest] = heap[smallest], heap[i]
+                  i = smallest
+                else
+                  break
+                end
+              end
+            end
           end
         end
       end
-      table.sort(scored, function(a, b) return a.score > b.score end)
-      otherMatchCount = #scored
-      for i = 1, math.min(#scored, OTHER_RESULT_LIMIT) do
-        otherRows[#otherRows + 1] = scored[i].row
+      table.sort(heap, function(a, b) return a.score > b.score end)
+      for i = 1, heapSize do
+        otherRows[i] = heap[i].row
       end
       if #otherRows > 0 then
         content[#content + 1] = ui.label({ text = "Other", fontSize = 12, fontWeight = "semibold", color = "on_surface_variant" })
