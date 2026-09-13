@@ -78,6 +78,9 @@ local detailsRequestGeneration = 0
 local logbookRequestGeneration = 0
 local lastLogbookEntityId = nil
 local lastLogbookFetchedAt = 0
+local historyRequestGeneration = 0
+local lastHistoryEntityId = nil
+local lastHistoryFetchedAt = 0
 local fetchDetails
 local cacheEntityPage
 local intervalMs
@@ -1387,6 +1390,152 @@ local function fetchLogbook(server, token, entityId)
   end
 end
 
+local function historyStartTimestamp(nowSec)
+  return os.date("!%Y-%m-%dT%H:%M:%S+00:00", nowSec - 24 * 60 * 60)
+end
+
+local function parseIsoTimestamp(ts)
+  if type(ts) ~= "string" then return nil end
+  local y, m, d, hr, min, sec = ts:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d):(%d%d):(%d%d)")
+  if not y then return nil end
+  return os.time({
+    year = tonumber(y) or 1970,
+    month = tonumber(m) or 1,
+    day = tonumber(d) or 1,
+    hour = tonumber(hr) or 0,
+    min = tonumber(min) or 0,
+    sec = tonumber(sec) or 0,
+  })
+end
+
+local function processHistory(rawList, startIso, endIso, nowEpoch)
+  if type(rawList) ~= "table" or #rawList == 0 then return nil end
+  local tStart = parseIsoTimestamp(startIso)
+  local tEnd = parseIsoTimestamp(endIso)
+  if not tStart or not tEnd or tEnd <= tStart then return nil end
+  local duration = tEnd - tStart
+
+  local clean = {}
+  local minVal = nil
+  local maxVal = nil
+  local sumVal = 0
+
+  for _, item in ipairs(rawList) do
+    if type(item) == "table" then
+      local val = tonumber(item.state)
+      if val ~= nil then
+        local tsStr = item.last_changed or item.last_updated
+        local t = parseIsoTimestamp(tsStr)
+        if t ~= nil then
+          clean[#clean + 1] = { time = t, val = val }
+          if minVal == nil or val < minVal then minVal = val end
+          if maxVal == nil or val > maxVal then maxVal = val end
+          sumVal += val
+        end
+      end
+    end
+  end
+
+  if #clean == 0 or minVal == nil or maxVal == nil then return nil end
+
+  local sampleCount = 96
+  local normalized = {}
+  local rawSamples = {}
+  local ptIdx = 1
+  local lastVal = clean[1].val
+  local span = maxVal - minVal
+
+  for i = 1, sampleCount do
+    local fraction = i / sampleCount
+    local tBucketEnd = tStart + fraction * duration
+    local bucketSum = 0
+    local bucketCount = 0
+
+    while ptIdx <= #clean and clean[ptIdx].time < tBucketEnd do
+      local v = clean[ptIdx].val
+      bucketSum += v
+      bucketCount += 1
+      lastVal = v
+      ptIdx += 1
+    end
+
+    local avgVal
+    if bucketCount > 0 then
+      avgVal = bucketSum / bucketCount
+    else
+      avgVal = lastVal
+    end
+
+    rawSamples[i] = avgVal
+    if span > 0.00001 then
+      local norm = (avgVal - minVal) / span
+      normalized[i] = math.max(0.0, math.min(1.0, norm))
+    else
+      normalized[i] = 0.5
+    end
+  end
+
+  return {
+    available = true,
+    min = minVal,
+    max = maxVal,
+    avg = sumVal / #clean,
+    current = clean[#clean].val,
+    normalized = normalized,
+    rawValues = rawSamples,
+    start_time = nowEpoch - 24 * 3600,
+    end_time = nowEpoch,
+  }
+end
+
+local function fetchHistory(server, token, entityId, unit)
+  historyRequestGeneration += 1
+  local requestId = historyRequestGeneration
+  local nowEpoch = os.time()
+  local startIso = historyStartTimestamp(nowEpoch)
+  local endIso = os.date("!%Y-%m-%dT%H:%M:%S+00:00", nowEpoch)
+  local url = server .. "/api/history/period/" .. urlPathPart(startIso)
+    .. "?filter_entity_id=" .. urlPathPart(entityId)
+    .. "&minimal_response=1&no_attributes=1&significant_changes_only=0"
+
+  noctalia.state.set("ha.history_loading", true)
+  noctalia.state.set("ha.history_error", "")
+
+  local started = noctalia.http({
+    url = url,
+    method = "GET",
+    headers = { "Authorization: Bearer " .. token, "Content-Type: application/json" },
+    allow_insecure_tls = noctalia.getConfig("allow_insecure_tls") == true,
+  }, function(response)
+    if activeDetailsEntityId ~= entityId or requestId ~= historyRequestGeneration then return end
+    noctalia.state.set("ha.history_loading", false)
+    if not response.ok or response.status ~= 200 then
+      noctalia.state.set("ha.history_error", "Could not load history (HTTP " .. tostring(response.status) .. ")")
+      return
+    end
+    local raw = noctalia.json.decode(response.body or "")
+    if type(raw) ~= "table" then
+      noctalia.state.set("ha.history_error", "Home Assistant returned invalid history data")
+      return
+    end
+    local list = raw[1]
+    local processed = processHistory(list, startIso, endIso, nowEpoch)
+    if not processed then
+      noctalia.state.set("ha.history", { entity_id = entityId, available = false })
+      noctalia.state.set("ha.history_error", "")
+      return
+    end
+    processed.entity_id = entityId
+    processed.unit = unit or ""
+    noctalia.state.set("ha.history_error", "")
+    noctalia.state.set("ha.history", processed)
+  end)
+  if not started then
+    noctalia.state.set("ha.history_loading", false)
+    noctalia.state.set("ha.history_error", "Could not start history request")
+  end
+end
+
 fetchDetails = function(entityId)
   if type(entityId) ~= "string" or entityId == "" then return end
   local server, token, err = credentials()
@@ -1421,6 +1570,18 @@ fetchDetails = function(entityId)
       lastLogbookEntityId = entityId
       lastLogbookFetchedAt = now
       fetchLogbook(server, token, entityId)
+    end
+    local isNumeric = shared.isNumericEntity(parsed)
+    if isNumeric then
+      local unit = (type(parsed.attributes) == "table" and parsed.attributes.unit_of_measurement) or ""
+      if lastHistoryEntityId ~= entityId or now - lastHistoryFetchedAt >= 30 then
+        lastHistoryEntityId = entityId
+        lastHistoryFetchedAt = now
+        fetchHistory(server, token, entityId, unit)
+      end
+    else
+      noctalia.state.set("ha.history", { entity_id = entityId, available = false })
+      noctalia.state.set("ha.history_loading", false)
     end
   end)
   if not started then
@@ -1501,17 +1662,27 @@ noctalia.state.watch("ha.command", function(command)
     activeDetailsEntityId = command.entity_id
     lastLogbookEntityId = nil
     lastLogbookFetchedAt = 0
+    lastHistoryEntityId = nil
+    lastHistoryFetchedAt = 0
     noctalia.state.set("ha.logbook_error", "")
+    noctalia.state.set("ha.history_error", "")
+    noctalia.state.set("ha.history_loading", true)
     noctalia.setUpdateInterval(DETAILS_REFRESH_INTERVAL_MS)
     fetchDetails(command.entity_id)
   elseif command.action == "details_close" then
     activeDetailsEntityId = nil
     detailsRequestGeneration += 1
     logbookRequestGeneration += 1
+    historyRequestGeneration += 1
     lastLogbookEntityId = nil
     lastLogbookFetchedAt = 0
+    lastHistoryEntityId = nil
+    lastHistoryFetchedAt = 0
     noctalia.state.set("ha.logbook", {})
     noctalia.state.set("ha.logbook_error", "")
+    noctalia.state.set("ha.history", {})
+    noctalia.state.set("ha.history_error", "")
+    noctalia.state.set("ha.history_loading", false)
     noctalia.setUpdateInterval(intervalMs())
   end
 end)

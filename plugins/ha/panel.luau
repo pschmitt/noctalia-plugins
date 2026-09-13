@@ -50,6 +50,10 @@ local logbook = noctalia.state.get("ha.logbook") or {}
 local logbookLoading = false
 local logbookErrorMessage = noctalia.state.get("ha.logbook_error") or ""
 local logbookExpanded = false
+local history = noctalia.state.get("ha.history") or {}
+local historyLoading = false
+local historyErrorMessage = noctalia.state.get("ha.history_error") or ""
+local historyHover = nil
 local CARD_STYLE = { fill = "surface_variant/0.58", radius = 12, padding = 10, gap = 2 }
 local ENTITY_DRAG_TYPE = "ha-entity"
 local SECTION_DRAG_TYPE = "ha-section"
@@ -119,6 +123,10 @@ local function openDetails(entityId)
   logbookLoading = true
   logbookErrorMessage = ""
   logbookExpanded = false
+  history = {}
+  historyLoading = true
+  historyErrorMessage = ""
+  historyHover = nil
   render()
   sendCommand({ action = "details", entity_id = entityId })
 end
@@ -976,6 +984,136 @@ local function activityCard(entity)
   })
 end
 
+local function handleGraphPointerMove(normX, normY)
+  local x = tonumber(normX)
+  if not x or not history or not history.rawValues or #history.rawValues == 0 then
+    return
+  end
+  local count = #history.rawValues
+  local idx = math.max(1, math.min(count, math.floor(x * (count - 1) + 0.5) + 1))
+  local val = history.rawValues[idx]
+  local startTime = history.start_time or (os.time() - 24 * 3600)
+  local endTime = history.end_time or os.time()
+  local ts = startTime + x * (endTime - startTime)
+  local timeStr = os.date("%H:%M", math.floor(ts))
+  historyHover = {
+    value = val,
+    time = timeStr,
+    x = x,
+  }
+  render()
+end
+
+local function handleGraphPointerLeave()
+  if historyHover ~= nil then
+    historyHover = nil
+    render()
+  end
+end
+
+function onGraphPointerMove(x, y)
+  handleGraphPointerMove(x, y)
+end
+
+function onGraphPointerLeave()
+  handleGraphPointerLeave()
+end
+
+local function formatHistoryValue(val, unit)
+  local num = tonumber(val)
+  if num == nil then return tostring(val or "") end
+  local str
+  if math.abs(num - math.floor(num)) < 0.001 then
+    str = string.format("%d", math.floor(num))
+  elseif math.abs(num * 10 - math.floor(num * 10)) < 0.01 then
+    str = string.format("%.1f", num)
+  else
+    str = string.format("%.2f", num)
+  end
+  if unit and unit ~= "" then
+    return str .. " " .. unit
+  end
+  return str
+end
+
+local function historyCard(entity)
+  if not shared.isNumericEntity(entity) then
+    return nil
+  end
+
+  local unit = (entity.attributes and entity.attributes.unit_of_measurement)
+    or (history and history.unit)
+    or ""
+
+  if historyErrorMessage ~= "" then
+    return ui.column(CARD_STYLE, {
+      ui.label({ text = "History (24h)", fontSize = 13, fontWeight = "semibold" }),
+      ui.label({ text = historyErrorMessage, fontSize = 12, color = "error" }),
+    })
+  end
+
+  if historyLoading and (not history or history.entity_id ~= entity.entity_id or not history.available) then
+    return ui.column(CARD_STYLE, {
+      ui.label({ text = "History (24h)", fontSize = 13, fontWeight = "semibold" }),
+      ui.label({ text = "Loading history…", fontSize = 12, color = "on_surface_variant" }),
+    })
+  end
+
+  if not history or history.entity_id ~= entity.entity_id or not history.available or not history.normalized or #history.normalized == 0 then
+    return nil
+  end
+
+  local headerRight
+  if historyHover and historyHover.value ~= nil then
+    headerRight = ui.row({ align = "center", gap = 6 }, {
+      ui.label({ text = historyHover.time, fontSize = 11, color = "on_surface_variant" }),
+      ui.label({
+        text = formatHistoryValue(historyHover.value, unit),
+        fontSize = 12,
+        fontWeight = "semibold",
+        color = "primary",
+      }),
+    })
+  else
+    local liveVal = tonumber(entity.state) or history.current
+    headerRight = ui.label({
+      text = formatHistoryValue(liveVal, unit),
+      fontSize = 12,
+      fontWeight = "semibold",
+      color = "on_surface_variant",
+    })
+  end
+
+  local graphControl = ui.graph({
+    key = "ha-details-history-graph",
+    values = history.normalized,
+    color = "primary",
+    lineWidth = 1.8,
+    fillOpacity = 0.2,
+    height = 90,
+    onPointerMove = handleGraphPointerMove,
+    onPointerLeave = handleGraphPointerLeave,
+  })
+
+  local footer = ui.row({ align = "center", justify = "space_between" }, {
+    ui.label({ text = "24h ago", fontSize = 10, color = "on_surface_variant" }),
+    ui.row({ align = "center", gap = 12 }, {
+      ui.label({ text = "Min: " .. formatHistoryValue(history.min, unit), fontSize = 11, color = "on_surface_variant" }),
+      ui.label({ text = "Max: " .. formatHistoryValue(history.max, unit), fontSize = 11, color = "on_surface_variant" }),
+    }),
+    ui.label({ text = "Now", fontSize = 10, color = "on_surface_variant" }),
+  })
+
+  return ui.column(CARD_STYLE, {
+    ui.row({ align = "center", justify = "space_between" }, {
+      ui.label({ text = "History (24h)", fontSize = 13, fontWeight = "semibold" }),
+      headerRight,
+    }),
+    graphControl,
+    footer,
+  })
+end
+
 local function detailsView()
   if detailsLoading then
     return ui.column({ flexGrow = 1, gap = 10 }, {
@@ -1016,6 +1154,10 @@ local function detailsView()
       ui.label({ text = "Live preview", fontSize = 13, fontWeight = "semibold" }),
       cameraPreview(entity),
     })
+  end
+  local graphCard = historyCard(entity)
+  if graphCard then
+    content[#content + 1] = graphCard
   end
   content[#content + 1] = activityCard(entity)
   local detailsCard = {
@@ -1918,6 +2060,24 @@ noctalia.state.watch("ha.logbook_error", function(value)
   render()
 end)
 
+noctalia.state.watch("ha.history", function(value)
+  history = type(value) == "table" and value or {}
+  historyLoading = false
+  historyHover = nil
+  render()
+end)
+
+noctalia.state.watch("ha.history_error", function(value)
+  historyErrorMessage = type(value) == "string" and value or ""
+  if historyErrorMessage ~= "" then historyLoading = false end
+  render()
+end)
+
+noctalia.state.watch("ha.history_loading", function(value)
+  historyLoading = value == true
+  render()
+end)
+
 noctalia.state.watch("ha.browse_error", function(value)
   browseErrorMessage = type(value) == "string" and value or ""
   -- A failed browse request never produces a ha.browse_result, so this
@@ -1998,6 +2158,10 @@ function onOpen()
     logbookLoading = true
     logbookErrorMessage = ""
     logbookExpanded = false
+    history = {}
+    historyLoading = true
+    historyErrorMessage = ""
+    historyHover = nil
   else
     detailsEntityId = nil
   end
@@ -2068,6 +2232,7 @@ function onBackToList()
   view = "list"
   detailsLoading = false
   detailsEntityId = nil
+  historyHover = nil
   browseRows = {}
   render()
 end

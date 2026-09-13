@@ -359,4 +359,21 @@ function M.fuzzyMatch(target, query)
   return M.fuzzyScore(target, query) ~= nil
 end
 
+function M.isNumericEntity(entity)
+  if type(entity) ~= "table" then return false end
+  local entityId = type(entity.entity_id) == "string" and entity.entity_id or ""
+  local domain = M.domainOf(entityId)
+  if domain == "sensor" or domain == "number" or domain == "input_number" or domain == "counter" then
+    return true
+  end
+  if tonumber(entity.state) ~= nil then
+    return true
+  end
+  local attrs = entity.attributes
+  if type(attrs) == "table" and (attrs.unit_of_measurement ~= nil or attrs.state_class ~= nil) then
+    return true
+  end
+  return false
+end
+
 return M
