@@ -37,6 +37,8 @@ local focusListSearch = false
 local focusBrowseSearch = false
 local listSearchFocusRevision = 0
 local browseSearchFocusRevision = 0
+local visibleEntityIds = {}
+local selectedEntityIndex = nil
 local browseRows = {}
 local browseOffset = 0
 local browseMore = false
@@ -146,6 +148,19 @@ local function openDetails(entityId)
   historyHover = nil
   render()
   sendCommand({ action = "details", entity_id = entityId })
+end
+
+local function handleSelectOrOpen()
+  if view ~= "list" or editMode then return end
+  local targetId
+  if selectedEntityIndex ~= nil and visibleEntityIds[selectedEntityIndex] ~= nil then
+    targetId = visibleEntityIds[selectedEntityIndex]
+  elseif shared.prepareSearch(listSearchText) ~= nil and #visibleEntityIds > 0 then
+    targetId = visibleEntityIds[1]
+  end
+  if targetId then
+    openDetails(targetId)
+  end
 end
 
 local function configuredSet()
@@ -1251,7 +1266,7 @@ local function renameRow(entity, domain)
   })
 end
 
-local function entityRow(entity, isOther)
+local function entityRow(entity, isOther, isSelected)
   local domain = shared.domainOf(entity.entity_id)
   if not isOther and editingEntityId == entity.entity_id then
     return ui.column(CARD_STYLE, { renameRow(entity, domain) })
@@ -1387,12 +1402,20 @@ local function entityRow(entity, isOther)
   end
   local cardStyle = {}
   for key, value in pairs(CARD_STYLE) do cardStyle[key] = value end
-  cardStyle.key = "ha-entity-card-" .. entity.entity_id .. ":" .. (editMode and "edit" or "view")
+  cardStyle.key = "ha-entity-card-" .. entity.entity_id .. ":" .. (editMode and "edit" or "view") .. (isSelected and ":selected" or "")
+  if isSelected then
+    cardStyle.border = "primary"
+    cardStyle.borderWidth = 1
+    cardStyle.fill = "surface_variant/0.85"
+  else
+    cardStyle.border = "outline/0"
+    cardStyle.borderWidth = 0
+  end
   if not editMode then cardStyle.onClick = function() openDetails(entity.entity_id) end end
   return ui.column(cardStyle, rows)
 end
 
-local function otherEntityRow(row)
+local function otherEntityRow(row, isSelected)
   -- Cached rows contain only the stable identity and friendly name. Live
   -- search rows additionally carry the current state, so the result list can
   -- show the same state text as configured entities without waiting for the
@@ -1405,11 +1428,12 @@ local function otherEntityRow(row)
     display_state = live.state or "Not configured",
     position = live.position,
     unit_of_measurement = live.unit_of_measurement or row.unit_of_measurement,
-  }, true)
+  }, true, isSelected)
 end
 
 local function listView()
   local content = {}
+  local currentVisible = {}
   local pq = shared.prepareSearch(listSearchText)
   local searchActive = pq ~= nil
   local showSearch = noctalia.getConfig("panel_show_search") == true
@@ -1421,6 +1445,7 @@ local function listView()
       value = listSearchText,
       focus = focusListSearch,
       onChange = "onEntitySearchChange",
+      onSubmit = "onEntitySearchSubmit",
     })
   end
   if showSearch and not searchAtBottom then content[#content + 1] = entitySearch() end
@@ -1474,11 +1499,21 @@ local function listView()
         end
         if not sectionHasMatch then return end
       end
+      local key = tostring(index) .. ":" .. tostring(section.name)
+      local collapsed = collapsedSections[key]
+      if collapsed == nil then collapsed = section.collapsed == true end
+
       local sectionRows, sectionShown = {}, {}
       for _, id in ipairs(section.entities or {}) do
         if not hidden[id] and matches(rowFor(id), section.name) and not shown[id] and not sectionShown[id] then
           if editMode then sectionRows[#sectionRows + 1] = entityDropZone(index, id) end
-          sectionRows[#sectionRows + 1] = entityRow(rowFor(id))
+          local isSelected = false
+          if not collapsed then
+            local entityIndex = #currentVisible + 1
+            isSelected = not editMode and selectedEntityIndex == entityIndex
+            currentVisible[entityIndex] = id
+          end
+          sectionRows[#sectionRows + 1] = entityRow(rowFor(id), false, isSelected)
           localMatchCount += 1
           sectionShown[id] = true
           shown[id] = true
@@ -1486,10 +1521,6 @@ local function listView()
       end
       if editMode then sectionRows[#sectionRows + 1] = entityDropZone(index) end
       if #sectionRows == 0 then return end
-
-      local key = tostring(index) .. ":" .. tostring(section.name)
-      local collapsed = collapsedSections[key]
-      if collapsed == nil then collapsed = section.collapsed == true end
       local sectionHeader
       local headerKey = "ha-section-header-" .. tostring(index) .. ":" .. (editMode and "edit" or "view") .. ":" .. (editingSectionIndex == index and "rename" or "normal")
       if editingSectionIndex == index then
@@ -1602,7 +1633,10 @@ local function listView()
     end
     for _, id in ipairs(ungrouped) do
       if editMode then content[#content + 1] = entityDropZone(0, id) end
-      content[#content + 1] = entityRow(rowFor(id))
+      local entityIndex = #currentVisible + 1
+      local isSelected = not editMode and selectedEntityIndex == entityIndex
+      currentVisible[entityIndex] = id
+      content[#content + 1] = entityRow(rowFor(id), false, isSelected)
     end
     if editMode then content[#content + 1] = entityDropZone(0) end
     for index, section in ipairs(sections) do
@@ -1682,7 +1716,12 @@ local function listView()
       end
       if #otherRows > 0 then
         content[#content + 1] = ui.label({ text = "Other", fontSize = 12, fontWeight = "semibold", color = "on_surface_variant" })
-        for _, row in ipairs(otherRows) do content[#content + 1] = otherEntityRow(row) end
+        for _, row in ipairs(otherRows) do
+          local entityIndex = #currentVisible + 1
+          local isSelected = not editMode and selectedEntityIndex == entityIndex
+          currentVisible[entityIndex] = row.entity_id
+          content[#content + 1] = otherEntityRow(row, isSelected)
+        end
         if otherMatchCount > #otherRows then
           content[#content + 1] = ui.label({ text = "Showing the first " .. tostring(#otherRows) .. " of " .. tostring(otherMatchCount) .. " matches.", color = "on_surface_variant", fontSize = 11 })
         end
@@ -1695,6 +1734,10 @@ local function listView()
     if searchActive and localMatchCount == 0 and #otherRows == 0 and not entitySearchLoading and not entityCacheLoading and entitySearchError == "" and entityCacheError == "" then
       content[#content + 1] = ui.label({ text = "No matching entities.", color = "on_surface_variant", fontSize = 12 })
     end
+  end
+  visibleEntityIds = currentVisible
+  if selectedEntityIndex ~= nil and selectedEntityIndex > #visibleEntityIds then
+    selectedEntityIndex = #visibleEntityIds > 0 and #visibleEntityIds or nil
   end
   local entityList = ui.scroll({ flexGrow = 1, gap = 8 }, content)
   if showSearch and searchAtBottom then
@@ -2190,8 +2233,10 @@ function onOpen()
   else
     view = "list"
   end
+  selectedEntityIndex = nil
   if preservePanelState() then
-    focusListSearch = shared.trim(listSearchText) == ""
+    focusListSearch = true
+    listSearchFocusRevision += 1
     liveSearchEntities = {}
     if shared.trim(listSearchText) ~= "" then
       sendCommand({ action = "search", query = listSearchText })
@@ -2243,6 +2288,7 @@ function onClose()
   panelOpen = false
   focusListSearch = false
   focusBrowseSearch = false
+  selectedEntityIndex = nil
   panel.setNeedsFrameTick(false)
   sendCommand({ action = "details_close" })
 end
@@ -2299,6 +2345,9 @@ function onBackToList()
   detailsEntityId = nil
   historyHover = nil
   browseRows = {}
+  selectedEntityIndex = nil
+  focusListSearch = true
+  listSearchFocusRevision += 1
   render()
 end
 
@@ -2312,6 +2361,7 @@ function onEntitySearchChange(value)
   listSearchText = value or ""
   liveSearchEntities = {}
   liveSearchResults = nil
+  selectedEntityIndex = nil
   -- The focus request is only for the initial panel open. Once the user has
   -- started typing, subsequent renders must not steal focus from other
   -- controls in the panel.
@@ -2320,16 +2370,55 @@ function onEntitySearchChange(value)
   render()
 end
 
+function onEntitySearchSubmit(value)
+  handleSelectOrOpen()
+end
+
 function onKey(chord, pressed)
-  if chord ~= "ctrl+k" or pressed ~= true then return end
-  if view == "list" then
-    focusListSearch = true
-    listSearchFocusRevision += 1
-  elseif view == "browse" then
-    focusBrowseSearch = true
-    browseSearchFocusRevision += 1
-  else
+  if pressed ~= true then return end
+  local k = string.lower(chord)
+  if k == "ctrl+k" then
+    if view == "list" then
+      focusListSearch = true
+      listSearchFocusRevision += 1
+    elseif view == "browse" then
+      focusBrowseSearch = true
+      browseSearchFocusRevision += 1
+    else
+      return
+    end
+    render()
     return
   end
-  render()
+
+  if view ~= "list" or editMode then return end
+
+  if k == "down" or k == "up" then
+    if #visibleEntityIds == 0 then return end
+    if selectedEntityIndex == nil then
+      if k == "down" then
+        selectedEntityIndex = 1
+      else
+        selectedEntityIndex = #visibleEntityIds
+      end
+    else
+      if k == "down" then
+        selectedEntityIndex = math.min(selectedEntityIndex + 1, #visibleEntityIds)
+      else
+        if selectedEntityIndex <= 1 then
+          selectedEntityIndex = nil
+        else
+          selectedEntityIndex = selectedEntityIndex - 1
+        end
+      end
+    end
+    focusListSearch = false
+    render()
+    return
+  end
+
+  if k == "enter" or k == "return" or k == "kp_enter" then
+    handleSelectOrOpen()
+    return
+  end
 end
