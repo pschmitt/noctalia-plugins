@@ -2340,12 +2340,21 @@ end
 
 function onBackToList()
   if view == "details" then sendCommand({ action = "details_close" }) end
+  local previousEntityId = detailsEntityId
   view = "list"
   detailsLoading = false
   detailsEntityId = nil
   historyHover = nil
   browseRows = {}
   selectedEntityIndex = nil
+  if previousEntityId ~= nil then
+    for idx, id in ipairs(visibleEntityIds) do
+      if id == previousEntityId then
+        selectedEntityIndex = idx
+        break
+      end
+    end
+  end
   focusListSearch = true
   listSearchFocusRevision += 1
   render()
@@ -2388,6 +2397,13 @@ function onKey(chord, pressed)
       return
     end
     render()
+    return
+  end
+
+  if k == "left" then
+    if view == "details" then
+      onBackToList()
+    end
     return
   end
 
