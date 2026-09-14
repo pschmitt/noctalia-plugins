@@ -39,6 +39,8 @@ local listSearchFocusRevision = 0
 local browseSearchFocusRevision = 0
 local visibleItems = {}
 local selectedItemIndex = nil
+local collapsedSections = {}
+local editMode = false
 local browseRows = {}
 local browseOffset = 0
 local browseMore = false
@@ -239,7 +241,6 @@ end
 -- update, so this has to live outside that table (same pattern fan-control's
 -- panel uses for its own speed slider).
 local sliderPreviews = {}
-local collapsedSections = {}
 
 local function coverButtons(entity)
   local function press(command)
@@ -683,7 +684,7 @@ end
 -- rename/remove buttons show together, and its normal controls (toggle,
 -- cover buttons, sliders) hide together, so edit mode reads as one clear
 -- state instead of row-by-row guessing which one is "open".
-local editMode = false
+editMode = false
 local editingEntityId = nil
 local editingLabelDraft = ""
 local editingSectionIndex = nil
