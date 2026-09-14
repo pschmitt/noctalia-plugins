@@ -167,13 +167,19 @@ local function handleSelectOrOpen()
       return
     end
   end
-  if shared.prepareSearch(listSearchText) ~= nil then
-    for _, item in ipairs(visibleItems) do
-      if item.type == "entity" then
-        openDetails(item.entityId)
-        return
-      end
+  for _, item in ipairs(visibleItems) do
+    if item.type == "entity" then
+      openDetails(item.entityId)
+      return
     end
+  end
+  if #visibleItems > 0 and visibleItems[1].type == "section" then
+    local first = visibleItems[1]
+    local isCollapsed = collapsedSections[first.key]
+    if isCollapsed == nil then isCollapsed = first.section.collapsed == true end
+    collapsedSections[first.key] = not isCollapsed
+    render()
+    return
   end
 end
 
@@ -2285,9 +2291,15 @@ function onOpen()
   else
     view = "list"
   end
+  local showSearch = noctalia.getConfig("panel_show_search") == true
   if view == "list" then
-    selectedItemIndex = 1
-    focusListSearch = false
+    if showSearch then
+      selectedItemIndex = nil
+      focusListSearch = true
+    else
+      selectedItemIndex = 1
+      focusListSearch = false
+    end
   else
     selectedItemIndex = nil
     focusListSearch = false
@@ -2414,12 +2426,13 @@ function onBackToList()
   if selectedItemIndex ~= nil then
     focusListSearch = false
   else
-    if #visibleItems > 0 then
-      selectedItemIndex = 1
-      focusListSearch = false
-    else
+    local showSearch = noctalia.getConfig("panel_show_search") == true
+    if showSearch then
       focusListSearch = true
       listSearchFocusRevision += 1
+    else
+      selectedItemIndex = #visibleItems > 0 and 1 or nil
+      focusListSearch = false
     end
   end
   render()
