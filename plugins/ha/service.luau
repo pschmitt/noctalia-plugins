@@ -1119,19 +1119,17 @@ cacheEntityPage = function(reset)
     local cached = cacheRows(rows)
     for entityId, row in pairs(cached) do entityCacheScanRows[entityId] = row end
 
-    if #rows >= pageLimit then
+    local maxBackgroundCache = 250
+    if #rows >= pageLimit and entityCacheOffset + pageLimit < maxBackgroundCache then
       publishEntityCachePage(rows, "scan", false)
       entityCacheOffset += pageLimit
-      -- Continue one page at a time. Each callback only decodes one bounded
-      -- response, while the asynchronous request chain fills the cache
-      -- without making the user click through every page.
       cacheEntityPage(false)
     else
       entityCacheComplete = true
       entityCacheRows = entityCacheScanRows
       entityCacheScanRows = nil
       publishEntityCachePage(rows, "scan", true)
-      entityCacheRefreshAt = os.time() + 15 * 60
+      entityCacheRefreshAt = os.time() + 30 * 60
       noctalia.state.set("ha.entity_cache_loading", false)
       noctalia.state.set("ha.entity_cache_updated_at", os.time())
     end

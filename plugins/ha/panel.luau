@@ -21,6 +21,7 @@ local entityCacheError = noctalia.state.get("ha.entity_cache_error") or ""
 local entitySearchLoading = noctalia.state.get("ha.entity_search_loading") == true
 local entitySearchError = noctalia.state.get("ha.entity_search_error") or ""
 local liveSearchEntities = {}
+local liveSearchResults = nil
 local entities = noctalia.state.get("ha.entities") or {}
 local hidden = noctalia.state.get("ha.hidden") or {}
 local sectionVisibility = noctalia.state.get("ha.section_visibility") or {}
@@ -61,7 +62,7 @@ local animationFrame = 0
 local animationElapsedMs = 0
 local ANIMATION_FRAME_COUNT = 24
 local ANIMATION_FRAME_INTERVAL_MS = 30
-local OTHER_RESULT_LIMIT = 200
+local OTHER_RESULT_LIMIT = 25
 
 -- Forward-declared: referenced by action handlers defined before its real
 -- body below (they only ever run after the whole script has loaded once, so
@@ -69,7 +70,9 @@ local OTHER_RESULT_LIMIT = 200
 local render
 
 local function rememberCachedRows(rows, target, seen)
+  local maxRows = 500
   for _, row in ipairs(rows or {}) do
+    if #target >= maxRows then break end
     if type(row) == "table" and type(row.entity_id) == "string" and row.entity_id ~= "" and not seen[row.entity_id] then
       if not row._eid_lower then
         row._eid_lower = row.entity_id:lower()
@@ -1612,58 +1615,70 @@ local function listView()
     local otherMatchCount = 0
     if searchActive and not editMode then
       local configured = configuredSet()
-      local heap = {}
-      local heapSize = 0
-
-      for _, row in ipairs(entityCache) do
-        local eid = row.entity_id
-        if not configured[eid] then
-          local live = liveSearchEntities[eid]
-          local name = live and (live.name or live.entity_id) or row._name_lower or row.name or eid
-          local state = live and live.state or nil
-          local score = shared.matchScore(row._eid_lower or eid, name, nil, state, pq)
-          if score then
+      if liveSearchResults ~= nil then
+        for _, row in ipairs(liveSearchResults) do
+          if not configured[row.entity_id] then
             otherMatchCount += 1
-            if heapSize < OTHER_RESULT_LIMIT then
-              heapSize += 1
-              heap[heapSize] = { row = row, score = score }
-              local i = heapSize
-              while i > 1 do
-                local p = math.floor(i / 2)
-                if heap[i].score < heap[p].score then
-                  heap[i], heap[p] = heap[p], heap[i]
-                  i = p
-                else
-                  break
+            if #otherRows < OTHER_RESULT_LIMIT then
+              otherRows[#otherRows + 1] = row
+            end
+          end
+        end
+      else
+        local heap = {}
+        local heapSize = 0
+        local maxScan = math.min(#entityCache, 300)
+        for idx = 1, maxScan do
+          local row = entityCache[idx]
+          local eid = row.entity_id
+          if not configured[eid] then
+            local live = liveSearchEntities[eid]
+            local name = live and (live.name or live.entity_id) or row._name_lower or row.name or eid
+            local state = live and live.state or nil
+            local score = shared.matchScore(row._eid_lower or eid, name, nil, state, pq)
+            if score then
+              otherMatchCount += 1
+              if heapSize < OTHER_RESULT_LIMIT then
+                heapSize += 1
+                heap[heapSize] = { row = row, score = score }
+                local i = heapSize
+                while i > 1 do
+                  local p = math.floor(i / 2)
+                  if heap[i].score < heap[p].score then
+                    heap[i], heap[p] = heap[p], heap[i]
+                    i = p
+                  else
+                    break
+                  end
                 end
-              end
-            elseif score > heap[1].score then
-              heap[1] = { row = row, score = score }
-              local i = 1
-              while true do
-                local left = i * 2
-                local right = left + 1
-                local smallest = i
-                if left <= heapSize and heap[left].score < heap[smallest].score then
-                  smallest = left
-                end
-                if right <= heapSize and heap[right].score < heap[smallest].score then
-                  smallest = right
-                end
-                if smallest ~= i then
-                  heap[i], heap[smallest] = heap[smallest], heap[i]
-                  i = smallest
-                else
-                  break
+              elseif score > heap[1].score then
+                heap[1] = { row = row, score = score }
+                local i = 1
+                while true do
+                  local left = i * 2
+                  local right = left + 1
+                  local smallest = i
+                  if left <= heapSize and heap[left].score < heap[smallest].score then
+                    smallest = left
+                  end
+                  if right <= heapSize and heap[right].score < heap[smallest].score then
+                    smallest = right
+                  end
+                  if smallest ~= i then
+                    heap[i], heap[smallest] = heap[smallest], heap[i]
+                    i = smallest
+                  else
+                    break
+                  end
                 end
               end
             end
           end
         end
-      end
-      table.sort(heap, function(a, b) return a.score > b.score end)
-      for i = 1, heapSize do
-        otherRows[i] = heap[i].row
+        table.sort(heap, function(a, b) return a.score > b.score end)
+        for i = 1, heapSize do
+          otherRows[i] = heap[i].row
+        end
       end
       if #otherRows > 0 then
         content[#content + 1] = ui.label({ text = "Other", fontSize = 12, fontWeight = "semibold", color = "on_surface_variant" })
@@ -2036,11 +2051,14 @@ end)
 noctalia.state.watch("ha.entity_search_result", function(value)
   if type(value) ~= "table" or value.query ~= shared.trim(listSearchText) then return end
   liveSearchEntities = {}
+  local results = {}
   for _, row in ipairs(value.rows or {}) do
     if type(row) == "table" and type(row.entity_id) == "string" then
       liveSearchEntities[row.entity_id] = row
+      results[#results + 1] = row
     end
   end
+  liveSearchResults = results
   rememberCachedRows(value.rows, entityCache, entityCacheIds)
   if entityCacheScanGeneration ~= nil then
     rememberCachedRows(value.rows, entityCacheScanRows, entityCacheScanIds)
@@ -2293,6 +2311,7 @@ end
 function onEntitySearchChange(value)
   listSearchText = value or ""
   liveSearchEntities = {}
+  liveSearchResults = nil
   -- The focus request is only for the initial panel open. Once the user has
   -- started typing, subsequent renders must not steal focus from other
   -- controls in the panel.

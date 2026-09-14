@@ -280,8 +280,8 @@ function M.matchScore(entityId, name, section, state, pq)
   end
   if not pq or not pq.terms or #pq.terms == 0 then return 1 end
 
-  local eid = entityId and entityId:lower() or ""
-  local nm = name and name:lower() or ""
+  local eid = entityId and (entityId:match("%u") and entityId:lower() or entityId) or ""
+  local nm = name and (name:match("%u") and name:lower() or name) or ""
 
   -- 1. Full string exact match
   if (eid ~= "" and eid == pq.raw) or (nm ~= "" and nm == pq.raw) then
@@ -293,33 +293,38 @@ function M.matchScore(entityId, name, section, state, pq)
     return 8000 - #nm
   end
 
-  local sec = section and section:lower() or nil
-  local st = state and state:lower() or nil
+  local sec = section and (section:match("%u") and section:lower() or section) or nil
+  local st = state and (state:match("%u") and state:lower() or state) or nil
 
   local totalScore = 4000
   for i = 1, #pq.terms do
     local term = pq.terms[i]
     local pName = nm ~= "" and nm:find(term, 1, true)
-    local pEid = eid ~= "" and eid:find(term, 1, true)
-    local pSec = sec and sec:find(term, 1, true)
-    local pSt = st and st:find(term, 1, true)
-
     if pName then
       local score = 600 - pName
       if isWordBoundary(nm, pName) then score = score + 200 end
       totalScore = totalScore + score
-    elseif pEid then
-      local score = 450 - pEid
-      if isWordBoundary(eid, pEid) then score = score + 150 end
-      totalScore = totalScore + score
-    elseif pSec then
-      local score = 300 - pSec
-      if isWordBoundary(sec, pSec) then score = score + 100 end
-      totalScore = totalScore + score
-    elseif pSt then
-      totalScore = totalScore + (200 - pSt)
     else
-      return nil
+      local pEid = eid ~= "" and eid:find(term, 1, true)
+      if pEid then
+        local score = 450 - pEid
+        if isWordBoundary(eid, pEid) then score = score + 150 end
+        totalScore = totalScore + score
+      else
+        local pSec = sec and sec:find(term, 1, true)
+        if pSec then
+          local score = 300 - pSec
+          if isWordBoundary(sec, pSec) then score = score + 100 end
+          totalScore = totalScore + score
+        else
+          local pSt = st and st:find(term, 1, true)
+          if pSt then
+            totalScore = totalScore + (200 - pSt)
+          else
+            return nil
+          end
+        end
+      end
     end
   end
 
