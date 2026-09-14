@@ -1,6 +1,6 @@
 id = "pschmitt/ha"
 name = "Home Assistant"
-version = "0.13.55"
+version = "0.13.56"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -247,4 +247,4 @@ placement = "attached"
 position = "auto"
 open_near_click = true
 dismiss_on_outside_click = true
-capture_keys = ["ctrl+k", "up", "down", "left", "enter", "kp_enter"]
+capture_keys = ["ctrl+k", "up", "down", "left", "right", "enter", "kp_enter"]

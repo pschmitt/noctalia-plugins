@@ -37,8 +37,8 @@ local focusListSearch = false
 local focusBrowseSearch = false
 local listSearchFocusRevision = 0
 local browseSearchFocusRevision = 0
-local visibleEntityIds = {}
-local selectedEntityIndex = nil
+local visibleItems = {}
+local selectedItemIndex = nil
 local browseRows = {}
 local browseOffset = 0
 local browseMore = false
@@ -152,14 +152,26 @@ end
 
 local function handleSelectOrOpen()
   if view ~= "list" or editMode then return end
-  local targetId
-  if selectedEntityIndex ~= nil and visibleEntityIds[selectedEntityIndex] ~= nil then
-    targetId = visibleEntityIds[selectedEntityIndex]
-  elseif shared.prepareSearch(listSearchText) ~= nil and #visibleEntityIds > 0 then
-    targetId = visibleEntityIds[1]
+  local selected = selectedItemIndex ~= nil and visibleItems[selectedItemIndex] or nil
+  if selected then
+    if selected.type == "section" then
+      local isCollapsed = collapsedSections[selected.key]
+      if isCollapsed == nil then isCollapsed = selected.section.collapsed == true end
+      collapsedSections[selected.key] = not isCollapsed
+      render()
+      return
+    elseif selected.type == "entity" then
+      openDetails(selected.entityId)
+      return
+    end
   end
-  if targetId then
-    openDetails(targetId)
+  if shared.prepareSearch(listSearchText) ~= nil then
+    for _, item in ipairs(visibleItems) do
+      if item.type == "entity" then
+        openDetails(item.entityId)
+        return
+      end
+    end
   end
 end
 
@@ -1503,24 +1515,46 @@ local function listView()
       local collapsed = collapsedSections[key]
       if collapsed == nil then collapsed = section.collapsed == true end
 
-      local sectionRows, sectionShown = {}, {}
+      local matchingEntities = {}
+      local seenInSection = {}
       for _, id in ipairs(section.entities or {}) do
-        if not hidden[id] and matches(rowFor(id), section.name) and not shown[id] and not sectionShown[id] then
-          if editMode then sectionRows[#sectionRows + 1] = entityDropZone(index, id) end
-          local isSelected = false
-          if not collapsed then
-            local entityIndex = #currentVisible + 1
-            isSelected = not editMode and selectedEntityIndex == entityIndex
-            currentVisible[entityIndex] = id
-          end
-          sectionRows[#sectionRows + 1] = entityRow(rowFor(id), false, isSelected)
-          localMatchCount += 1
-          sectionShown[id] = true
-          shown[id] = true
+        if not hidden[id] and matches(rowFor(id), section.name) and not shown[id] and not seenInSection[id] then
+          matchingEntities[#matchingEntities + 1] = id
+          seenInSection[id] = true
         end
       end
+      if #matchingEntities == 0 and not editMode then return end
+
+      local sectionItemIndex = #currentVisible + 1
+      local isSectionSelected = not editMode and selectedItemIndex == sectionItemIndex
+      currentVisible[sectionItemIndex] = {
+        type = "section",
+        index = index,
+        key = key,
+        name = section.name,
+        section = section,
+      }
+
+      local sectionRows, sectionShown = {}, {}
+      for _, id in ipairs(matchingEntities) do
+        if editMode then sectionRows[#sectionRows + 1] = entityDropZone(index, id) end
+        local isSelected = false
+        if not collapsed then
+          local itemIndex = #currentVisible + 1
+          isSelected = not editMode and selectedItemIndex == itemIndex
+          currentVisible[itemIndex] = {
+            type = "entity",
+            entityId = id,
+            sectionKey = key,
+            sectionIndex = index,
+          }
+        end
+        sectionRows[#sectionRows + 1] = entityRow(rowFor(id), false, isSelected)
+        localMatchCount += 1
+        sectionShown[id] = true
+        shown[id] = true
+      end
       if editMode then sectionRows[#sectionRows + 1] = entityDropZone(index) end
-      if #sectionRows == 0 then return end
       local sectionHeader
       local headerKey = "ha-section-header-" .. tostring(index) .. ":" .. (editMode and "edit" or "view") .. ":" .. (editingSectionIndex == index and "rename" or "normal")
       if editingSectionIndex == index then
@@ -1562,6 +1596,7 @@ local function listView()
             fontSize = 12,
             contentAlign = "start",
             onClick = function()
+              if not editMode then selectedItemIndex = sectionItemIndex end
               collapsedSections[key] = not collapsed
               render()
             end,
@@ -1611,7 +1646,23 @@ local function listView()
             onClick = function() startRenameSection(index) end,
           })
         end
-        sectionHeader = ui.row({ key = headerKey, align = "center", gap = 2 }, sectionHeaderChildren)
+        local headerStyle = {
+          key = headerKey .. (isSectionSelected and ":selected" or ""),
+          align = "center",
+          gap = 2,
+          radius = 8,
+          paddingH = 4,
+          paddingV = 2,
+        }
+        if isSectionSelected then
+          headerStyle.border = "primary"
+          headerStyle.borderWidth = 1
+          headerStyle.fill = "surface_variant/0.85"
+        else
+          headerStyle.border = "outline/0"
+          headerStyle.borderWidth = 0
+        end
+        sectionHeader = ui.row(headerStyle, sectionHeaderChildren)
       end
       local children = { sectionHeader }
       if not collapsed then
@@ -1633,9 +1684,9 @@ local function listView()
     end
     for _, id in ipairs(ungrouped) do
       if editMode then content[#content + 1] = entityDropZone(0, id) end
-      local entityIndex = #currentVisible + 1
-      local isSelected = not editMode and selectedEntityIndex == entityIndex
-      currentVisible[entityIndex] = id
+      local itemIndex = #currentVisible + 1
+      local isSelected = not editMode and selectedItemIndex == itemIndex
+      currentVisible[itemIndex] = { type = "entity", entityId = id }
       content[#content + 1] = entityRow(rowFor(id), false, isSelected)
     end
     if editMode then content[#content + 1] = entityDropZone(0) end
@@ -1717,9 +1768,9 @@ local function listView()
       if #otherRows > 0 then
         content[#content + 1] = ui.label({ text = "Other", fontSize = 12, fontWeight = "semibold", color = "on_surface_variant" })
         for _, row in ipairs(otherRows) do
-          local entityIndex = #currentVisible + 1
-          local isSelected = not editMode and selectedEntityIndex == entityIndex
-          currentVisible[entityIndex] = row.entity_id
+          local itemIndex = #currentVisible + 1
+          local isSelected = not editMode and selectedItemIndex == itemIndex
+          currentVisible[itemIndex] = { type = "entity", entityId = row.entity_id }
           content[#content + 1] = otherEntityRow(row, isSelected)
         end
         if otherMatchCount > #otherRows then
@@ -1735,9 +1786,9 @@ local function listView()
       content[#content + 1] = ui.label({ text = "No matching entities.", color = "on_surface_variant", fontSize = 12 })
     end
   end
-  visibleEntityIds = currentVisible
-  if selectedEntityIndex ~= nil and selectedEntityIndex > #visibleEntityIds then
-    selectedEntityIndex = #visibleEntityIds > 0 and #visibleEntityIds or nil
+  visibleItems = currentVisible
+  if selectedItemIndex ~= nil and selectedItemIndex > #visibleItems then
+    selectedItemIndex = #visibleItems > 0 and #visibleItems or nil
   end
   local entityList = ui.scroll({ flexGrow = 1, gap = 8 }, content)
   if showSearch and searchAtBottom then
@@ -2233,7 +2284,7 @@ function onOpen()
   else
     view = "list"
   end
-  selectedEntityIndex = nil
+  selectedItemIndex = nil
   if preservePanelState() then
     focusListSearch = true
     listSearchFocusRevision += 1
@@ -2288,7 +2339,7 @@ function onClose()
   panelOpen = false
   focusListSearch = false
   focusBrowseSearch = false
-  selectedEntityIndex = nil
+  selectedItemIndex = nil
   panel.setNeedsFrameTick(false)
   sendCommand({ action = "details_close" })
 end
@@ -2346,11 +2397,11 @@ function onBackToList()
   detailsEntityId = nil
   historyHover = nil
   browseRows = {}
-  selectedEntityIndex = nil
+  selectedItemIndex = nil
   if previousEntityId ~= nil then
-    for idx, id in ipairs(visibleEntityIds) do
-      if id == previousEntityId then
-        selectedEntityIndex = idx
+    for idx, item in ipairs(visibleItems) do
+      if item.type == "entity" and item.entityId == previousEntityId then
+        selectedItemIndex = idx
         break
       end
     end
@@ -2370,7 +2421,7 @@ function onEntitySearchChange(value)
   listSearchText = value or ""
   liveSearchEntities = {}
   liveSearchResults = nil
-  selectedEntityIndex = nil
+  selectedItemIndex = nil
   -- The focus request is only for the initial panel open. Once the user has
   -- started typing, subsequent renders must not steal focus from other
   -- controls in the panel.
@@ -2403,6 +2454,53 @@ function onKey(chord, pressed)
   if k == "left" then
     if view == "details" then
       onBackToList()
+      return
+    end
+    if view == "list" and not editMode and selectedItemIndex ~= nil then
+      local selected = visibleItems[selectedItemIndex]
+      if selected then
+        if selected.type == "section" then
+          collapsedSections[selected.key] = true
+          render()
+          return
+        elseif selected.type == "entity" and selected.sectionKey ~= nil then
+          collapsedSections[selected.sectionKey] = true
+          for idx, item in ipairs(visibleItems) do
+            if item.type == "section" and item.key == selected.sectionKey then
+              selectedItemIndex = idx
+              break
+            end
+          end
+          render()
+          return
+        end
+      end
+    end
+    return
+  end
+
+  if k == "right" then
+    if view == "list" and not editMode and selectedItemIndex ~= nil then
+      local selected = visibleItems[selectedItemIndex]
+      if selected then
+        if selected.type == "section" then
+          local isCollapsed = collapsedSections[selected.key]
+          if isCollapsed == nil then
+            isCollapsed = selected.section.collapsed == true
+          end
+          if isCollapsed then
+            collapsedSections[selected.key] = false
+            render()
+          elseif selectedItemIndex < #visibleItems and visibleItems[selectedItemIndex + 1].type == "entity" and visibleItems[selectedItemIndex + 1].sectionKey == selected.key then
+            selectedItemIndex = selectedItemIndex + 1
+            render()
+          end
+          return
+        elseif selected.type == "entity" then
+          openDetails(selected.entityId)
+          return
+        end
+      end
     end
     return
   end
@@ -2410,25 +2508,29 @@ function onKey(chord, pressed)
   if view ~= "list" or editMode then return end
 
   if k == "down" or k == "up" then
-    if #visibleEntityIds == 0 then return end
-    if selectedEntityIndex == nil then
+    if #visibleItems == 0 then return end
+    if selectedItemIndex == nil then
       if k == "down" then
-        selectedEntityIndex = 1
+        selectedItemIndex = 1
       else
-        selectedEntityIndex = #visibleEntityIds
+        selectedItemIndex = #visibleItems
       end
     else
       if k == "down" then
-        selectedEntityIndex = math.min(selectedEntityIndex + 1, #visibleEntityIds)
+        selectedItemIndex = math.min(selectedItemIndex + 1, #visibleItems)
       else
-        if selectedEntityIndex <= 1 then
-          selectedEntityIndex = nil
+        if selectedItemIndex <= 1 then
+          selectedItemIndex = nil
+          focusListSearch = true
+          listSearchFocusRevision += 1
         else
-          selectedEntityIndex = selectedEntityIndex - 1
+          selectedItemIndex = selectedItemIndex - 1
         end
       end
     end
-    focusListSearch = false
+    if selectedItemIndex ~= nil then
+      focusListSearch = false
+    end
     render()
     return
   end
