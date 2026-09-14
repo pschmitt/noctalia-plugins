@@ -2285,9 +2285,14 @@ function onOpen()
   else
     view = "list"
   end
-  selectedItemIndex = nil
+  if view == "list" then
+    selectedItemIndex = 1
+    focusListSearch = false
+  else
+    selectedItemIndex = nil
+    focusListSearch = false
+  end
   if preservePanelState() then
-    focusListSearch = true
     listSearchFocusRevision += 1
     liveSearchEntities = {}
     if shared.trim(listSearchText) ~= "" then
@@ -2295,7 +2300,6 @@ function onOpen()
     end
   else
     listSearchText = ""
-    focusListSearch = true
     collapsedSections = {}
     liveSearchEntities = {}
     -- Invalidate any outstanding live query and make the input key change so
@@ -2407,8 +2411,17 @@ function onBackToList()
       end
     end
   end
-  focusListSearch = true
-  listSearchFocusRevision += 1
+  if selectedItemIndex ~= nil then
+    focusListSearch = false
+  else
+    if #visibleItems > 0 then
+      selectedItemIndex = 1
+      focusListSearch = false
+    else
+      focusListSearch = true
+      listSearchFocusRevision += 1
+    end
+  end
   render()
 end
 

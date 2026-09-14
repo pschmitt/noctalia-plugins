@@ -5,7 +5,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-ha";
-  version = "0.13.57";
+  version = "0.13.58";
 
   src = lib.fileset.toSource {
     root = ../../plugins/ha;
