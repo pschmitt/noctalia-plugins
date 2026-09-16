@@ -116,17 +116,6 @@ local function statusSummary()
   return tr(`summary.{state}`)
 end
 
-local function detailText()
-  if not snapshot or snapshot.detail == "" then
-    return ""
-  end
-  -- Structured details are translation keys; anything else passes through.
-  if snapshot.detail == "no-url" or snapshot.detail == "no-api-key" or snapshot.detail == "no-folders" then
-    return tr(`detail.{snapshot.detail}`)
-  end
-  return snapshot.detail
-end
-
 local function allPaused()
   return snapshot ~= nil
     and snapshot.devices.configured > 0
@@ -214,6 +203,14 @@ local function header()
     ui.column({ gap = 2, flexGrow = 1 }, {
       ui.label({ text = title, fontSize = 16, fontWeight = "bold", maxLines = 1 }),
       ui.label({ text = subtitle, fontSize = 12, color = stateColors.get(selected and selected.state or state), maxLines = 1 }),
+    }),
+    ui.button({
+      glyph = "external-link",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = tr("panel.open-gui"),
+      visible = snapshot ~= nil and snapshot.sources.resolvedUrl ~= "",
+      onClick = "onOpenGui",
     }),
     ui.button({
       glyph = paused and "player-play" or "player-pause",
@@ -711,51 +708,6 @@ local function folderList()
   return ui.scroll({ gap = 6, flexGrow = 1 }, rows)
 end
 
-local function footer()
-  local children = {}
-  local detail = detailText()
-  if detail ~= "" then
-    table.insert(children, ui.label({
-      text = detail,
-      fontSize = 11,
-      color = (snapshot and snapshot.state == "error") and stateColors.get("error") or "on_surface/0.75",
-      maxLines = 3,
-    }))
-  end
-  if snapshot then
-    for _, err in snapshot.recentErrors do
-      if #children >= 4 then
-        break
-      end
-      table.insert(children, ui.label({ text = err.message, fontSize = 11, color = "error/0.85", maxLines = 2 }))
-    end
-    local checkRowChildren = {
-      ui.button({
-        text = tr("panel.last-check-info", { value = snapshot.checkedAt }),
-        fontSize = 11,
-        variant = "ghost",
-        controlSize = "sm",
-        flexGrow = 1,
-        tooltip = tr("panel.refresh"),
-        onClick = "onRefresh",
-      }),
-    }
-    if snapshot.sources.resolvedUrl ~= "" then
-      table.insert(checkRowChildren, ui.button({
-        glyph = "external-link",
-        variant = "ghost",
-        width = 18,
-        height = 18,
-        glyphSize = 11,
-        tooltip = tr("panel.open-gui"),
-        onClick = "onOpenGui",
-      }))
-    end
-    table.insert(children, ui.row({ gap = 4, align = "center" }, checkRowChildren))
-  end
-  return ui.column({ gap = 3 }, children)
-end
-
 render = function()
   if not isOpen then
     return
@@ -782,8 +734,6 @@ render = function()
     table.insert(children, folderList())
   end
   table.insert(children, ratesLabel())
-  table.insert(children, ui.separator({}))
-  table.insert(children, footer())
   panel.render(ui.column({ gap = 10, padding = PANEL_PADDING, height = PANEL_HEIGHT - PANEL_PADDING * 2 }, children))
 end
 
