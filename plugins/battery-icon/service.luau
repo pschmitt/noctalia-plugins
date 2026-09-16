@@ -82,6 +82,7 @@ local tdpSnapshot = {
 }
 local tdpReading = false
 local tdpReadDone = false
+local tdpRefreshPending = false
 
 -- "Is external power connected?", most portable source first.
 --
@@ -956,6 +957,24 @@ local function readTdp()
   end, 5000)
 end
 
+-- ppd-react applies the new TDP asynchronously after the power-profile
+-- change. Re-read after a short settling period so the panel follows the
+-- controller instead of retaining the value from before the profile switch.
+local function refreshTdp()
+  if tdpRefreshPending then
+    return
+  end
+  tdpRefreshPending = true
+  noctalia.runAsync("@sleep@ 1", function(result)
+    tdpRefreshPending = false
+    if result.exitCode ~= 0 then
+      return
+    end
+    tdpReadDone = false
+    readTdp()
+  end, 5000)
+end
+
 local function setTdp(value)
   if noctalia.getConfig("show_tdp_controls") ~= true then
     return
@@ -1261,7 +1280,7 @@ end
 -- signals a minute of pure telemetry (UpdateTime, Voltage, EnergyRate,
 -- Energy), so an unfiltered subscription there would trigger poll() more
 -- often than the old 15 s timer did.
-local function watchProperty(service, objectPath, property)
+local function watchProperty(service, objectPath, property, onChanged)
   noctalia.runStream(propertiesChangedStream(service, objectPath), function(line)
     local ok, decoded = pcall(noctalia.json.decode, line)
     if not ok or type(decoded) ~= "table" or type(decoded.data) ~= "table" then
@@ -1271,6 +1290,9 @@ local function watchProperty(service, objectPath, property)
     end
     local changed = decoded.data[2]
     if type(changed) == "table" and changed[property] ~= nil then
+      if onChanged then
+        onChanged()
+      end
       poll()
     end
   end)
@@ -1295,7 +1317,12 @@ watchProperty(
 -- Battery Saver. power-profiles-daemon still owns the old net.hadess name
 -- here; on a build that only exposes org.freedesktop.UPower.PowerProfiles
 -- this stream simply never fires and poll_interval picks the change up.
-watchProperty("net.hadess.PowerProfiles", "/net/hadess/PowerProfiles", "ActiveProfile")
+watchProperty(
+  "net.hadess.PowerProfiles",
+  "/net/hadess/PowerProfiles",
+  "ActiveProfile",
+  refreshTdp
+)
 
 -- Logind inhibitor changes (e.g. Noctalia Caffeine toggled via CLI, panel, or other tools).
 watchProperty("org.freedesktop.login1", "/org/freedesktop/login1", "BlockInhibited")
