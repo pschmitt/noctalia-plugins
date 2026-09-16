@@ -42,6 +42,11 @@ local cfg = {
   sources = { configPath = "", urlSource = "none", apiKeySource = "none" },
 }
 
+-- The current config is also used by the on-demand folder detail view and by
+-- the file-manager action. Keep paths here instead of trusting a path sent
+-- back from the UI.
+local folderPaths = {}
+
 -- A poll spans several requests, so a callback that never fires would wedge it
 -- for good. Every poll carries a generation number: callbacks from a
 -- superseded poll are dropped, and a poll still pending after this long is
@@ -370,12 +375,22 @@ local function summarizeFolder(folder, status)
   return {
     id = folder.id,
     label = folder.label,
+    path = folder.path or "",
+    type = folder.type or "",
+    deviceCount = folder.deviceCount or 0,
+    deviceIds = folder.deviceIds or {},
     paused = folder.paused == true,
     state = state,
     rawState = rawState,
     needItems = needItems,
     needBytes = needBytes,
     globalBytes = globalBytes,
+    globalFiles = tonumber(status.globalFiles) or 0,
+    localFiles = tonumber(status.localFiles) or 0,
+    inSyncFiles = tonumber(status.inSyncFiles) or 0,
+    needFiles = tonumber(status.needFiles) or 0,
+    stateChanged = trim(status.stateChanged),
+    pullErrors = pullErrors,
     -- Sync completion in percent, derived from db/status byte counters.
     completion = globalBytes > 0 and math.clamp(math.floor(100 * (globalBytes - needBytes) / globalBytes), 0, 100)
       or ((rawState == "paused" or rawState == "error") and -1 or 100),
@@ -552,6 +567,7 @@ local function fetchCore(generation)
 
     -- Folder list from config, filtered by the monitored set.
     local monitoredFolders = {}
+    folderPaths = {}
     for _, folder in (results.config.folders or {}) do
       local id = trim(folder.id)
       if id == "" then
@@ -560,9 +576,21 @@ local function fetchCore(generation)
       if cfg.monitoredCount > 0 and not cfg.monitored[id] then
         continue
       end
+      folderPaths[id] = trim(folder.path)
+      local deviceIds = {}
+      for _, device in (folder.devices or {}) do
+        local deviceId = trim(device.deviceID)
+        if deviceId ~= "" then
+          table.insert(deviceIds, deviceId)
+        end
+      end
       table.insert(monitoredFolders, {
         id = id,
         label = trim(folder.label) ~= "" and trim(folder.label) or id,
+        path = trim(folder.path),
+        type = trim(folder.type),
+        deviceCount = #(folder.devices or {}),
+        deviceIds = deviceIds,
         paused = folder.paused == true,
       })
     end
@@ -636,12 +664,136 @@ function poll(force)
   end)
 end
 
+-- ── On-demand folder details ────────────────────────────────────────────────
+
+local function publishFolderDetail(detail)
+  local encoded = noctalia.json.encode(detail)
+  if encoded then
+    noctalia.state.set("st.folder-detail", encoded)
+  end
+end
+
+local function isConflictPath(path)
+  return path:find(".sync-conflict-", 1, true) ~= nil
+end
+
+-- The regular snapshot deliberately avoids these expensive endpoints. They
+-- are only queried after the user opens a folder, so a large Syncthing setup
+-- does not pay the cost on every bar poll.
+local function fetchFolderDetails(folderId)
+  if cfg.baseUrl == "" or cfg.apiKey == "" then
+    publishFolderDetail({ folderId = folderId, errors = {}, pending = {}, changes = {}, conflicts = {}, error = "Syncthing is not configured." })
+    return
+  end
+
+  local encodedFolder = noctalia.string.urlEncode(folderId)
+  local endpoints = {
+    errors = `/rest/folder/errors?folder={encodedFolder}&page=1&perpage=20`,
+    pending = `/rest/db/need?folder={encodedFolder}&page=1&perpage=20`,
+    changes = "/rest/events/disk?since=0&limit=50",
+  }
+  local results = {}
+  local failed = {}
+  local remaining = 0
+
+  local function finalize()
+    local detail = {
+      folderId = folderId,
+      errors = {},
+      pending = {},
+      changes = {},
+      conflicts = {},
+      error = "",
+    }
+
+    if not results.errors then
+      detail.error = `Could not load folder errors (HTTP {failed.errors or 0}).`
+    else
+      for _, item in (results.errors.errors or {}) do
+        local path = trim(item.path)
+        local message = trim(item.error)
+        if path ~= "" or message ~= "" then
+          table.insert(detail.errors, { path = path, message = message })
+        end
+      end
+    end
+
+    if results.pending then
+      for _, queue in { "progress", "queued", "rest" } do
+        for _, item in (results.pending[queue] or {}) do
+          table.insert(detail.pending, {
+            name = trim(item.name),
+            modified = trim(item.modified),
+            size = tonumber(item.size) or 0,
+            queue = queue,
+          })
+        end
+      end
+    elseif detail.error == "" then
+      detail.error = `Could not load pending files (HTTP {failed.pending or 0}).`
+    end
+
+    if results.changes then
+      local conflicts = {}
+      for _, event in results.changes do
+        local data = event.data or {}
+        local eventFolder = trim(data.folder or data.folderID)
+        local path = trim(data.path)
+        if eventFolder == folderId and path ~= "" then
+          local source = event.type == "LocalChangeDetected" and "local" or "remote"
+          table.insert(detail.changes, {
+            action = trim(data.action),
+            path = path,
+            source = source,
+            time = trim(event.time),
+          })
+          if isConflictPath(path) and not conflicts[path] then
+            conflicts[path] = true
+            table.insert(detail.conflicts, path)
+          end
+        end
+      end
+      table.sort(detail.changes, function(a, b)
+        return a.time > b.time
+      end)
+      while #detail.changes > 10 do
+        table.remove(detail.changes)
+      end
+    elseif detail.error == "" then
+      detail.error = `Could not load recent changes (HTTP {failed.changes or 0}).`
+    end
+
+    publishFolderDetail(detail)
+  end
+
+  for _ in endpoints do
+    remaining += 1
+  end
+  for key, path in endpoints do
+    fetch(path, {}, function(ok, status, body)
+      local parsed = ok and status < 400 and noctalia.json.decode(body) or nil
+      if parsed then
+        results[key] = parsed
+      else
+        failed[key] = ok and status or 0
+      end
+      remaining -= 1
+      if remaining == 0 then
+        finalize()
+      end
+    end)
+  end
+end
+
 -- ── Commands from UI entries ─────────────────────────────────────────────────
 
 -- An action fires its request, then forces a fresh poll so the UI catches up.
-local function actionThenRefresh(path, opts)
+local function actionThenRefresh(path, opts, after)
   fetch(path, opts, function()
     poll(true)
+    if after then
+      after()
+    end
   end)
 end
 
@@ -672,12 +824,67 @@ function openGui()
   end, 10000)
 end
 
+local function openFolder(folderId)
+  local path = noctalia.expandPath(folderPaths[folderId] or "")
+  if path == "" then
+    noctalia.notifyError(
+      noctalia.tr("toast.title"),
+      noctalia.tr("detail.no-folder-path"),
+      assetIconPath(statusIcon.path("error"))
+    )
+    return
+  end
+  local quotedPath = shq(path)
+  noctalia.runAsync(`gio open {quotedPath} || xdg-open {quotedPath}`, function(result)
+    noctalia.log(`[syncthing] openFolder path={path} exit={result.exitCode} err={result.stderr}`)
+    if result.exitCode ~= 0 then
+      noctalia.notifyError(
+        noctalia.tr("toast.title"),
+        `open failed: {noctalia.string.trim(result.stderr)}`,
+        assetIconPath(statusIcon.path("error"))
+      )
+    end
+  end, 10000)
+end
+
+local function generateDeviceQr(deviceId)
+  deviceId = trim(deviceId)
+  if deviceId == "" then
+    return
+  end
+  local dataDir, err = noctalia.pluginDataDir()
+  if not dataDir then
+    noctalia.state.set("st.device-qr", noctalia.json.encode({ deviceId = deviceId, error = err or "Could not resolve plugin data directory." }))
+    return
+  end
+  local safeId = deviceId:gsub("[^%w_-]", "_")
+  local path = `{dataDir}/device-id-{safeId}.png`
+  if noctalia.fileExists(path) then
+    noctalia.state.set("st.device-qr", noctalia.json.encode({ deviceId = deviceId, path = path, error = "" }))
+    return
+  end
+
+  local quotedPath = shq(path)
+  local quotedId = shq(deviceId)
+  noctalia.runAsync(`qrencode -t PNG -s 8 -m 2 -o {quotedPath} {quotedId}`, function(result)
+    if result.exitCode == 0 and noctalia.fileExists(path) then
+      noctalia.state.set("st.device-qr", noctalia.json.encode({ deviceId = deviceId, path = path, error = "" }))
+    else
+      noctalia.state.set("st.device-qr", noctalia.json.encode({
+        deviceId = deviceId,
+        error = `Could not generate QR code: {noctalia.string.trim(result.stderr)}`,
+      }))
+    end
+  end, 10000)
+end
+
 noctalia.state.watch("st.cmd", function(raw)
   local cmd = raw and noctalia.json.decode(raw) or nil
   if not cmd or not cmd.action then
     return
   end
-  local folder = cmd.folder and noctalia.string.urlEncode(cmd.folder) or ""
+  local folderId = trim(cmd.folder)
+  local folder = noctalia.string.urlEncode(folderId)
 
   if cmd.action == "refresh" then
     poll(true)
@@ -695,8 +902,18 @@ noctalia.state.watch("st.cmd", function(raw)
     actionThenRefresh(`/rest/config/devices/{folder}`, { method = "PATCH", body = '{"paused":false}' })
   elseif cmd.action == "rescan" then
     actionThenRefresh(`/rest/db/scan?folder={folder}`, { method = "POST" })
+  elseif cmd.action == "folder_rescan_details" then
+    actionThenRefresh(`/rest/db/scan?folder={folder}`, { method = "POST" }, function()
+      fetchFolderDetails(folderId)
+    end)
   elseif cmd.action == "open_gui" then
     openGui()
+  elseif cmd.action == "folder_details" then
+    fetchFolderDetails(folderId)
+  elseif cmd.action == "open_folder" then
+    openFolder(folderId)
+  elseif cmd.action == "device_qr" then
+    generateDeviceQr(cmd.device)
   else
     noctalia.log(`[syncthing] unknown command: {cmd.action}`)
   end

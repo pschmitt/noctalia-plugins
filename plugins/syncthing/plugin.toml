@@ -2,19 +2,19 @@
 # itself a port of the v4 syncthing-status plugin by Pir0c0pter0), for two
 # bar-widget changes: a bigger, tray-icon-sized logo, and the DMS syncshell
 # widget's composited status badges (pkgs/local/syncshell-dank-widget/assets)
-# instead of a separate small glyph next to the logo. Everything else
-# (service/panel/desktop/launcher/shortcut) is unchanged upstream.
+# instead of a separate small glyph next to the logo. The panel also adds
+# on-demand folder and device detail views.
 
 id = "pschmitt/syncthing"
 name = "Syncthing"
-version = "2.5.0"
+version = "2.6.0"
 plugin_api = 15 # noctalia.openSettings(), for the panel's settings button
 author = "pschmitt (fork of Marco Ziliani's rylos/syncthing)"
 license = "MIT"
-dependencies = ["syncthing", "gio", "xdg-open"]
+dependencies = ["syncthing", "gio", "xdg-open", "qrencode"]
 tags = ["bar", "panel", "service", "network", "utility", "indicator"]
 icon = "cloud-network"
-description = "Syncthing status and control: bar widget, detail panel with per-folder pause/rescan, and a global pause shortcut."
+description = "Syncthing status and control: bar widget, folder details, per-folder pause/rescan, and a global pause shortcut."
 
 # ── Plugin-level settings (shared by every entry, edited in Settings → Plugins) ──
 

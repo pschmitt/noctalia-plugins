@@ -6,7 +6,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-syncthing";
-  version = "2.5.0";
+  version = "2.6.0";
 
   src = lib.fileset.toSource {
     root = ../../plugins/syncthing;
@@ -54,7 +54,7 @@ stdenvNoCC.mkDerivation {
   '';
 
   meta = {
-    description = "Fork of rylos/syncthing with a tray-sized bar icon and DMS-style composited status badges";
+    description = "Syncthing Noctalia plugin with folder details and a tray-sized bar icon";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ pschmitt ];
     platforms = lib.platforms.linux;

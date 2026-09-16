@@ -2,9 +2,8 @@
 -- Syncthing detail panel — the [[panel]] entry.
 --
 -- Header with live state + refresh and pause-all/resume-all buttons, stat
--- tiles (devices / folders / pending), a scrolling folder list with
--- per-folder pause/resume and rescan actions, then details, recent errors,
--- and connection info.
+-- tiles (devices / folders / pending), list views, and folder/device detail
+-- pages with their relevant actions and metadata.
 --
 -- Per-row buttons pass a closure that captures the row's folder or device, so
 -- neither list has a length limit and there are no numbered callback globals.
@@ -25,6 +24,13 @@ local isOpen = false
 local cmdNonce = 0
 -- Active list tab: "folders" | "devices" (Syncthing Tray-style tabs).
 local view = "folders"
+local selectedFolderId = nil
+local selectedDeviceId = nil
+local folderDetail = nil
+local folderDetailLoading = false
+local deviceQr = nil
+local deviceQrLoading = false
+local render
 
 -- Hover handlers exist only to keep the indicator buttons' input areas live
 -- (see folderRow); there is nothing to do when the pointer arrives.
@@ -34,9 +40,45 @@ local function tr(key, subst)
   return noctalia.tr(key, subst)
 end
 
-local function sendCmd(action, folderId)
+local function sendCmd(action, folderId, deviceId)
   cmdNonce += 1
-  noctalia.state.set("st.cmd", noctalia.json.encode({ n = cmdNonce, action = action, folder = folderId }))
+  local command = { n = cmdNonce, action = action }
+  if folderId then
+    command.folder = folderId
+  end
+  if deviceId then
+    command.device = deviceId
+  end
+  noctalia.state.set("st.cmd", noctalia.json.encode(command))
+end
+
+local function selectedFolder()
+  if not snapshot or not selectedFolderId then
+    return nil
+  end
+  for _, folder in snapshot.folders do
+    if folder.id == selectedFolderId then
+      return folder
+    end
+  end
+  return nil
+end
+
+local function selectedDevice()
+  if not snapshot or not selectedDeviceId then
+    return nil
+  end
+  for _, device in snapshot.devicesList do
+    if device.id == selectedDeviceId then
+      return device
+    end
+  end
+  return nil
+end
+
+local function shortTimestamp(value)
+  local date, time = (value or ""):match("^(%d%d%d%d%-%d%d%-%d%d)T(%d%d:%d%d)")
+  return date and `{date} {time}` or value or ""
 end
 
 local function formatBytes(bytes)
@@ -91,6 +133,11 @@ local function allPaused()
     and snapshot.devices.paused >= snapshot.devices.configured
 end
 
+-- Forward declaration: the detail-aware header uses the same folder state
+-- wording as the rows below.
+local folderStateText
+local deviceStateText
+
 -- ── Per-row actions ──────────────────────────────────────────────────────────
 
 local function togglePaused(kind, id, paused)
@@ -102,21 +149,71 @@ local function rescanFolder(folder)
   sendCmd("rescan", folder.id)
 end
 
+local function openFolderDetails(folder)
+  selectedFolderId = folder.id
+  selectedDeviceId = nil
+  view = "folder"
+  folderDetail = nil
+  folderDetailLoading = true
+  render()
+  sendCmd("folder_details", folder.id)
+end
+
+local function openDeviceDetails(device)
+  selectedDeviceId = device.id
+  selectedFolderId = nil
+  view = "device"
+  deviceQr = nil
+  deviceQrLoading = true
+  render()
+  sendCmd("device_qr", nil, device.id)
+end
+
+local function copyDeviceId(device)
+  if noctalia.copyToClipboard(device.id, "text/plain") then
+    noctalia.notify(tr("toast.title"), tr("panel.device-id-copied"))
+  else
+    noctalia.notifyError(tr("toast.title"), tr("panel.device-id-copy-failed"))
+  end
+end
+
 -- ── Sections ─────────────────────────────────────────────────────────────────
 
 local function header()
+  local folder = selectedFolder()
+  local device = selectedDevice()
+  local selected = folder or device
   local state = snapshot and snapshot.state or "unconfigured"
   local paused = allPaused()
+  local title = folder and folder.label or device and device.name or tr("panel.title")
+  local subtitle = folder and folderStateText(folder) or device and deviceStateText(device) or tr(`state.{state}`)
+  local leading = selected and ui.button({
+    glyph = "chevron-left",
+    variant = "ghost",
+    controlSize = "sm",
+    tooltip = tr("panel.back"),
+    onClick = "onBack",
+  }) or ui.image({
+    path = statusIcon.path(state),
+    width = 28,
+    height = 28,
+    fit = "contain",
+  })
   return ui.row({ gap = 8, align = "center" }, {
-    ui.image({
-      path = statusIcon.path(state),
+    leading,
+    folder and ui.image({
+      path = statusIcon.path(selected.state),
       width = 28,
       height = 28,
       fit = "contain",
-    }),
+    }) or device and ui.glyph({
+      name = "devices-pc",
+      size = 28,
+      color = rowIcons.deviceColor(device, stateColors.get(device.connected and "idle" or "error")),
+    }) or ui.box({ width = 0, height = 0 }),
     ui.column({ gap = 2, flexGrow = 1 }, {
-      ui.label({ text = tr("panel.title"), fontSize = 16, fontWeight = "bold" }),
-      ui.label({ text = tr(`state.{state}`), fontSize = 12, color = stateColors.get(state) }),
+      ui.label({ text = title, fontSize = 16, fontWeight = "bold", maxLines = 1 }),
+      ui.label({ text = subtitle, fontSize = 12, color = stateColors.get(selected and selected.state or state), maxLines = 1 }),
     }),
     ui.button({
       glyph = paused and "player-play" or "player-pause",
@@ -169,7 +266,7 @@ local RAW_STATE_LABELS = {
   ["cleaning"] = "state.cleaning",
 }
 
-local function folderStateText(folder)
+folderStateText = function(folder)
   local progress = folder.state ~= "idle" and folder.completion >= 0 and ` {folder.completion}%` or ""
   local rawKey = folder.state ~= "paused" and folder.state ~= "error" and RAW_STATE_LABELS[folder.rawState] or nil
   local base = `{tr(rawKey or `state.{folder.state}`)}{progress}`
@@ -218,6 +315,9 @@ local function folderRow(folder)
     align = "center",
     fill = "surface_variant/0.5",
     radius = 8,
+    onClick = function()
+      openFolderDetails(folder)
+    end,
   }, {
     ui.column({ gap = 2, flexGrow = 1 }, {
       ui.label({ text = folder.label, fontWeight = "bold", fontSize = 13, maxLines = 1 }),
@@ -251,6 +351,15 @@ local function folderRow(folder)
       -- disabled input area never hovers — so the tooltip would never show.
       onHover = noop,
     }),
+    ui.button({
+      glyph = "chevron-right",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = tr("panel.folder-details"),
+      onClick = function()
+        openFolderDetails(folder)
+      end,
+    }),
     -- Keeps the status indicators from reading as more action buttons.
     ui.box({ width = 1, height = 18, fill = "on_surface/0.15" }),
     ui.button({
@@ -277,7 +386,7 @@ end
 
 -- Plain-language device state, used both by the row subtitle and as the
 -- hover text on its status glyph.
-local function deviceStateText(device)
+deviceStateText = function(device)
   if device.paused then
     return tr("device.paused")
   end
@@ -307,6 +416,9 @@ local function deviceRow(device)
     fill = "surface_variant/0.5",
     radius = 8,
     opacity = device.connected and 1 or 0.7,
+    onClick = function()
+      openDeviceDetails(device)
+    end,
   }, {
     ui.column({ gap = 1, flexGrow = 1 }, {
       ui.label({ text = device.name, fontWeight = "bold", fontSize = 13, maxLines = 1 }),
@@ -316,6 +428,15 @@ local function deviceRow(device)
         color = (device.connected and not device.paused) and "on_surface/0.65" or color,
         maxLines = 1,
       }),
+    }),
+    ui.button({
+      glyph = "chevron-right",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = tr("panel.device-details"),
+      onClick = function()
+        openDeviceDetails(device)
+      end,
     }),
     -- State glyph plus connection-type meter, the same pair (and order) the
     -- web GUI shows at the right edge of a device row.
@@ -354,6 +475,220 @@ local function deviceRow(device)
       end,
     }),
   })
+end
+
+local function infoStat(value, label)
+  return ui.column({ gap = 1, align = "center", flexGrow = 1 }, {
+    ui.label({ text = tostring(value), fontSize = 14, fontWeight = "bold", maxLines = 1 }),
+    ui.label({ text = label, fontSize = 10, color = "on_surface/0.6", maxLines = 1 }),
+  })
+end
+
+local function detailSection(title, rows, emptyText)
+  local children = {
+    ui.label({ text = title, fontSize = 12, fontWeight = "bold" }),
+  }
+  if #rows == 0 and emptyText then
+    table.insert(children, ui.label({ text = emptyText, fontSize = 11, color = "on_surface/0.6" }))
+  else
+    for _, row in rows do
+      table.insert(children, row)
+    end
+  end
+  return ui.column({ gap = 5, padding = 8, fill = "surface_variant/0.5", radius = 8 }, children)
+end
+
+local function detailFileRow(name, subtitle, color)
+  return ui.column({ gap = 1, padding = 6, fill = "surface/0.35", radius = 6 }, {
+    ui.label({ text = name, fontSize = 11, maxLines = 2, color = color }),
+    ui.label({ text = subtitle, fontSize = 10, color = "on_surface/0.6", maxLines = 2, visible = subtitle ~= "" }),
+  })
+end
+
+local function folderDetailsView()
+  local folder = selectedFolder()
+  if not folder then
+    return ui.label({ text = tr("panel.no-folders"), fontSize = 12, color = "on_surface/0.6" })
+  end
+
+  local children = {
+    ui.row({ gap = 6 }, {
+      ui.button({
+        text = tr("panel.open-folder"),
+        glyph = "folder",
+        variant = "primary",
+        flexGrow = 1,
+        onClick = function()
+          sendCmd("open_folder", folder.id)
+        end,
+      }),
+      ui.button({
+        glyph = folder.paused and "player-play" or "player-pause",
+        variant = "ghost",
+        controlSize = "sm",
+        tooltip = folder.paused and tr("panel.folder-resume") or tr("panel.folder-pause"),
+        onClick = function()
+          togglePaused("folder", folder.id, folder.paused)
+        end,
+      }),
+      ui.button({
+        glyph = "refresh",
+        variant = "ghost",
+        controlSize = "sm",
+        enabled = not folder.paused,
+        tooltip = tr("panel.folder-rescan"),
+        onClick = function()
+          sendCmd("folder_rescan_details", folder.id)
+        end,
+      }),
+    }),
+    ui.column({ gap = 2, padding = 8, fill = "surface_variant/0.5", radius = 8 }, {
+      ui.label({ text = tr("panel.folder-path"), fontSize = 10, color = "on_surface/0.6" }),
+      ui.label({
+        text = folder.path ~= "" and folder.path or tr("panel.folder-no-path"),
+        fontSize = 11,
+        maxLines = 2,
+      }),
+    }),
+    ui.row({ gap = 6 }, {
+      infoStat(folder.globalFiles, tr("panel.folder-files")),
+      infoStat(formatBytes(folder.globalBytes), tr("panel.folder-size")),
+      infoStat(folder.needItems, tr("panel.folder-pending")),
+      infoStat(folder.deviceCount, tr("panel.folder-devices")),
+    }),
+  }
+
+  if folder.detail ~= "" then
+    table.insert(children, ui.label({ text = folder.detail, fontSize = 11, color = stateColors.get("error"), maxLines = 3 }))
+  end
+  if folderDetailLoading then
+    table.insert(children, ui.label({ text = tr("panel.folder-loading"), fontSize = 11, color = "on_surface/0.6" }))
+  elseif not folderDetail then
+    table.insert(children, ui.label({ text = tr("panel.folder-loading"), fontSize = 11, color = "on_surface/0.6" }))
+  else
+    if folderDetail.error ~= "" then
+      table.insert(children, ui.label({ text = folderDetail.error, fontSize = 11, color = stateColors.get("error"), maxLines = 3 }))
+    end
+
+    local errors = {}
+    for _, item in (folderDetail.errors or {}) do
+      table.insert(errors, detailFileRow(item.path, item.message, "error/0.9"))
+    end
+    table.insert(children, detailSection(tr("panel.folder-errors"), errors, tr("panel.folder-no-errors")))
+
+    local conflicts = {}
+    for _, path in (folderDetail.conflicts or {}) do
+      table.insert(conflicts, detailFileRow(path, tr("panel.folder-conflict"), "error/0.9"))
+    end
+    if #conflicts > 0 then
+      table.insert(children, detailSection(tr("panel.folder-conflicts"), conflicts))
+    end
+
+    local pending = {}
+    for _, item in (folderDetail.pending or {}) do
+      local subtitle = `{item.queue} · {formatBytes(item.size)}`
+      if item.modified ~= "" then
+        subtitle = `{subtitle} · {shortTimestamp(item.modified)}`
+      end
+      table.insert(pending, detailFileRow(item.name, subtitle, "secondary"))
+    end
+    table.insert(children, detailSection(tr("panel.folder-pending-files"), pending, tr("panel.folder-no-pending")))
+
+    local changes = {}
+    for _, item in (folderDetail.changes or {}) do
+      local action = item.action ~= "" and item.action or item.source
+      local subtitle = `{action} · {item.source}`
+      if item.time ~= "" then
+        subtitle = `{subtitle} · {shortTimestamp(item.time)}`
+      end
+      table.insert(changes, detailFileRow(item.path, subtitle, "on_surface"))
+    end
+    table.insert(children, detailSection(tr("panel.folder-recent-changes"), changes, tr("panel.folder-no-recent-changes")))
+  end
+  return ui.scroll({ gap = 8, flexGrow = 1 }, children)
+end
+
+local function folderHasDevice(folder, deviceId)
+  for _, id in (folder.deviceIds or {}) do
+    if id == deviceId then
+      return true
+    end
+  end
+  return false
+end
+
+local function deviceDetailsView()
+  local device = selectedDevice()
+  if not device then
+    return ui.label({ text = tr("panel.no-devices"), fontSize = 12, color = "on_surface/0.6" })
+  end
+
+  local connection = tr(`device.conn-{rowIcons.connKind(device)}`)
+  local children = {
+    ui.row({ gap = 6 }, {
+      ui.button({
+        text = device.paused and tr("panel.device-resume") or tr("panel.device-pause"),
+        glyph = device.paused and "player-play" or "player-pause",
+        variant = "primary",
+        flexGrow = 1,
+        onClick = function()
+          togglePaused("device", device.id, device.paused)
+        end,
+      }),
+    }),
+    ui.column({ gap = 4, padding = 8, fill = "surface_variant/0.5", radius = 8 }, {
+      ui.label({ text = tr("panel.device-id"), fontSize = 10, color = "on_surface/0.6" }),
+      ui.row({ gap = 6, align = "center" }, {
+        ui.label({ text = device.id, fontSize = 11, flexGrow = 1, maxLines = 2 }),
+        ui.button({
+          text = tr("panel.copy-device-id"),
+          glyph = "copy",
+          variant = "outline",
+          controlSize = "sm",
+          onClick = function()
+            copyDeviceId(device)
+          end,
+        }),
+      }),
+    }),
+    detailSection(tr("panel.device-connection"), {
+      ui.label({ text = deviceStateText(device), fontSize = 11 }),
+      ui.label({ text = connection, fontSize = 11, color = "on_surface/0.7" }),
+      ui.label({ text = device.address ~= "" and device.address or tr("panel.device-no-address"), fontSize = 11, color = "on_surface/0.7" }),
+      ui.label({ text = device.version ~= "" and device.version or tr("panel.device-no-version"), fontSize = 11, color = "on_surface/0.7" }),
+    }),
+  }
+
+  local folders = {}
+  for _, folder in snapshot.folders do
+    if folderHasDevice(folder, device.id) then
+      table.insert(folders, ui.button({
+        text = folder.label,
+        glyph = rowIcons.folder(folder),
+        variant = "ghost",
+        contentAlign = "start",
+        tooltip = tr("panel.folder-details"),
+        onClick = function()
+          openFolderDetails(folder)
+        end,
+      }))
+    end
+  end
+  if #folders == 0 then
+    table.insert(folders, ui.label({ text = tr("panel.device-no-folders"), fontSize = 11, color = "on_surface/0.6" }))
+  end
+  table.insert(children, detailSection(tr("panel.device-folders"), folders))
+  if deviceQrLoading then
+    table.insert(children, ui.label({ text = tr("panel.device-qr-loading"), fontSize = 11, color = "on_surface/0.6" }))
+  elseif deviceQr and deviceQr.path then
+    table.insert(children, ui.column({ gap = 5, align = "center", padding = 8, fill = "surface_variant/0.5", radius = 8 }, {
+      ui.label({ text = tr("panel.device-qr"), fontSize = 12, fontWeight = "bold" }),
+      ui.image({ path = deviceQr.path, width = 180, height = 180, fit = "contain" }),
+    }))
+  elseif deviceQr and deviceQr.error then
+    table.insert(children, ui.label({ text = deviceQr.error, fontSize = 11, color = stateColors.get("error"), maxLines = 3 }))
+  end
+  return ui.scroll({ gap = 8, flexGrow = 1 }, children)
 end
 
 local function folderList()
@@ -421,16 +756,20 @@ local function footer()
   return ui.column({ gap = 3 }, children)
 end
 
-local function render()
+render = function()
   if not isOpen then
     return
   end
   -- height pins the root to the [[panel]] size so the folder list scrolls
   -- instead of growing past the panel background; keep PANEL_HEIGHT and the
   -- manifest's height = … in sync, the root wins over the manifest value.
-  panel.render(ui.column({ gap = 10, padding = PANEL_PADDING, height = PANEL_HEIGHT - PANEL_PADDING * 2 }, {
-    header(),
-    ui.label({
+  local children = { header() }
+  if view == "folder" then
+    table.insert(children, folderDetailsView())
+  elseif view == "device" then
+    table.insert(children, deviceDetailsView())
+  else
+    table.insert(children, ui.label({
       text = statusSummary(),
       fontSize = 12,
       color = "on_surface/0.8",
@@ -438,13 +777,14 @@ local function render()
       -- tiles already show the device count. Every other state says something
       -- the rest of the panel does not.
       visible = not snapshot or snapshot.state ~= "idle",
-    }),
-    tabs(),
-    folderList(),
-    ratesLabel(),
-    ui.separator({}),
-    footer(),
-  }))
+    }))
+    table.insert(children, tabs())
+    table.insert(children, folderList())
+  end
+  table.insert(children, ratesLabel())
+  table.insert(children, ui.separator({}))
+  table.insert(children, footer())
+  panel.render(ui.column({ gap = 10, padding = PANEL_PADDING, height = PANEL_HEIGHT - PANEL_PADDING * 2 }, children))
 end
 
 -- ── Lifecycle & callbacks ────────────────────────────────────────────────────
@@ -452,6 +792,24 @@ end
 noctalia.state.watch("st.snapshot", function(encoded)
   snapshot = encoded and noctalia.json.decode(encoded) or nil
   render()
+end)
+
+noctalia.state.watch("st.folder-detail", function(encoded)
+  local detail = encoded and noctalia.json.decode(encoded) or nil
+  if detail and detail.folderId == selectedFolderId then
+    folderDetail = detail
+    folderDetailLoading = false
+    render()
+  end
+end)
+
+noctalia.state.watch("st.device-qr", function(encoded)
+  local qr = encoded and noctalia.json.decode(encoded) or nil
+  if qr and qr.deviceId == selectedDeviceId then
+    deviceQr = qr
+    deviceQrLoading = false
+    render()
+  end
 end)
 
 function onOpen(_context)
@@ -464,6 +822,13 @@ end
 
 function onClose()
   isOpen = false
+  view = "folders"
+  selectedFolderId = nil
+  selectedDeviceId = nil
+  folderDetail = nil
+  folderDetailLoading = false
+  deviceQr = nil
+  deviceQrLoading = false
 end
 
 function onRefresh()
@@ -488,10 +853,29 @@ end
 
 function onTabFolders()
   view = "folders"
+  selectedFolderId = nil
+  selectedDeviceId = nil
+  deviceQr = nil
+  deviceQrLoading = false
   render()
 end
 
 function onTabDevices()
   view = "devices"
+  selectedFolderId = nil
+  selectedDeviceId = nil
+  deviceQr = nil
+  deviceQrLoading = false
+  render()
+end
+
+function onBack()
+  view = selectedDeviceId and "devices" or "folders"
+  selectedFolderId = nil
+  selectedDeviceId = nil
+  folderDetail = nil
+  folderDetailLoading = false
+  deviceQr = nil
+  deviceQrLoading = false
   render()
 end

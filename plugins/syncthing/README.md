@@ -4,7 +4,13 @@
 [`rylos/syncthing`](https://github.com/noctalia-dev/community-plugins/tree/main/syncthing)
 plugin. It retains the upstream service, panel, launcher, shortcut, and
 desktop widget while using a larger tray-like icon and composited status
-badges in the bar.
+badges in the bar. The panel has folder and device lists with dedicated
+detail pages: folder pages show status counters, pending files, recent errors,
+recent local/remote changes, recent conflict filenames, and an action to open
+the folder in the default file manager; device pages show connection details
+and the folders shared with that device.
+Device pages also expose the full device ID, a one-click clipboard copy
+action, and a QR code for pairing another Syncthing instance.
 
 | Bar | Panel |
 | --- | --- |
@@ -32,6 +38,11 @@ pause glyph when paused or queued, and a warning triangle on error. Device
 rows pair that state glyph with the web GUI's connection-type meter — one bar
 for a relay hop, three for a direct WAN connection, five for a direct local
 one, and a struck-through meter when the device is not connected.
+
+Use the chevron at the end of a folder or device row to open its detail page.
+Folder details are loaded on demand because Syncthing's pending-file, folder
+error, and event endpoints are relatively expensive compared with the regular
+status poll.
 
 Nothing is vendored from Syncthing for this: the web GUI draws Font Awesome
 glyphs, and Noctalia ships the full [Tabler](https://tabler.io/icons) icon
