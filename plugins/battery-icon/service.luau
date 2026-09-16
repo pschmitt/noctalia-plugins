@@ -520,6 +520,8 @@ local function settings()
     pollMs = (tonumber(noctalia.getConfig("poll_interval")) or 15) * 1000,
     lowThreshold = tonumber(noctalia.getConfig("low_threshold")) or 20,
     mediumThreshold = tonumber(noctalia.getConfig("medium_threshold")) or 50,
+    chargeLimitAsFull = noctalia.getConfig("charge_limit_as_full") == true,
+    scalePercentageToChargeLimit = noctalia.getConfig("scale_percentage_to_charge_limit") == true,
     fullAt = math.clamp(tonumber(noctalia.getConfig("full_at")) or 0, 0, 100),
     lowColor = resolveColor(noctalia.getConfig("low_color"), "#EA4335"),
     mediumColor = resolveColor(noctalia.getConfig("medium_color"), "#9AA0A6"),
@@ -530,6 +532,13 @@ local function settings()
     textColor = resolveColor(noctalia.getConfig("text_color"), "#202124"),
     emptyColor = resolveColor(noctalia.getConfig("empty_color"), "#F1F3F4"),
   }
+end
+
+local function normalizedPercent(cfg, percent)
+  if (cfg.chargeLimitAsFull or cfg.scalePercentageToChargeLimit) and cfg.fullAt > 0 and cfg.fullAt < 100 then
+    return math.min(percent / cfg.fullAt * 100, 100)
+  end
+  return percent
 end
 
 -- The body colour encodes exactly one fact: how full the battery is (plus
@@ -544,21 +553,10 @@ local function tierColor(cfg, percent, charging)
     return cfg.chargingColor
   end
   -- A firmware charge limit means the battery can never reach 100%, so raw
-  -- thresholds permanently understate how full it is: capped at 80%, a pack
-  -- one point below its cap is as full as it will ever get, yet reads as 79%
-  -- of a full battery. Compare the tiers against the achievable maximum
-  -- instead. Only the tiers are rescaled -- regenerate() still draws the true
-  -- percentage as both the number and the level fill, so the icon never
-  -- misreports the actual charge.
-  --
-  -- Note this rescales the whole range, not just the top of it: at fullAt=80
-  -- a low_threshold of 20 turns red at 16% real charge, since 16/80 = 20%.
-  -- The remaining runtime there really is the same as any battery at 16%,
-  -- so if that reads as too late, lower the limit rather than the threshold.
-  local level = percent
-  if cfg.fullAt < 100 then
-    level = math.min(percent / cfg.fullAt * 100, 100)
-  end
+  -- thresholds permanently understate how full it is. Only apply that
+  -- normalization when the user explicitly opts into charge-limit-aware
+  -- display behavior.
+  local level = cfg.chargeLimitAsFull and normalizedPercent(cfg, percent) or percent
   if level <= cfg.lowThreshold then
     return cfg.lowColor
   end
@@ -625,16 +623,17 @@ local PERIPHERAL_BADGE_DRAW = "circle 113,13 113,2"
 local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverride, fillOverride, boltColorOverride, lowPeripheral)
   local bg = bgOverride or tierColor(cfg, percent, charging)
   local fg = cfg.textColor
-  local label = tostring(percent)
+  local labelPercent = cfg.scalePercentageToChargeLimit and normalizedPercent(cfg, percent) or percent
+  local label = tostring(math.floor(labelPercent + 0.5))
   -- fillOverride/boltColorOverride let an animation frame draw a *different*
   -- level fill or bolt tint than the real, current state (the classic
   -- charging sweep below fills toward the real percent repeatedly and
   -- flashes the bolt yellow independently of it), without touching the
   -- number label, which always shows the real percent.
-  local fillPercent = fillOverride or percent
+  local fillPercent = fillOverride or (cfg.chargeLimitAsFull and normalizedPercent(cfg, percent) or percent)
   local boltColor = boltColorOverride or cfg.chargingBoltColor
   local outPath = dataDir
-    .. "/battery-m3e-v7-"
+    .. "/battery-m3e-v8-"
     .. tostring(percent)
     .. (charging and "c" or "d")
     .. (powerSaver and "s" or "n")
@@ -650,6 +649,8 @@ local function regenerate(cfg, percent, charging, powerSaver, dataDir, bgOverrid
     .. sanitize(cfg.powerSaverPlusColor)
     .. "-"
     .. tostring(fillPercent)
+    .. "-"
+    .. tostring(labelPercent)
     .. (lowPeripheral and "-lp" or "")
     .. ".png"
 
@@ -850,9 +851,9 @@ local CHARGE_FILL_CYCLES = 3
 -- final non-animation frame restores the real level, since the icon must not
 -- claim that the battery is actually full. The printed number stays the real
 -- percent throughout.
-local function chargeSweepFrames(percent)
+local function chargeSweepFrames(cfg, percent)
   local frames = {}
-  local startPercent = math.clamp(percent, 0, 100)
+  local startPercent = math.clamp(cfg.chargeLimitAsFull and normalizedPercent(cfg, percent) or percent, 0, 100)
   for _ = 1, CHARGE_FILL_CYCLES do
     for step = 1, CHARGE_FILL_STEPS do
       local fillPercent = startPercent + (100 - startPercent) * step / CHARGE_FILL_STEPS
@@ -863,7 +864,7 @@ local function chargeSweepFrames(percent)
 end
 
 local function startChargePulse(cfg, percent, charging, powerSaver, dataDir, lowPeripheral)
-  startStrobe(cfg, percent, charging, powerSaver, dataDir, chargeSweepFrames(percent), lowPeripheral)
+  startStrobe(cfg, percent, charging, powerSaver, dataDir, chargeSweepFrames(cfg, percent), lowPeripheral)
 end
 
 -- Plugging in gets the "filling up" animation above; unplugging just cuts
@@ -1123,6 +1124,8 @@ local function poll()
                 .. (charging and "c" or "d")
                 .. (powerSaver and "s" or "n")
                 .. tostring(cfg.fullAt)
+                .. tostring(cfg.chargeLimitAsFull)
+                .. tostring(cfg.scalePercentageToChargeLimit)
                 .. tostring(cfg.lowThreshold)
                 .. tostring(cfg.mediumThreshold)
                 .. cfg.lowColor

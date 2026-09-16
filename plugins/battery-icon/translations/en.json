@@ -71,13 +71,21 @@
       "label": "Battery device",
       "description": "sysfs power_supply device name (BAT0, BAT1, ...)."
     },
+    "charge_limit_as_full": {
+      "label": "Treat charge limit as full",
+      "description": "Scale the battery fill and color tiers against the detected or configured charge limit instead of 100%. Off by default."
+    },
+    "scale_percentage_to_charge_limit": {
+      "label": "Scale percentage to charge limit",
+      "description": "Display the charge percentage scaled against the detected or configured charge limit, so a battery at 80% with an 80% limit displays as 100%. Off by default."
+    },
     "poll_interval": {
       "label": "Poll interval (seconds)",
       "description": "How often to check the charge level and regenerate the icon."
     },
     "full_at": {
       "label": "Full at (%)",
-      "description": "Charge level this battery treats as full, for machines with a firmware charge limit. Colors are graded against this instead of 100%; the displayed percentage stays the real one. 0 detects it automatically."
+      "description": "Optional explicit charge-limit override used by the charge-limit display settings. 0 detects the limit automatically."
     },
     "low_threshold": {
       "label": "Low threshold (%)",

@@ -1,6 +1,6 @@
 id = "pschmitt/battery-icon"
 name = "Battery Icon"
-version = "0.6.12"
+version = "0.6.13"
 plugin_api = 26 # noctalia.getSetting() and noctalia.openSettings()
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -41,6 +41,20 @@ max = 300
 # the color tiers permanently pessimistic. 0 (the default) resolves the limit
 # at runtime -- see effectiveLimit() in service.luau -- and only needs setting
 # by hand when that gets it wrong.
+[[setting]]
+key = "charge_limit_as_full"
+type = "bool"
+label_key = "settings.charge_limit_as_full.label"
+description_key = "settings.charge_limit_as_full.description"
+default = false
+
+[[setting]]
+key = "scale_percentage_to_charge_limit"
+type = "bool"
+label_key = "settings.scale_percentage_to_charge_limit.label"
+description_key = "settings.scale_percentage_to_charge_limit.description"
+default = false
+
 [[setting]]
 key = "full_at"
 type = "int"

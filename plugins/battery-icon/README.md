@@ -34,7 +34,10 @@ The small gear in the popup's lower-right corner opens these plugin settings.
 Use **Other devices icons** to choose device-type glyphs (for example, mouse
 or touchpad) or battery glyphs that reflect each device's current charge state.
 
-`full_at = 0` learns a sensible full-charge limit from the hardware. Set it to
-an explicit percentage only when the automatic value does not match a device's
-charge-preservation limit. Plug/unplug sounds also require Noctalia's global
-`audio.enable_sounds` setting.
+`full_at = 0` learns a sensible full-charge limit from the hardware. Enable
+**Treat charge limit as full** to make the icon fill and color tiers reach full
+at that limit; enable **Scale percentage to charge limit** separately if the
+number inside the icon should be scaled too. Both are off by default. Set
+`full_at` to an explicit percentage only when the automatic value does not
+match a device's charge-preservation limit. Plug/unplug sounds also require
+Noctalia's global `audio.enable_sounds` setting.
