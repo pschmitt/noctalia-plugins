@@ -116,10 +116,29 @@ local function statusSummary()
   return tr(`summary.{state}`)
 end
 
-local function allPaused()
+local function allFoldersPaused()
+  return snapshot ~= nil
+    and snapshot.totals.monitoredFolders > 0
+    and snapshot.totals.pausedFolders >= snapshot.totals.monitoredFolders
+end
+
+local function allDevicesPaused()
   return snapshot ~= nil
     and snapshot.devices.configured > 0
     and snapshot.devices.paused >= snapshot.devices.configured
+end
+
+local function bulkPauseKind()
+  return view == "folders" or view == "folder" and "folders" or "devices"
+end
+
+local function bulkPaused()
+  return bulkPauseKind() == "folders" and allFoldersPaused() or allDevicesPaused()
+end
+
+local function bulkPauseLabel(paused)
+  local kind = bulkPauseKind()
+  return tr(paused and `panel.resume-all-{kind}` or `panel.pause-all-{kind}`)
 end
 
 -- Forward declaration: the detail-aware header uses the same folder state
@@ -173,7 +192,7 @@ local function header()
   local device = selectedDevice()
   local selected = folder or device
   local state = snapshot and snapshot.state or "unconfigured"
-  local paused = allPaused()
+  local paused = bulkPaused()
   local title = folder and folder.label or device and device.name or tr("panel.title")
   local subtitle = folder and folderStateText(folder) or device and deviceStateText(device) or tr(`state.{state}`)
   local leading = selected and ui.button({
@@ -216,7 +235,7 @@ local function header()
       glyph = paused and "player-play" or "player-pause",
       variant = "outline",
       controlSize = "sm",
-      tooltip = paused and tr("panel.resume-all") or tr("panel.pause-all"),
+      tooltip = bulkPauseLabel(paused),
       onClick = paused and "onResumeAll" or "onPauseAll",
     }),
     ui.button({
@@ -502,6 +521,38 @@ local function detailFileRow(name, subtitle, color)
   })
 end
 
+local function changeColor(action)
+  local normalized = string.lower(action or "")
+  if normalized == "deleted" or normalized == "delete" or normalized == "removed" or normalized == "remove" then
+    return "error"
+  end
+  if normalized == "created" or normalized == "create" or normalized == "added" or normalized == "add" then
+    return stateColors.get("idle")
+  end
+  if normalized == "modified" or normalized == "modify" or normalized == "updated" or normalized == "update" then
+    return "secondary"
+  end
+  if normalized == "renamed" or normalized == "rename" then
+    return "tertiary"
+  end
+  return "on_surface_variant"
+end
+
+local function recentChangeRow(item)
+  local action = item.action ~= "" and item.action or item.source
+  local metadata = item.source
+  if item.time ~= "" then
+    metadata = `{metadata} · {shortTimestamp(item.time)}`
+  end
+  return ui.column({ gap = 1, padding = 6, fill = "surface/0.35", radius = 6 }, {
+    ui.label({ text = item.path, fontSize = 11, maxLines = 2 }),
+    ui.row({ gap = 3, align = "center" }, {
+      ui.label({ text = action, fontSize = 10, color = changeColor(action), maxLines = 1 }),
+      ui.label({ text = `· {metadata}`, fontSize = 10, color = "on_surface/0.6", maxLines = 1 }),
+    }),
+  })
+end
+
 local function folderDetailsView()
   local folder = selectedFolder()
   if not folder then
@@ -593,12 +644,7 @@ local function folderDetailsView()
 
     local changes = {}
     for _, item in (folderDetail.changes or {}) do
-      local action = item.action ~= "" and item.action or item.source
-      local subtitle = `{action} · {item.source}`
-      if item.time ~= "" then
-        subtitle = `{subtitle} · {shortTimestamp(item.time)}`
-      end
-      table.insert(changes, detailFileRow(item.path, subtitle, "on_surface"))
+      table.insert(changes, recentChangeRow(item))
     end
     table.insert(children, detailSection(tr("panel.folder-recent-changes"), changes, tr("panel.folder-no-recent-changes")))
   end
@@ -794,11 +840,11 @@ function onSettings()
 end
 
 function onPauseAll()
-  sendCmd("pause_all")
+  sendCmd(bulkPauseKind() == "folders" and "pause_all_folders" or "pause_all_devices")
 end
 
 function onResumeAll()
-  sendCmd("resume_all")
+  sendCmd(bulkPauseKind() == "folders" and "resume_all_folders" or "resume_all_devices")
 end
 
 function onTabFolders()

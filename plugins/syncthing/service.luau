@@ -46,6 +46,7 @@ local cfg = {
 -- the file-manager action. Keep paths here instead of trusting a path sent
 -- back from the UI.
 local folderPaths = {}
+local folderIds = {}
 
 -- A poll spans several requests, so a callback that never fires would wedge it
 -- for good. Every poll carries a generation number: callbacks from a
@@ -568,6 +569,7 @@ local function fetchCore(generation)
     -- Folder list from config, filtered by the monitored set.
     local monitoredFolders = {}
     folderPaths = {}
+    folderIds = {}
     for _, folder in (results.config.folders or {}) do
       local id = trim(folder.id)
       if id == "" then
@@ -577,6 +579,7 @@ local function fetchCore(generation)
         continue
       end
       folderPaths[id] = trim(folder.path)
+      table.insert(folderIds, id)
       local deviceIds = {}
       for _, device in (folder.devices or {}) do
         local deviceId = trim(device.deviceID)
@@ -797,6 +800,24 @@ local function actionThenRefresh(path, opts, after)
   end)
 end
 
+local function pauseAllFolders(paused)
+  local remaining = #folderIds
+  if remaining == 0 then
+    poll(true)
+    return
+  end
+  local body = paused and '{"paused":true}' or '{"paused":false}'
+  for _, id in folderIds do
+    local encodedId = noctalia.string.urlEncode(id)
+    fetch(`/rest/config/folders/{encodedId}`, { method = "PATCH", body = body }, function()
+      remaining -= 1
+      if remaining == 0 then
+        poll(true)
+      end
+    end)
+  end
+end
+
 function openGui()
   noctalia.log(`[syncthing] openGui: url={cfg.baseUrl}`)
   if cfg.baseUrl == "" then
@@ -888,10 +909,14 @@ noctalia.state.watch("st.cmd", function(raw)
 
   if cmd.action == "refresh" then
     poll(true)
-  elseif cmd.action == "pause_all" then
+  elseif cmd.action == "pause_all" or cmd.action == "pause_all_devices" then
     actionThenRefresh("/rest/system/pause", { method = "POST" })
-  elseif cmd.action == "resume_all" then
+  elseif cmd.action == "resume_all" or cmd.action == "resume_all_devices" then
     actionThenRefresh("/rest/system/resume", { method = "POST" })
+  elseif cmd.action == "pause_all_folders" then
+    pauseAllFolders(true)
+  elseif cmd.action == "resume_all_folders" then
+    pauseAllFolders(false)
   elseif cmd.action == "folder_pause" then
     actionThenRefresh(`/rest/config/folders/{folder}`, { method = "PATCH", body = '{"paused":true}' })
   elseif cmd.action == "folder_resume" then
