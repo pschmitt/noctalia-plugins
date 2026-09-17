@@ -11,6 +11,7 @@ stdenvNoCC.mkDerivation {
       ../../plugins/lan-mouse/service.luau
       ../../plugins/lan-mouse/bar.luau
       ../../plugins/lan-mouse/panel.luau
+      ../../plugins/lan-mouse/lockscreen.luau
       ../../plugins/lan-mouse/README.md
       ../../plugins/lan-mouse/translations
     ];
@@ -25,7 +26,7 @@ stdenvNoCC.mkDerivation {
     dest=$out/share/noctalia-plugins/lan-mouse
     mkdir -p "$dest"
 
-    cp plugin.toml service.luau bar.luau panel.luau README.md "$dest"/
+    cp plugin.toml service.luau bar.luau panel.luau lockscreen.luau README.md "$dest"/
     cp -r translations "$dest"/
 
     runHook postInstall

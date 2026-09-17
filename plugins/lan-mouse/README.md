@@ -16,6 +16,18 @@ The panel lists configured peers (from `lan-mouse cli list`) with their
 connection state, and an Enable/Disable button per peer
 (`lan-mouse cli activate`/`deactivate`).
 
+A lockscreen widget adds a "Bring input back" button. lan-mouse normally
+releases capture by watching the cursor cross back over the screen edge on
+the receiving side, but a session lock there grabs input exclusively, so
+that check never fires — confirmed live 2026-09-17, mouse stuck on a locked
+gk4 with no way back except nixos-config's `releaseBind` key combo. The
+button runs the same escape hatch from a click: `~/.config/lan-mouse/go-back`
+(`home-manager/gui/lan-mouse.nix`'s `goBackScript`) ssh's into every
+configured peer and deactivates+reactivates whichever one currently has this
+host's client active, forcing capture back. It's a no-op when nothing needs
+releasing, so the button stays up unconditionally rather than trying to
+detect "is a peer currently capturing me" — lan-mouse exposes no such query.
+
 ## Settings
 
 - `away_sentinel` — path to the sentinel file. Supports `$XDG_RUNTIME_DIR`
@@ -24,8 +36,12 @@ connection state, and an Enable/Disable button per peer
   `lan-mouse cli list`, in seconds.
 - `icon_color` — a Noctalia color role (e.g. `warning`) or a hex color.
 - `show_label` — show the peer name next to the icon in the bar.
+- `go_back_command` — path to the lockscreen button's script. Set by
+  `lan-mouse.nix`'s `goBackScript`; only change this if you know what you're
+  doing.
 
 ## Entries
 
 - `[[widget]] id = "bar"` — the bar icon, click opens the panel.
 - `[[panel]] id = "panel"` — peer list and status detail.
+- `[[desktop_widget]] id = "lockscreen"` — the "Bring input back" button.

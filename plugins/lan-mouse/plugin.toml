@@ -6,6 +6,11 @@
 # holds the peer's name while control is away, and is absent while control is
 # on this host. The panel's peer list (hostname, position, connection state)
 # comes straight from `lan-mouse cli list`.
+#
+# Also ships a lockscreen widget (lockscreen.luau): a "bring input back"
+# button for when a peer's session is locked and can no longer release
+# capture by edge-crossing (session locks grab input exclusively), the only
+# other way back being nixos-config's `releaseBind` key combo.
 
 id = "pschmitt/lan-mouse"
 name = "Lan Mouse"
@@ -48,6 +53,13 @@ label_key = "settings.show_label.label"
 description_key = "settings.show_label.description"
 default = true
 
+[[setting]]
+key = "go_back_command"
+type = "string"
+label_key = "settings.go_back_command.label"
+description_key = "settings.go_back_command.description"
+default = "~/.config/lan-mouse/go-back"
+
 [[service]]
 id = "poller"
 entry = "service.luau"
@@ -67,3 +79,7 @@ height = 280
 placement = "attached"
 position = "auto"
 open_near_click = true
+
+[[desktop_widget]]
+id = "lockscreen"
+entry = "lockscreen.luau"

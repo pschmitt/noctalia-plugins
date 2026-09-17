@@ -15,6 +15,10 @@
     "show_label": {
       "label": "Show label",
       "description": "Show the peer name next to the icon in the bar. Disable for an icon-only indicator."
+    },
+    "go_back_command": {
+      "label": "Go-back command",
+      "description": "Path to the script the lockscreen's \"Bring input back\" button runs. Set by lan-mouse.nix's goBackScript; only change this if you know what you're doing."
     }
   }
 }
