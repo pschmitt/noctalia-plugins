@@ -31,6 +31,13 @@ description_key = "settings.away_sentinel.description"
 default = "$XDG_RUNTIME_DIR/lan-mouse-away"
 
 [[setting]]
+key = "incoming_sentinel"
+type = "string"
+label_key = "settings.incoming_sentinel.label"
+description_key = "settings.incoming_sentinel.description"
+default = "$XDG_RUNTIME_DIR/lan-mouse-incoming"
+
+[[setting]]
 key = "poll_interval"
 type = "int"
 label_key = "settings.poll_interval.label"

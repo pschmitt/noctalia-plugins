@@ -16,23 +16,28 @@ The panel lists configured peers (from `lan-mouse cli list`) with their
 connection state, and an Enable/Disable button per peer
 (`lan-mouse cli activate`/`deactivate`).
 
-A lockscreen widget adds a "Bring input back" button. lan-mouse normally
-releases capture by watching the cursor cross back over the screen edge on
-the receiving side, but a session lock there grabs input exclusively, so
-that check never fires — confirmed live 2026-09-17, mouse stuck on a locked
-gk4 with no way back except nixos-config's `releaseBind` key combo. The
-button runs the same escape hatch from a click: `~/.config/lan-mouse/go-back`
-(`home-manager/gui/lan-mouse.nix`'s `goBackScript`) ssh's into every
-configured peer and deactivates+reactivates whichever one currently has this
-host's client active, forcing capture back. It's a no-op when nothing needs
-releasing, so the button stays up unconditionally rather than trying to
-detect "is a peer currently capturing me" — lan-mouse exposes no such query.
+A lockscreen widget adds a "Bring input back" button, shown only while
+`incoming_sentinel` says a peer's input is actually flowing into this host.
+lan-mouse normally releases capture by watching the cursor cross back over
+the screen edge on the receiving side, but a session lock there grabs input
+exclusively, so that check never fires — confirmed live 2026-09-17, mouse
+stuck on a locked gk4 with no way back except nixos-config's `releaseBind`
+key combo. The button runs the same escape hatch from a click:
+`~/.config/lan-mouse/go-back` (`home-manager/gui/lan-mouse.nix`'s
+`goBackScript`) ssh's into every configured peer and deactivates+reactivates
+whichever one currently has this host's client active, forcing capture back.
+Note: neither `away_sentinel` nor `incoming_sentinel` update when
+`releaseBind`'s physical key combo is used instead of edge-crossing or this
+button — that bypasses every hook lan-mouse fires, so the button can stay
+visible a little longer than strictly necessary in that case.
 
 ## Settings
 
-- `away_sentinel` — path to the sentinel file. Supports `$XDG_RUNTIME_DIR`
-  and `~` expansion.
-- `poll_interval` — how often to re-check the sentinel and re-run
+- `away_sentinel` — path to the away-sentinel file. Supports
+  `$XDG_RUNTIME_DIR` and `~` expansion.
+- `incoming_sentinel` — path to the incoming-sentinel file (away_sentinel's
+  counterpart on the receiving side). Same expansion rules.
+- `poll_interval` — how often to re-check the sentinels and re-run
   `lan-mouse cli list`, in seconds.
 - `icon_color` — a Noctalia color role (e.g. `warning`) or a hex color.
 - `show_label` — show the peer name next to the icon in the bar.

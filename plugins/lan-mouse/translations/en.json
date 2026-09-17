@@ -4,6 +4,10 @@
       "label": "Away sentinel file",
       "description": "Path lan-mouse.nix's enter_hook writes (holding the peer's name) while control is away, and removes when it returns. Supports $XDG_RUNTIME_DIR and ~ expansion."
     },
+    "incoming_sentinel": {
+      "label": "Incoming sentinel file",
+      "description": "Path lan-mouse.nix's enter_hook writes on this host (holding the source host's name) while a peer's input is flowing in. Gates the lockscreen button's visibility. Supports $XDG_RUNTIME_DIR and ~ expansion."
+    },
     "poll_interval": {
       "label": "Poll interval (s)",
       "description": "How often to re-check the sentinel file and re-run lan-mouse cli list."

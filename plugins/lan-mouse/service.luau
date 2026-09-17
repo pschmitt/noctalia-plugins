@@ -1,11 +1,15 @@
 --!nonstrict
 -- Lan Mouse poller — the headless [[service]] entry.
 --
--- Two independent sources, both cheap enough to read on every tick:
+-- Three independent sources, all cheap enough to read on every tick:
 -- - away_sentinel: a plain file nixos-config's lan-mouse.nix `enter_hook`
 --   writes (holding the peer's name) when control leaves this host, and
 --   removes when control arrives back. lan-mouse has no IPC/CLI query for
 --   this, so the sentinel is the only source of truth for "who has it now".
+-- - incoming_sentinel: away_sentinel's counterpart on the *receiving* side --
+--   present (holding the source host's name) while a peer's input is
+--   flowing into this host. Drives lockscreen.luau's visibility: that
+--   button is only relevant while this is true.
 -- - `lan-mouse cli list`: per-client connection state (hostname, position,
 --   active), independent of who currently owns the cursor.
 
@@ -32,6 +36,14 @@ local function sentinelPath()
   return noctalia.expandPath(expandEnvVars(configured))
 end
 
+local function incomingSentinelPath()
+  local configured = noctalia.string.trim(noctalia.getConfig("incoming_sentinel") or "")
+  if configured == "" then
+    configured = "$XDG_RUNTIME_DIR/lan-mouse-incoming"
+  end
+  return noctalia.expandPath(expandEnvVars(configured))
+end
+
 -- `lan-mouse cli list` prints one line per configured client, e.g.:
 --   id 0: gk4:4242 (right) active: true, ips: {...}
 local function parsePeers(raw)
@@ -52,12 +64,20 @@ end
 
 local lastKey = ""
 
-local function publish(away, peerName, peers)
+local function publish(away, peerName, incoming, incomingFrom, peers)
   local parts = {}
   for _, peer in ipairs(peers) do
     table.insert(parts, peer.hostname .. ":" .. tostring(peer.active))
   end
-  local key = tostring(away) .. "|" .. (peerName or "") .. "|" .. table.concat(parts, ",")
+  local key = tostring(away)
+    .. "|"
+    .. (peerName or "")
+    .. "|"
+    .. tostring(incoming)
+    .. "|"
+    .. (incomingFrom or "")
+    .. "|"
+    .. table.concat(parts, ",")
   if key == lastKey then
     return
   end
@@ -65,6 +85,8 @@ local function publish(away, peerName, peers)
   noctalia.state.set("lan_mouse_status", {
     away = away,
     peerName = peerName,
+    incoming = incoming,
+    incomingFrom = incomingFrom,
     peers = peers,
   })
 end
@@ -77,9 +99,16 @@ local function poll()
     peerName = nil
   end
 
+  local incomingPath = incomingSentinelPath()
+  local incoming = noctalia.fileExists(incomingPath)
+  local incomingFrom = incoming and noctalia.string.trim(noctalia.readFile(incomingPath) or "") or nil
+  if incomingFrom == "" then
+    incomingFrom = nil
+  end
+
   noctalia.runAsync({ "lan-mouse", "cli", "list" }, function(result)
     local peers = result.exitCode == 0 and parsePeers(result.stdout or "") or {}
-    publish(away, peerName, peers)
+    publish(away, peerName, incoming, incomingFrom, peers)
   end, POLL_TIMEOUT_MS)
 end
 
