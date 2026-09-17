@@ -24,8 +24,12 @@ exclusively, so that check never fires — confirmed live 2026-09-17, mouse
 stuck on a locked gk4 with no way back except nixos-config's `releaseBind`
 key combo. The button runs the same escape hatch from a click:
 `~/.config/lan-mouse/go-back` (`home-manager/gui/lan-mouse.nix`'s
-`goBackScript`) ssh's into every configured peer and deactivates+reactivates
-whichever one currently has this host's client active, forcing capture back.
+`goBackScript`) ssh's into every configured peer and restarts its
+lan-mouse.service outright, forcing capture back. (An earlier version used
+`lan-mouse cli deactivate`+`activate` on the specific client instead;
+confirmed live 2026-09-17 that left the daemon silently skipping
+`enter_hook` on the *next* real capture into that peer, even though capture
+itself kept working — a full service restart resets it cleanly instead.)
 Note: neither `away_sentinel` nor `incoming_sentinel` update when
 `releaseBind`'s physical key combo is used instead of edge-crossing or this
 button — that bypasses every hook lan-mouse fires, so the button can stay

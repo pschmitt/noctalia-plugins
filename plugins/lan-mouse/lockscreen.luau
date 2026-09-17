@@ -9,10 +9,13 @@
 -- (confirmed 2026-09-17 -- see releaseBind's own comment in
 -- home-manager/gui/lan-mouse.nix). Clicking runs
 -- ~/.config/lan-mouse/go-back (home-manager/gui/lan-mouse.nix's
--- goBackScript): it ssh's into every configured peer and deactivates+
--- reactivates whichever one currently has this host's client active,
--- forcing capture back -- same lever release_bind pulls, just reachable
--- with a click instead of the physical keyboard.
+-- goBackScript): it ssh's into every configured peer and restarts its
+-- lan-mouse.service outright, forcing capture back -- same effect
+-- release_bind has, just reachable with a click instead of the physical
+-- keyboard. (An earlier version used `lan-mouse cli deactivate`+
+-- `activate` on the specific client instead; confirmed live 2026-09-17
+-- that left the daemon silently skipping enter_hook on the *next* real
+-- capture into that peer, even though capture itself kept working.)
 
 local state = noctalia.state.get("lan_mouse_status") or { incoming = false, incomingFrom = nil }
 local pending = false
