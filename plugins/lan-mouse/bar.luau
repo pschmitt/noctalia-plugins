@@ -24,7 +24,7 @@ local function render()
   }
   if showLabel then
     children[#children + 1] = ui.label({
-      text = "-> " .. (state.peerName or "?"),
+      text = state.peerName or "away",
       fontWeight = "bold",
       color = color,
     })
