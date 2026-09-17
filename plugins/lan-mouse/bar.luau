@@ -20,7 +20,7 @@ local function render()
   local showLabel = noctalia.getConfig("show_label") ~= false
 
   local children = {
-    ui.glyph({ name = "rat", size = 14, color = color }),
+    ui.glyph({ name = "mouse", size = 14, color = color }),
   }
   if showLabel then
     children[#children + 1] = ui.label({
