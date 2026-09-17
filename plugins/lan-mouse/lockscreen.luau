@@ -65,7 +65,7 @@ local function render()
       end, 5000)
     end,
   }, {
-    ui.glyph({ name = "mouse", size = 14, color = "on_surface_variant" }),
+    ui.glyph({ name = "rat", size = 14, color = "on_surface_variant" }),
     ui.label({
       text = pending and "Bringing back…" or ("Bring input back" .. (state.incomingFrom and (" (" .. state.incomingFrom .. ")") or "")),
       fontSize = 11,

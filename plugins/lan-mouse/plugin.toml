@@ -19,7 +19,7 @@ plugin_api = 24 # argument-array runAsync() keeps the `lan-mouse cli` call shell
 author = "pschmitt"
 license = "GPL-3.0-only"
 tags = ["bar", "indicator", "utility"]
-icon = "mouse"
+icon = "rat"
 description = "Shows an icon while mouse/keyboard control is on a lan-mouse peer, with a panel listing peers and connection state."
 dependencies = ["lan-mouse"]
 

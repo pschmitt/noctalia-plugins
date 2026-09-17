@@ -91,6 +91,9 @@ local function publish(away, peerName, incoming, incomingFrom, peers)
   })
 end
 
+local lastPeers = {}
+local polling = false
+
 local function poll()
   local path = sentinelPath()
   local away = noctalia.fileExists(path)
@@ -106,9 +109,26 @@ local function poll()
     incomingFrom = nil
   end
 
+  -- Publish the sentinel-derived state immediately -- these are cheap
+  -- synchronous file reads, unlike the `lan-mouse cli list` call below.
+  -- Confirmed live (2026-09-17) that this poller's single in-flight
+  -- runAsync call can get stuck and never resolve, which used to silently
+  -- freeze the *entire* published state (away/incoming included) until
+  -- noctalia.service was restarted -- exactly the bar icon and lockscreen
+  -- button this plugin exists for. Publishing away/incoming up front, and
+  -- guarding the peer-list call with `polling` so a stuck call can't pile
+  -- up new ones either, means only the panel's peer list (which tolerates
+  -- staleness) can lag; the signals that matter can't get wedged.
+  publish(away, peerName, incoming, incomingFrom, lastPeers)
+
+  if polling then
+    return
+  end
+  polling = true
   noctalia.runAsync({ "lan-mouse", "cli", "list" }, function(result)
-    local peers = result.exitCode == 0 and parsePeers(result.stdout or "") or {}
-    publish(away, peerName, incoming, incomingFrom, peers)
+    polling = false
+    lastPeers = result.exitCode == 0 and parsePeers(result.stdout or "") or lastPeers
+    publish(away, peerName, incoming, incomingFrom, lastPeers)
   end, POLL_TIMEOUT_MS)
 end
 
