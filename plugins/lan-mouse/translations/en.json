@@ -1,0 +1,20 @@
+{
+  "settings": {
+    "away_sentinel": {
+      "label": "Away sentinel file",
+      "description": "Path lan-mouse.nix's enter_hook writes (holding the peer's name) while control is away, and removes when it returns. Supports $XDG_RUNTIME_DIR and ~ expansion."
+    },
+    "poll_interval": {
+      "label": "Poll interval (s)",
+      "description": "How often to re-check the sentinel file and re-run lan-mouse cli list."
+    },
+    "icon_color": {
+      "label": "Icon color",
+      "description": "A Noctalia color role (e.g. warning, primary) or a hex color, used while control is away."
+    },
+    "show_label": {
+      "label": "Show label",
+      "description": "Show the peer name next to the icon in the bar. Disable for an icon-only indicator."
+    }
+  }
+}

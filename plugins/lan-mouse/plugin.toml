@@ -1,0 +1,69 @@
+# Bar icon + panel for lan-mouse (software KVM switch, see
+# https://github.com/feschber/lan-mouse). lan-mouse itself has no query for
+# "which side currently owns the cursor" -- only per-client connection state
+# (`lan-mouse cli list`) -- so this relies on a sentinel file that
+# nixos-config's `home-manager/gui/lan-mouse.nix` `enter_hook` maintains: it
+# holds the peer's name while control is away, and is absent while control is
+# on this host. The panel's peer list (hostname, position, connection state)
+# comes straight from `lan-mouse cli list`.
+
+id = "pschmitt/lan-mouse"
+name = "Lan Mouse"
+version = "0.1.0"
+plugin_api = 24 # argument-array runAsync() keeps the `lan-mouse cli` call shell-free
+author = "pschmitt"
+license = "GPL-3.0-only"
+tags = ["bar", "indicator", "utility"]
+icon = "mouse"
+description = "Shows an icon while mouse/keyboard control is on a lan-mouse peer, with a panel listing peers and connection state."
+dependencies = ["lan-mouse"]
+
+[[setting]]
+key = "away_sentinel"
+type = "string"
+label_key = "settings.away_sentinel.label"
+description_key = "settings.away_sentinel.description"
+default = "$XDG_RUNTIME_DIR/lan-mouse-away"
+
+[[setting]]
+key = "poll_interval"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = 2
+min = 1
+max = 30
+
+[[setting]]
+key = "icon_color"
+type = "color"
+label_key = "settings.icon_color.label"
+description_key = "settings.icon_color.description"
+default = "warning"
+
+[[setting]]
+key = "show_label"
+type = "bool"
+label_key = "settings.show_label.label"
+description_key = "settings.show_label.description"
+default = true
+
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[widget.actions]
+left = "panel-toggle pschmitt/lan-mouse:panel"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 320
+height = 280
+placement = "attached"
+position = "auto"
+open_near_click = true
