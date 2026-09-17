@@ -8,6 +8,10 @@
       "label": "Poll interval (s)",
       "description": "How often to re-read the state file while the widget is visible."
     },
+    "event_file": {
+      "label": "Event file",
+      "description": "Path to the short-lived file used for cancelled and achieved messages."
+    },
     "text_template": {
       "label": "Text template",
       "description": "Shown while the countdown is armed. {seconds} is replaced with the remaining seconds."

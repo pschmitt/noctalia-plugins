@@ -8,6 +8,15 @@
 
 local state = noctalia.state.get("feierabend_countdown") or { active = false, seconds = 0 }
 
+local function eventText()
+  if state.event == "cancelled" then
+    return "🥲 Feierabend aborted!"
+  elseif state.event == "achieved" then
+    return "🍻 FEIERABEND achieved"
+  end
+  return nil
+end
+
 local function text()
   local template = noctalia.getConfig("text_template")
   if template == nil or template == "" then
@@ -22,7 +31,8 @@ local function render()
     return
   end
 
-  if not state.active then
+  local specialText = eventText()
+  if not state.active and specialText == nil then
     if barWidget then
       barWidget.setVisible(false)
     end
@@ -44,7 +54,7 @@ local function render()
     barWidget.setVisible(true)
   end
   renderer.render(ui.label({
-    text = text(),
+    text = specialText or text(),
     color = noctalia.getConfig("text_color") or "error",
     fontSize = tonumber(noctalia.getConfig("font_size")) or 24,
     fontWeight = "bold",
