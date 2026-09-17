@@ -39,7 +39,7 @@ visible a little longer than strictly necessary in that case.
   counterpart on the receiving side). Same expansion rules.
 - `poll_interval` — how often to re-check the sentinels and re-run
   `lan-mouse cli list`, in seconds.
-- `icon_color` — a Noctalia color role (e.g. `warning`) or a hex color.
+- `icon_color` — a Noctalia color role (e.g. `error`) or a hex color.
 - `show_label` — show the peer name next to the icon in the bar.
 - `go_back_command` — path to the lockscreen button's script. Set by
   `lan-mouse.nix`'s `goBackScript`; only change this if you know what you're

@@ -16,7 +16,7 @@ local function render()
     return
   end
 
-  local color = noctalia.getConfig("icon_color") or "warning"
+  local color = noctalia.getConfig("icon_color") or "error"
   local showLabel = noctalia.getConfig("show_label") ~= false
 
   local children = {

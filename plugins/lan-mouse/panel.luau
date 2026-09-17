@@ -15,12 +15,12 @@ local pending = {}
 local function header()
   local text = state.away and ("Control is on " .. (state.peerName or "a peer")) or "Control is on this host"
   return ui.row({ gap = 8, align = "center" }, {
-    ui.box({ width = 10, height = 10, radius = 5, fill = state.away and "warning" or "on_surface_variant" }),
+    ui.box({ width = 10, height = 10, radius = 5, fill = state.away and "error" or "on_surface_variant" }),
     ui.label({
       text = text,
       fontSize = 14,
       fontWeight = "bold",
-      color = state.away and "warning" or "on_surface_variant",
+      color = state.away and "error" or "on_surface_variant",
     }),
   })
 end

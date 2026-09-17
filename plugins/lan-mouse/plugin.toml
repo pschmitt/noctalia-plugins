@@ -51,7 +51,7 @@ key = "icon_color"
 type = "color"
 label_key = "settings.icon_color.label"
 description_key = "settings.icon_color.description"
-default = "warning"
+default = "error"
 
 [[setting]]
 key = "show_label"
