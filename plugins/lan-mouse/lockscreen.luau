@@ -31,25 +31,25 @@ local function render()
     return
   end
 
-  if not state.incoming then
-    -- A committed truly-empty ui.row({}, {}) crashed Noctalia outright the
-    -- first time a plugin here tried it (0x0 buffer commit -> fatal Wayland
-    -- protocol error -> noctalia.service exits -> Hyprland's
-    -- ext-session-lock protocol has no client left to grab the lock and
-    -- falls back to its own crashed-lockscreen placeholder; see
-    -- feierabend/widget.luau, confirmed live on gk4, 2026-09-11). A
-    -- single-space, zero-opacity label keeps a valid non-empty surface
-    -- committed instead.
-    renderer.render(ui.label({ text = " ", color = "on_surface/0", fontSize = 1 }))
-    return
-  end
-
+  -- Always commit the *same* row/glyph/label tree and toggle its own
+  -- `visible` prop, rather than swapping between two differently-shaped
+  -- trees (an earlier version rendered a single near-invisible ui.label
+  -- while idle and this full ui.row only once incoming). That swap is the
+  -- likely cause of a real bug seen live 2026-09-17: after the button was
+  -- used once and the widget went idle, the *next* time it should have
+  -- reappeared it rendered as a visible-but-empty button (background/
+  -- padding present, glyph and label missing) -- consistent with Noctalia
+  -- mis-measuring/mis-laying-out a structurally different tree on
+  -- reappearance. `ui.row({ visible = false }, {...})` is an established
+  -- pattern elsewhere in this repo (e.g. timewarrior/panel.luau) for
+  -- exactly this "keep the tree, toggle visibility" case.
   renderer.render(ui.row({
     gap = 6,
     align = "center",
     padding = 8,
     fill = "surface_variant/0.4",
     radius = 12,
+    visible = state.incoming == true,
     onClick = function()
       if pending then
         return
