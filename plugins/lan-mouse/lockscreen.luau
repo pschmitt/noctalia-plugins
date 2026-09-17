@@ -43,6 +43,18 @@ local function render()
   -- reappearance. `ui.row({ visible = false }, {...})` is an established
   -- pattern elsewhere in this repo (e.g. timewarrior/panel.luau) for
   -- exactly this "keep the tree, toggle visibility" case.
+  -- Low-volume, always-on: one line per actual render call (not per poll --
+  -- this only fires from state.watch or update()), to diagnose a bug seen
+  -- live where a subsequent appearance rendered as an empty button.
+  noctalia.log(
+    "lan-mouse lockscreen render: incoming="
+      .. tostring(state.incoming)
+      .. " incomingFrom="
+      .. tostring(state.incomingFrom)
+      .. " pending="
+      .. tostring(pending)
+  )
+
   renderer.render(ui.row({
     gap = 6,
     align = "center",
