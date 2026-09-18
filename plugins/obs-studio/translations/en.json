@@ -20,6 +20,10 @@
       "label": "obs-control path",
       "description": "Path to the obs-control executable, if not on PATH."
     },
+    "launch_command": {
+      "label": "Launch command",
+      "description": "Command used to start OBS when it isn't running, split on whitespace (no shell). Default runs the plain `obs` binary; e.g. `gtk-launch obs-studio-custom` to launch a specific desktop entry instead."
+    },
     "mic_input_name": {
       "label": "Microphone input name",
       "description": "obs-websocket input name to target for mute status/toggling. Leave empty to mute all PulseAudio/PipeWire sources through obs-control instead."
@@ -37,7 +41,7 @@
     },
     "bar_icon": {
       "label": "Bar icon",
-      "description": "Glyph shown in the bar."
+      "description": "Icon shown in the bar. Leave at its default to show the real OBS Studio logo; set any other glyph to use a plain Tabler icon instead."
     },
     "bar_max_scene_length": {
       "label": "Max scene name length",
@@ -86,16 +90,29 @@
         "toggle_virtualcam": "Toggle virtual camera",
         "toggle_mute": "Toggle microphone mute",
         "refresh": "Refresh now",
+        "obs_cmd": "Start OBS",
         "none": "Nothing"
       }
     },
     "panel_show_scene_list": {
-      "label": "Show scene list",
-      "description": "Show the scene switcher in the panel."
+      "label": "Show scene selector",
+      "description": "Show the scene dropdown in the panel."
     },
-    "panel_show_quick_actions": {
-      "label": "Show quick actions",
-      "description": "Show the record/stream/virtual camera/mute row in the panel."
+    "panel_show_record_button": {
+      "label": "Show recording button",
+      "description": "Show the toggle-recording button in the panel."
+    },
+    "panel_show_stream_button": {
+      "label": "Show streaming button",
+      "description": "Show the toggle-streaming button in the panel."
+    },
+    "panel_show_virtualcam_button": {
+      "label": "Show virtual camera button",
+      "description": "Show the toggle-virtual-camera button in the panel."
+    },
+    "panel_show_mute_button": {
+      "label": "Show microphone button",
+      "description": "Show the toggle-microphone-mute button in the panel."
     },
     "panel_show_custom_buttons": {
       "label": "Show custom buttons",
@@ -137,9 +154,12 @@
     "record": "Toggle recording",
     "stream": "Toggle streaming",
     "virtualcam": "Toggle virtual camera",
-    "mic": "Toggle microphone mute"
+    "mic": "Toggle microphone mute",
+    "not_reachable": "OBS Studio isn't running",
+    "start_obs": "Start OBS Studio"
   },
   "notify": {
-    "action_failed_title": "OBS Studio action failed"
+    "action_failed_title": "OBS Studio action failed",
+    "launch_failed_title": "Failed to start OBS Studio"
   }
 }

@@ -32,6 +32,18 @@ local snapshot = {
 
 local polling = false
 
+-- After a launch, poll faster than the configured refresh_interval for a
+-- while so the bar/panel pick up the new connection within a couple of
+-- seconds of OBS actually starting, rather than waiting out whatever
+-- (possibly minutes-long) interval was configured.
+local FAST_POLL_MS = 1000
+local FAST_POLL_TICKS = 30 -- ~30s at FAST_POLL_MS, generous for a slow OBS start
+local fastPollTicksLeft = 0
+
+local function normalIntervalMs()
+  return (tonumber(noctalia.getConfig("refresh_interval")) or 5) * 1000
+end
+
 local function trim(value)
   return noctalia.string.trim(tostring(value or ""))
 end
@@ -126,6 +138,14 @@ local function loadCustomButtons()
         obs_control = type(button.obs_control) == "string" and button.obs_control or nil,
         obs_cli = type(button.obs_cli) == "table" and button.obs_cli or nil,
         command = type(button.command) == "table" and button.command or nil,
+        -- Shorthand for the common "flip a source filter/effect" case (e.g.
+        -- OBS's Freeze filter) without having to spell out the equivalent
+        -- `obs_cli: [filter, toggle, Source, Filter]` array by hand.
+        filter_source = type(button.filter_source) == "string" and button.filter_source ~= "" and button.filter_source or nil,
+        filter_name = type(button.filter_name) == "string" and button.filter_name ~= "" and button.filter_name or nil,
+        filter_action = type(button.filter_action) == "string" and button.filter_action ~= "" and button.filter_action or "toggle",
+        bg = type(button.bg) == "string" and button.bg ~= "" and button.bg or nil,
+        fg = type(button.fg) == "string" and button.fg ~= "" and button.fg or nil,
       })
     end
   end
@@ -133,6 +153,38 @@ local function loadCustomButtons()
 end
 
 -- ── Polling ──────────────────────────────────────────────────────────────────
+
+-- Custom buttons backed by a filter (the "flip one effect" shorthand -- see
+-- filter_source/filter_name above) can show whether that filter is currently
+-- enabled, the same way the built-in record/stream/virtualcam/mute toggles
+-- show their own state. There's no equivalent for obs_control/obs_cli/
+-- command buttons -- those run an arbitrary action with no fixed notion of
+-- "on" or "off" to query.
+local function pollButtonStates(onDone)
+  local buttons = snapshot.customButtons
+  local index = 0
+  local function next_()
+    index += 1
+    local button = buttons[index]
+    if not button then
+      onDone()
+      return
+    end
+    if not button.filter_source or not button.filter_name then
+      next_()
+      return
+    end
+    noctalia.runAsync(
+      obsCliArgv({ "-q", "filter", "status", button.filter_source, button.filter_name }, false),
+      function(result)
+        button.active = result.exitCode == 0
+        next_()
+      end,
+      STATUS_TIMEOUT_MS
+    )
+  end
+  next_()
+end
 
 local function pollMicMute(onDone)
   local micInput = trim(noctalia.getConfig("mic_input_name"))
@@ -207,7 +259,15 @@ local function poll()
       snapshot.streaming = false
       snapshot.virtualcam = false
       snapshot.micMuted = nil
-      snapshot.error = trim(result.stderr) ~= "" and trim(result.stderr) or "OBS is not reachable"
+      -- obs-cli's own failure output is a full Python traceback (its rich
+      -- ConnectionRefusedError dump, an auth error, ...) -- useful in a log,
+      -- not as panel copy. Keep it out of the UI; log it for debugging and
+      -- always show the same short, friendly reason there instead.
+      local reason = trim(result.stderr)
+      if reason ~= "" then
+        noctalia.log("obs-studio: not reachable: " .. reason)
+      end
+      snapshot.error = noctalia.tr("panel.not_reachable")
       loadCustomButtons()
       publish()
       polling = false
@@ -221,14 +281,54 @@ local function poll()
     pollScenes(function()
       pollRecord(function()
         loadCustomButtons()
-        publish()
-        polling = false
+        pollButtonStates(function()
+          publish()
+          polling = false
+        end)
       end)
     end)
   end, STATUS_TIMEOUT_MS)
 end
 
 -- ── Commands ─────────────────────────────────────────────────────────────────
+
+-- Split on whitespace into an argv for runAsync -- no shell, so no quoting
+-- for a launcher argument with spaces, which is fine for a plain binary name
+-- or a `gtk-launch <desktop-entry-id>` pair. Wrapped in a detached
+-- `systemd-run --user --scope`: runAsync's own child (and OBS, its
+-- descendant either way -- directly if launch_command execs it, or via
+-- gtk-launch's fork) would otherwise sit in noctalia.service's own cgroup,
+-- which systemd's default KillMode=control-group tears down along with
+-- everything in it on every noctalia.service restart (e.g. every
+-- `home-manager switch`) -- killing OBS along with it. The transient scope
+-- lives outside that cgroup and survives.
+local function launchArgv()
+  local cmd = trim(noctalia.getConfig("launch_command"))
+  if cmd == "" then cmd = "obs" end
+  local argv = { "systemd-run", "--user", "--scope", "--collect", "--" }
+  for token in cmd:gmatch("%S+") do
+    table.insert(argv, token)
+  end
+  return argv
+end
+
+-- Deliberately not routed through run(): `obs` (unlike gtk-launch) is the
+-- real GUI process and blocks for as long as OBS stays open, so chaining
+-- poll() onto this callback would wait for OBS to *exit* before ever
+-- checking it's up. The next periodic poll (setUpdateInterval below) picks
+-- up the new connection once obs-websocket is actually listening instead.
+local function launchObs()
+  local argv = launchArgv()
+  noctalia.log("obs-studio: launching " .. table.concat(argv, " "))
+  fastPollTicksLeft = FAST_POLL_TICKS
+  noctalia.setUpdateInterval(FAST_POLL_MS)
+  noctalia.runAsync(argv, function(result)
+    noctalia.log("obs-studio: launch exit=" .. tostring(result.exitCode) .. " stderr=" .. trim(result.stderr))
+    if result.exitCode ~= 0 then
+      noctalia.notifyError(noctalia.tr("notify.launch_failed_title"), trim(result.stderr))
+    end
+  end, 30000)
+end
 
 local function run(argv, notifyOnError)
   noctalia.runAsync(argv, function(result)
@@ -258,6 +358,14 @@ local function stepScene(direction)
   switchScene(scenes[nextIndex].name)
 end
 
+local FILTER_ACTIONS = { toggle = true, enable = true, disable = true }
+
+local function runFilter(source, name, action)
+  if type(source) ~= "string" or source == "" or type(name) ~= "string" or name == "" then return end
+  if not FILTER_ACTIONS[action] then action = "toggle" end
+  run(obsCliArgv({ "filter", action, source, name }, false), true)
+end
+
 local function toggleMute()
   local micInput = trim(noctalia.getConfig("mic_input_name"))
   if micInput ~= "" then
@@ -270,6 +378,7 @@ end
 noctalia.state.watch(COMMAND, function(cmd)
   if type(cmd) ~= "table" then return end
   local action = cmd.action
+  noctalia.log("obs-studio: command action=" .. tostring(action))
 
   if action == "switch_scene" then
     switchScene(cmd.scene)
@@ -287,17 +396,28 @@ noctalia.state.watch(COMMAND, function(cmd)
     toggleMute()
   elseif action == "refresh" then
     poll()
+  elseif action == "obs_cmd" then
+    launchObs()
   elseif action == "run_obs_control" and type(cmd.args) == "table" then
     run(obsControlArgv(cmd.args), true)
   elseif action == "run_obs_cli" and type(cmd.args) == "table" then
     run(obsCliArgv(cmd.args, false), true)
   elseif action == "run_command" and type(cmd.args) == "table" and #cmd.args > 0 then
     run(cmd.args, true)
+  elseif action == "run_filter" then
+    runFilter(cmd.source, cmd.name, cmd.filter_action)
   end
 end)
 
 function update()
   poll()
+  if fastPollTicksLeft > 0 then
+    fastPollTicksLeft -= 1
+    if snapshot.connected or fastPollTicksLeft == 0 then
+      fastPollTicksLeft = 0
+      noctalia.setUpdateInterval(normalIntervalMs())
+    end
+  end
 end
 
 function onConfigChanged()

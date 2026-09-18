@@ -66,16 +66,29 @@ local render
 local function render_()
   local mode = noctalia.getConfig("bar_display_mode")
   local children = {}
+  local iconSize = tonumber(noctalia.getConfig("bar_icon_size")) or 16
 
   local showIcon = mode ~= "scene_only"
   local showText = mode ~= "icon_only" and snap.connected
 
   if showIcon then
     local iconName = noctalia.getConfig("bar_icon")
-    if snap.recording and (blink or noctalia.getConfig("animations_enabled") ~= true) then
-      iconName = "video-filled"
+    -- "video" is both a legit Tabler glyph and this setting's own default,
+    -- doubling as the sentinel for "use the real OBS Studio logo" -- same
+    -- trick pschmitt/ha's bar_icon plays with its "smart-home" default.
+    -- Change it to any other glyph name to get a plain Tabler icon instead.
+    if iconName == "" or iconName == "video" then
+      -- Wrapped in a row pinned to the label's own line-height (rather than
+      -- relying on align="center" against the label directly): a label's
+      -- box is taller than its cap-height (room for descenders), so an
+      -- image centered against that whole box alone still reads as sitting
+      -- a little high next to the text's visual glyph center.
+      table.insert(children, ui.row({ height = 18, align = "center" }, {
+        ui.image({ path = "assets/obs-studio-icon.png", width = iconSize, height = iconSize, fit = "contain" }),
+      }))
+    else
+      table.insert(children, ui.glyph({ name = iconName, size = iconSize, color = statusColor() }))
     end
-    table.insert(children, ui.glyph({ name = iconName, size = 14, color = statusColor() }))
   end
 
   if snap.recording and noctalia.getConfig("bar_show_rec_indicator") ~= false then
@@ -139,6 +152,7 @@ local ACTIONS = {
   toggle_virtualcam = function() dispatch({ action = "toggle_virtualcam" }) end,
   toggle_mute = function() dispatch({ action = "toggle_mute" }) end,
   refresh = function() dispatch({ action = "refresh" }) end,
+  obs_cmd = function() dispatch({ action = "obs_cmd" }) end,
 }
 
 local function runAction(settingKey)

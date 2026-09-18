@@ -1,6 +1,6 @@
 id = "pschmitt/obs-studio"
 name = "OBS Studio"
-version = "0.1.0"
+version = "0.8.7"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -54,6 +54,17 @@ label_key = "settings.obs_control_path.label"
 description_key = "settings.obs_control_path.description"
 default = "obs-control"
 advanced = true
+
+# Split on whitespace into an argv for runAsync (no shell, so no quoting for
+# arguments with spaces -- fine for a launcher command/desktop-entry id).
+# Default just execs the plain `obs` binary; point this at something like
+# `gtk-launch obs-studio-custom` to launch a specific desktop entry instead.
+[[setting]]
+key = "launch_command"
+type = "string"
+label_key = "settings.launch_command.label"
+description_key = "settings.launch_command.description"
+default = "obs"
 
 [[setting]]
 key = "mic_input_name"
@@ -141,6 +152,7 @@ options = [
   { value = "toggle_virtualcam", label_key = "settings.action.options.toggle_virtualcam" },
   { value = "toggle_mute", label_key = "settings.action.options.toggle_mute" },
   { value = "refresh", label_key = "settings.action.options.refresh" },
+  { value = "obs_cmd", label_key = "settings.action.options.obs_cmd" },
   { value = "none", label_key = "settings.action.options.none" },
 ]
 
@@ -159,6 +171,7 @@ options = [
   { value = "toggle_virtualcam", label_key = "settings.action.options.toggle_virtualcam" },
   { value = "toggle_mute", label_key = "settings.action.options.toggle_mute" },
   { value = "refresh", label_key = "settings.action.options.refresh" },
+  { value = "obs_cmd", label_key = "settings.action.options.obs_cmd" },
   { value = "none", label_key = "settings.action.options.none" },
 ]
 
@@ -177,6 +190,7 @@ options = [
   { value = "toggle_virtualcam", label_key = "settings.action.options.toggle_virtualcam" },
   { value = "toggle_mute", label_key = "settings.action.options.toggle_mute" },
   { value = "refresh", label_key = "settings.action.options.refresh" },
+  { value = "obs_cmd", label_key = "settings.action.options.obs_cmd" },
   { value = "none", label_key = "settings.action.options.none" },
 ]
 
@@ -195,6 +209,7 @@ options = [
   { value = "toggle_virtualcam", label_key = "settings.action.options.toggle_virtualcam" },
   { value = "toggle_mute", label_key = "settings.action.options.toggle_mute" },
   { value = "refresh", label_key = "settings.action.options.refresh" },
+  { value = "obs_cmd", label_key = "settings.action.options.obs_cmd" },
   { value = "none", label_key = "settings.action.options.none" },
 ]
 
@@ -213,6 +228,7 @@ options = [
   { value = "toggle_virtualcam", label_key = "settings.action.options.toggle_virtualcam" },
   { value = "toggle_mute", label_key = "settings.action.options.toggle_mute" },
   { value = "refresh", label_key = "settings.action.options.refresh" },
+  { value = "obs_cmd", label_key = "settings.action.options.obs_cmd" },
   { value = "none", label_key = "settings.action.options.none" },
 ]
 
@@ -226,10 +242,31 @@ description_key = "settings.panel_show_scene_list.description"
 default = true
 
 [[setting]]
-key = "panel_show_quick_actions"
+key = "panel_show_record_button"
 type = "bool"
-label_key = "settings.panel_show_quick_actions.label"
-description_key = "settings.panel_show_quick_actions.description"
+label_key = "settings.panel_show_record_button.label"
+description_key = "settings.panel_show_record_button.description"
+default = true
+
+[[setting]]
+key = "panel_show_stream_button"
+type = "bool"
+label_key = "settings.panel_show_stream_button.label"
+description_key = "settings.panel_show_stream_button.description"
+default = true
+
+[[setting]]
+key = "panel_show_virtualcam_button"
+type = "bool"
+label_key = "settings.panel_show_virtualcam_button.label"
+description_key = "settings.panel_show_virtualcam_button.description"
+default = true
+
+[[setting]]
+key = "panel_show_mute_button"
+type = "bool"
+label_key = "settings.panel_show_mute_button.label"
+description_key = "settings.panel_show_mute_button.description"
 default = true
 
 [[setting]]
@@ -278,7 +315,7 @@ entry = "bar.luau"
 id = "panel"
 entry = "panel.luau"
 width = 380
-height = 580
+height = 480
 placement = "attached"
 position = "auto"
 open_near_click = true

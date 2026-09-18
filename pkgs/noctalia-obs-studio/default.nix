@@ -5,7 +5,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-obs-studio";
-  version = "0.1.0";
+  version = "0.8.7";
 
   src = lib.fileset.toSource {
     root = ../../plugins/obs-studio;
@@ -18,6 +18,7 @@ stdenvNoCC.mkDerivation {
       ../../plugins/obs-studio/panel.luau
       ../../plugins/obs-studio/lib
       ../../plugins/obs-studio/translations
+      ../../plugins/obs-studio/assets
     ];
   };
 
@@ -31,7 +32,7 @@ stdenvNoCC.mkDerivation {
     mkdir -p "$dest"
 
     cp plugin.toml README.md LICENSE service.luau bar.luau panel.luau "$dest"/
-    cp -r lib translations "$dest"/
+    cp -r lib translations assets "$dest"/
 
     runHook postInstall
   '';
