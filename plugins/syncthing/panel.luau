@@ -199,6 +199,7 @@ local function header()
   -- pause/resume action), or a bulk pause-all/resume-all while browsing the
   -- list, same as before.
   local pauseGlyph, pauseTooltip, pauseOnClick
+  local pauseVisible = true
   if folder then
     pauseGlyph = folder.paused and "player-play" or "player-pause"
     pauseTooltip = folder.paused and tr("panel.folder-resume") or tr("panel.folder-pause")
@@ -206,6 +207,9 @@ local function header()
       togglePaused("folder", folder.id, folder.paused)
     end
   elseif device then
+    -- You cannot pause yourself -- Syncthing's own web GUI has no such
+    -- control on "This Device" either.
+    pauseVisible = not device.isSelf
     pauseGlyph = device.paused and "player-play" or "player-pause"
     pauseTooltip = device.paused and tr("panel.device-resume") or tr("panel.device-pause")
     pauseOnClick = function()
@@ -243,7 +247,9 @@ local function header()
     primaryOnClick = onOpenGui
   end
   local title = folder and folder.label or device and device.name or tr("panel.title")
-  local subtitle = folder and folderStateText(folder) or device and deviceStateText(device) or tr(`state.{state}`)
+  local subtitle = folder and folderStateText(folder)
+    or device and (device.isSelf and tr("device.this-device") or deviceStateText(device))
+    or tr(`state.{state}`)
   local leading = selected and ui.button({
     glyph = "chevron-left",
     variant = "ghost",
@@ -295,7 +301,9 @@ local function header()
       glyph = pauseGlyph,
       variant = "ghost",
       controlSize = "sm",
+      enabled = true,
       tooltip = pauseTooltip,
+      visible = pauseVisible,
       onClick = pauseOnClick,
     }),
     ui.button({
@@ -451,22 +459,6 @@ local function folderHasDevice(folder, deviceId)
   return false
 end
 
--- Whether any folder shared with this device is still syncing. Syncthing has
--- no per-device completion in what the service already polls, but every
--- shared folder's own state is enough to tell "Up to Date" apart from
--- "Syncing" on the device row's status glyph without an extra request.
-local function deviceFoldersSyncing(device)
-  if not snapshot then
-    return false
-  end
-  for _, folder in snapshot.folders do
-    if folder.state == "syncing" and folderHasDevice(folder, device.id) then
-      return true
-    end
-  end
-  return false
-end
-
 -- Hover text for the device row's status glyph specifically: unlike the row
 -- subtitle (plain connected/disconnected/paused), the glyph also distinguishes
 -- "Up to Date" from "Syncing" once connected.
@@ -481,7 +473,10 @@ local function deviceSyncStatusText(device, syncing)
 end
 
 local function deviceRow(device)
-  local syncing = device.connected and not device.paused and deviceFoldersSyncing(device)
+  -- device.completion/needItems come from the service's per-device
+  -- /rest/db/completion poll (see fetchDeviceCompletions in service.luau) —
+  -- real per-device state, not a proxy off this host's own folder status.
+  local syncing = device.connected and not device.paused and (device.completion or 100) < 100
   -- A device that is simply not connected reads as a problem, so it takes the
   -- error color (the `on_error` role is the ink for an error-*filled* surface —
   -- near-black in a dark palette — and would be unreadable here).
@@ -490,6 +485,9 @@ local function deviceRow(device)
   local subtitle = deviceStateText(device)
   if device.connected and not device.paused and device.address ~= "" then
     subtitle = device.address
+  end
+  if device.isSelf then
+    subtitle = tr("device.this-device")
   end
   return ui.row({
     key = `device-{device.shortId}`,
@@ -537,13 +535,20 @@ local function deviceRow(device)
         onHover = noop,
       }),
       ui.button({
-        glyph = rowIcons.signal(device),
+        -- No connection-type meter for yourself: connType is always empty,
+        -- and rowIcons.signal()/connKind() would otherwise fall back to a
+        -- misleading "3-bar WAN" default. A "home" glyph in its place keeps
+        -- this button's slot (and so the row's icon alignment) the same
+        -- across every device row instead of just hiding it.
+        glyph = device.isSelf and "home" or rowIcons.signal(device),
         variant = "ghost",
         glyphSize = 18,
         width = 26,
         height = 26,
+        -- Same color a connected remote's meter would use -- "This device"
+        -- is trivially always connected, so it takes the same branch.
         color = (device.connected and not device.paused) and color or "on_surface/0.35",
-        tooltip = tr(`device.conn-{rowIcons.connKind(device)}`),
+        tooltip = device.isSelf and tr("device.this-device") or tr(`device.conn-{rowIcons.connKind(device)}`),
         onHover = noop,
       }),
     }),
@@ -797,8 +802,16 @@ local function deviceDetailsView()
       }),
     }),
     detailSection(tr("panel.device-connection"), {
-      ui.label({ text = deviceStateText(device), fontSize = 11 }),
-      ui.label({ text = connection, fontSize = 11, color = "on_surface/0.7" }),
+      ui.label({
+        text = device.isSelf and tr("device.this-device") or deviceStateText(device),
+        fontSize = 11,
+        color = stateColors.get(device.paused and "paused" or (device.connected and "idle" or "error")),
+      }),
+      -- Connection type ("Direct connection", "Relayed", ...) is meaningless
+      -- for yourself -- connType is always empty, so this would otherwise
+      -- just repeat the "This device"/"Connected" line above via the
+      -- "unknown" fallback in rowIcons.connKind().
+      ui.label({ text = connection, fontSize = 11, color = "on_surface/0.7", visible = not device.isSelf }),
       ui.label({ text = device.address ~= "" and device.address or tr("panel.device-no-address"), fontSize = 11, color = "on_surface/0.7" }),
       ui.label({ text = device.version ~= "" and device.version or tr("panel.device-no-version"), fontSize = 11, color = "on_surface/0.7" }),
     }, nil, "plug-connected"),

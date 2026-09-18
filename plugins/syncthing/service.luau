@@ -482,6 +482,40 @@ local function fetchFolderStatuses(snapshot, monitoredFolders, generation)
   end
 end
 
+-- Third-and-a-half stage: per-device completion, joined, then on to folder
+-- statuses. /rest/system/connections (already polled) only has connection
+-- stats -- no completion -- so without this a device that's still receiving
+-- data this host already has (folder looks idle locally) reads as "Up to
+-- Date" instead of "Syncing" on the panel's device row. Only connected,
+-- unpaused devices are queried; everyone else keeps the completion=100
+-- default set when devicesList was built.
+local function fetchDeviceCompletions(snapshot, monitoredFolders, generation)
+  local candidates = {}
+  for _, device in snapshot.devicesList do
+    if device.connected and not device.paused then
+      table.insert(candidates, device)
+    end
+  end
+  if #candidates == 0 then
+    fetchFolderStatuses(snapshot, monitoredFolders, generation)
+    return
+  end
+  local remaining = #candidates
+  for _, device in candidates do
+    fetch(`/rest/db/completion?device={noctalia.string.urlEncode(device.id)}`, {}, function(ok, status, body)
+      local parsed = ok and status < 400 and noctalia.json.decode(body) or nil
+      if parsed then
+        device.completion = tonumber(parsed.completion) or 100
+        device.needItems = tonumber(parsed.needItems) or 0
+      end
+      remaining -= 1
+      if remaining == 0 then
+        fetchFolderStatuses(snapshot, monitoredFolders, generation)
+      end
+    end)
+  end
+end
+
 -- Second stage: the four core endpoints in parallel, joined.
 local function fetchCore(generation)
   local endpoints = {
@@ -489,6 +523,7 @@ local function fetchCore(generation)
     config = "/rest/config",
     connections = "/rest/system/connections",
     errors = "/rest/system/error",
+    version = "/rest/system/version",
   }
   local results = {}
   local remaining = 0
@@ -528,9 +563,12 @@ local function fetchCore(generation)
     -- the panel's Devices tab.
     local myID = trim(results.system.myID)
     local connMap = (results.connections or {}).connections or {}
+    local selfName = ""
     for _, device in (results.config.devices or {}) do
       local id = trim(device.deviceID)
-      if id ~= "" and id ~= myID then
+      if id == myID then
+        selfName = trim(device.name)
+      elseif id ~= "" then
         snapshot.devices.configured += 1
         local info = connMap[id] or {}
         local paused = device.paused == true or info.paused == true
@@ -548,10 +586,48 @@ local function fetchCore(generation)
           address = trim(info.address),
           version = trim(info.clientVersion),
           connType = connectionType(info),
+          -- Overwritten by fetchDeviceCompletions below for connected,
+          -- unpaused devices; these are just the "nothing pending" defaults
+          -- for everyone else.
+          completion = 100,
+          needItems = 0,
         })
       end
     end
+    -- Not counted in snapshot.devices.configured/connected/paused (those are
+    -- remote-only, feeding the tabs()/summary "N/M connected" text) -- this
+    -- is purely an extra, always-synced, always-connected row for the
+    -- panel's device list, mirroring Syncthing's own web GUI showing "This
+    -- Device" above the remote ones. isSelf drives the row's special
+    -- handling in panel.luau (no pause button, no signal meter).
+    if myID ~= "" then
+      -- No incoming "address" for yourself the way a remote peer has one, so
+      -- show what you *are* reachable on instead: every configured listener
+      -- (tcp/quic direct listeners plus the relay announce service), same
+      -- keys Syncthing's own GUI lists under "Listeners".
+      local listeners = {}
+      for key in (results.system.connectionServiceStatus or {}) do
+        table.insert(listeners, key)
+      end
+      table.sort(listeners)
+      table.insert(snapshot.devicesList, {
+        name = selfName ~= "" and selfName or myID:sub(1, 7),
+        id = myID,
+        shortId = myID:sub(1, 7),
+        paused = false,
+        connected = true,
+        address = table.concat(listeners, ", "),
+        version = trim((results.version or {}).version),
+        connType = "",
+        completion = 100,
+        needItems = 0,
+        isSelf = true,
+      })
+    end
     table.sort(snapshot.devicesList, function(a, b)
+      if a.isSelf ~= b.isSelf then
+        return a.isSelf
+      end
       if a.connected ~= b.connected then
         return a.connected
       end
@@ -601,7 +677,7 @@ local function fetchCore(generation)
       return a.label:lower() < b.label:lower()
     end)
 
-    fetchFolderStatuses(snapshot, monitoredFolders, generation)
+    fetchDeviceCompletions(snapshot, monitoredFolders, generation)
   end
 
   for key, path in endpoints do

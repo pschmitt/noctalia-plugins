@@ -12,6 +12,7 @@
   "device.disconnected": "Disconnected",
   "device.paused": "Paused",
   "device.syncing": "Syncing",
+  "device.this-device": "This device",
   "device.up-to-date": "Up to Date",
   "launcher.rescan-hint": "Enter: rescan {id}",
   "launcher.rescan-started": "Rescan of {id} started.",
