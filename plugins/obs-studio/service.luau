@@ -28,6 +28,7 @@ local snapshot = {
   micMuted = nil, -- boolean, or nil when mic_input_name isn't configured
   error = "",
   customButtons = {},
+  previewPath = "",
 }
 
 local polling = false
@@ -152,6 +153,43 @@ local function loadCustomButtons()
   snapshot.customButtons = buttons
 end
 
+-- ── Scene screenshot preview ─────────────────────────────────────────────────
+
+local previewToggle = false
+local capturingScreenshot = false
+
+local function captureScreenshot(onDone)
+  if noctalia.getConfig("panel_show_screenshot") == false or snapshot.currentScene == "" then
+    if onDone then onDone() end
+    return
+  end
+  if capturingScreenshot then
+    if onDone then onDone() end
+    return
+  end
+  capturingScreenshot = true
+  previewToggle = not previewToggle
+  local runtimeDir = noctalia.getenv("XDG_RUNTIME_DIR") or "/tmp"
+  local targetPath = string.format("%s/noctalia-obs-preview-%s.jpg", runtimeDir, previewToggle and "1" or "2")
+  local argv = obsCliArgv({
+    "source", "screenshot",
+    "-o", targetPath,
+    "-f", "jpg",
+    "--compression-quality", "75",
+    "--width", "480",
+    "--height", "270",
+    snapshot.currentScene,
+  }, false)
+  noctalia.runAsync(argv, function(result)
+    capturingScreenshot = false
+    if result.exitCode == 0 then
+      snapshot.previewPath = targetPath
+      publish()
+    end
+    if onDone then onDone() end
+  end, STATUS_TIMEOUT_MS)
+end
+
 -- ── Polling ──────────────────────────────────────────────────────────────────
 
 -- Custom buttons backed by a filter (the "flip one effect" shorthand -- see
@@ -259,6 +297,7 @@ local function poll()
       snapshot.streaming = false
       snapshot.virtualcam = false
       snapshot.micMuted = nil
+      snapshot.previewPath = ""
       -- obs-cli's own failure output is a full Python traceback (its rich
       -- ConnectionRefusedError dump, an auth error, ...) -- useful in a log,
       -- not as panel copy. Keep it out of the UI; log it for debugging and
@@ -274,8 +313,13 @@ local function poll()
       return
     end
 
+    local previousScene = snapshot.currentScene
+    local newScene = trim(result.stdout)
+    local sceneChanged = (previousScene ~= "" and previousScene ~= newScene)
+    local needInitialScreenshot = (snapshot.previewPath == "")
+
     snapshot.connected = true
-    snapshot.currentScene = trim(result.stdout)
+    snapshot.currentScene = newScene
     snapshot.error = ""
 
     pollScenes(function()
@@ -284,6 +328,9 @@ local function poll()
         pollButtonStates(function()
           publish()
           polling = false
+          if sceneChanged or needInitialScreenshot then
+            captureScreenshot()
+          end
         end)
       end)
     end)
@@ -396,6 +443,9 @@ noctalia.state.watch(COMMAND, function(cmd)
     toggleMute()
   elseif action == "refresh" then
     poll()
+    captureScreenshot()
+  elseif action == "screenshot" then
+    captureScreenshot()
   elseif action == "obs_cmd" then
     launchObs()
   elseif action == "run_obs_control" and type(cmd.args) == "table" then

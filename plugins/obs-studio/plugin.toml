@@ -270,6 +270,13 @@ description_key = "settings.panel_show_mute_button.description"
 default = true
 
 [[setting]]
+key = "panel_show_screenshot"
+type = "bool"
+label_key = "settings.panel_show_screenshot.label"
+description_key = "settings.panel_show_screenshot.description"
+default = true
+
+[[setting]]
 key = "panel_show_custom_buttons"
 type = "bool"
 label_key = "settings.panel_show_custom_buttons.label"

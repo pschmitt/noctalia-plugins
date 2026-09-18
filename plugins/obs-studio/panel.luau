@@ -14,6 +14,7 @@ local snap = noctalia.state.get(SNAPSHOT) or {
   micMuted = nil,
   error = "",
   customButtons = {},
+  previewPath = "",
 }
 
 local reqId = 0
@@ -295,6 +296,28 @@ local function notRunningPrompt()
   })
 end
 
+local function screenshotPreview()
+  if noctalia.getConfig("panel_show_screenshot") == false then return nil end
+  local path = snap.previewPath
+  if not path or path == "" then return nil end
+  return ui.row({
+    key = "obs-screenshot-container",
+    align = "center",
+    justify = "center",
+  }, {
+    ui.image({
+      key = "obs-screenshot-img",
+      path = path,
+      width = 320,
+      height = 180,
+      radius = 8,
+      fit = "contain",
+      tooltip = noctalia.tr("panel.screenshot_tooltip"),
+      onClick = function() dispatch({ action = "screenshot" }) end,
+    }),
+  })
+end
+
 local function render_()
   local body = {}
 
@@ -302,11 +325,14 @@ local function render_()
     local actions = actionsRow()
     if actions then
       table.insert(body, actions)
+    end
+    local preview = screenshotPreview()
+    if preview then
       table.insert(body, ui.separator({}))
+      table.insert(body, preview)
     end
   else
     table.insert(body, notRunningPrompt())
-    table.insert(body, ui.separator({}))
   end
 
   if snap.connected and noctalia.getConfig("panel_show_custom_buttons") ~= false then

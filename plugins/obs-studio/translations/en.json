@@ -114,6 +114,10 @@
       "label": "Show microphone button",
       "description": "Show the toggle-microphone-mute button in the panel."
     },
+    "panel_show_screenshot": {
+      "label": "Show scene preview",
+      "description": "Show a screenshot preview of the active scene in the panel."
+    },
     "panel_show_custom_buttons": {
       "label": "Show custom buttons",
       "description": "Show buttons configured in ~/.config/noctalia/obs-studio.yaml."
@@ -150,6 +154,7 @@
     "settings": "Plugin settings",
     "scenes": "Scenes",
     "no_scenes": "No scenes found.",
+    "screenshot_tooltip": "Click to refresh preview",
     "custom_buttons": "Quick actions",
     "record": "Toggle recording",
     "stream": "Toggle streaming",
