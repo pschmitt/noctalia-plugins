@@ -1,0 +1,145 @@
+{
+  "settings": {
+    "host": {
+      "label": "Host",
+      "description": "Hostname or IP address of the obs-websocket server."
+    },
+    "port": {
+      "label": "Port",
+      "description": "obs-websocket server port."
+    },
+    "password_file": {
+      "label": "Password file",
+      "description": "Path to a file containing the obs-websocket password, read at request time. Leave empty for an unauthenticated connection."
+    },
+    "obs_cli_path": {
+      "label": "obs-cli path",
+      "description": "Path to the obs-cli executable, if not on PATH."
+    },
+    "obs_control_path": {
+      "label": "obs-control path",
+      "description": "Path to the obs-control executable, if not on PATH."
+    },
+    "mic_input_name": {
+      "label": "Microphone input name",
+      "description": "obs-websocket input name to target for mute status/toggling. Leave empty to mute all PulseAudio/PipeWire sources through obs-control instead."
+    },
+    "refresh_interval": {
+      "label": "Refresh interval (seconds)",
+      "description": "How often to poll OBS for scene, recording, streaming, and virtual camera status."
+    },
+    "bar_display_mode": {
+      "label": "Bar display",
+      "description": "What the bar widget shows.",
+      "icon_and_scene": "Icon + scene name",
+      "scene_only": "Scene name only",
+      "icon_only": "Icon only"
+    },
+    "bar_icon": {
+      "label": "Bar icon",
+      "description": "Glyph shown in the bar."
+    },
+    "bar_max_scene_length": {
+      "label": "Max scene name length",
+      "description": "Truncate the scene name in the bar past this many characters."
+    },
+    "bar_show_rec_indicator": {
+      "label": "Show REC indicator",
+      "description": "Show a blinking red dot in the bar while recording."
+    },
+    "bar_show_stream_indicator": {
+      "label": "Show stream indicator",
+      "description": "Show a broadcast glyph in the bar while streaming."
+    },
+    "animations_enabled": {
+      "label": "Enable animations",
+      "description": "Blink the REC indicator while recording."
+    },
+    "action_left_click": {
+      "label": "Left click",
+      "description": "Action for a left click on the bar widget."
+    },
+    "action_right_click": {
+      "label": "Right click",
+      "description": "Action for a right click on the bar widget."
+    },
+    "action_middle_click": {
+      "label": "Middle click",
+      "description": "Action for a middle click on the bar widget."
+    },
+    "action_scroll_up": {
+      "label": "Scroll up",
+      "description": "Action for scrolling up on the bar widget."
+    },
+    "action_scroll_down": {
+      "label": "Scroll down",
+      "description": "Action for scrolling down on the bar widget."
+    },
+    "action": {
+      "description": "Action for this bar widget interaction.",
+      "options": {
+        "panel": "Open panel",
+        "next_scene": "Next scene",
+        "prev_scene": "Previous scene",
+        "toggle_record": "Toggle recording",
+        "toggle_stream": "Toggle streaming",
+        "toggle_virtualcam": "Toggle virtual camera",
+        "toggle_mute": "Toggle microphone mute",
+        "refresh": "Refresh now",
+        "none": "Nothing"
+      }
+    },
+    "panel_show_scene_list": {
+      "label": "Show scene list",
+      "description": "Show the scene switcher in the panel."
+    },
+    "panel_show_quick_actions": {
+      "label": "Show quick actions",
+      "description": "Show the record/stream/virtual camera/mute row in the panel."
+    },
+    "panel_show_custom_buttons": {
+      "label": "Show custom buttons",
+      "description": "Show buttons configured in ~/.config/noctalia/obs-studio.yaml."
+    },
+    "custom_buttons_columns": {
+      "label": "Custom button columns",
+      "description": "How many custom buttons per row."
+    },
+    "bar_icon_size": {
+      "label": "Icon size",
+      "description": "Size of the bar icon in pixels."
+    },
+    "bar_spacing": {
+      "label": "Spacing",
+      "description": "Gap between bar widget elements in pixels."
+    }
+  },
+  "tooltip": {
+    "status": "Status",
+    "disconnected": "Disconnected",
+    "scene": "Scene",
+    "recording": "Recording",
+    "streaming": "Streaming",
+    "mic": "Microphone",
+    "on": "On",
+    "off": "Off",
+    "muted": "Muted",
+    "unmuted": "Unmuted"
+  },
+  "panel": {
+    "title": "OBS Studio",
+    "connected": "Connected",
+    "refresh": "Refresh",
+    "settings": "Plugin settings",
+    "scenes": "Scenes",
+    "no_scenes": "No scenes found.",
+    "custom_buttons": "Quick actions",
+    "record": "Toggle recording",
+    "stream": "Toggle streaming",
+    "virtualcam": "Toggle virtual camera",
+    "mic": "Toggle microphone mute"
+  },
+  "notify": {
+    "action_failed_title": "OBS Studio action failed"
+  }
+}
