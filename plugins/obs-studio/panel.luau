@@ -3,14 +3,6 @@
 local SNAPSHOT = "obs.snapshot"
 local COMMAND = "obs.command"
 
--- Mirrors plugin.toml's [[panel]] width and padding to compute per-column widths.
--- When `width` is assigned to `ui.button`, Noctalia's native Button reconciler
--- automatically sets minWidth/maxWidth and derives an exact pixel budget for the
--- label (subtracting button padding and glyph width), ellipsizing overflowing text
--- natively via Pango (TextEllipsize::End).
-local PANEL_WIDTH = 380
-local PANEL_PADDING = 10
-local BUTTON_GAP = 8
 
 local snap = noctalia.state.get(SNAPSHOT) or {
   connected = false,
@@ -218,7 +210,7 @@ end
 -- real ui.button prop (same on/off look the quick-action toggles use via
 -- variant swaps); the colored branch instead gets a bright ring, since
 -- `selected`'s own look is a variant swap that would fight a custom bg.
-local function customButtonWidget(button, index, width, columns)
+local function customButtonWidget(button, index)
   local key = "obs-custom-button-" .. tostring(index)
   local label = button.label
   local active = button.active == true
@@ -229,14 +221,12 @@ local function customButtonWidget(button, index, width, columns)
       glyph = button.icon,
       variant = "ghost",
       selected = active,
-      width = width,
       flexGrow = 1,
       onClick = customButtonAction(button),
     })
   end
   return ui.row({
     key = key,
-    width = width,
     flexGrow = 1,
     height = 36,
     radius = 8,
@@ -251,7 +241,6 @@ local function customButtonWidget(button, index, width, columns)
       glyph = button.icon,
       variant = "ghost",
       color = button.fg or "on_surface",
-      width = width,
       flexGrow = 1,
       height = 36,
       onClick = customButtonAction(button),
@@ -265,21 +254,17 @@ end
 -- swaps out for it. Without stable keys, that live swap (as opposed to a
 -- fresh onOpen() mount) was observed to leave the grid's layout garbled
 -- until the panel was closed and reopened.
--- Account for the vertical scrollbar gutter so columns fit cleanly inside
--- the scroll view without overflowing or clipping the trailing column.
-local SCROLLBAR_ALLOWANCE = 16
-
+-- Each button has flexGrow = 1, allowing Noctalia's Flex layout to divide
+-- the row's available space equally among columns regardless of ui_scale.
 local function customButtons()
   if #snap.customButtons == 0 then return nil end
   local columns = math.max(1, math.min(4, tonumber(noctalia.getConfig("custom_buttons_columns")) or 2))
-  local availableWidth = PANEL_WIDTH - PANEL_PADDING * 2 - SCROLLBAR_ALLOWANCE
-  local width = math.floor((availableWidth - BUTTON_GAP * (columns - 1)) / columns)
   local rows = {}
   local currentRow = {}
   local index = 0
   for _, button in snap.customButtons do
     index += 1
-    table.insert(currentRow, customButtonWidget(button, index, width, columns))
+    table.insert(currentRow, customButtonWidget(button, index))
     if #currentRow >= columns then
       table.insert(rows, ui.row({ key = "obs-custom-row-" .. tostring(#rows), gap = 8 }, currentRow))
       currentRow = {}
