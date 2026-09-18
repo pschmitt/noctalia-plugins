@@ -10,6 +10,7 @@
 local shared = require("./shared.luau")
 local layoutFile = require("./layout.luau")
 local generation = 0
+local statusRequestActive = false
 
 local function readSecret(setting)
   local path = shared.trim(noctalia.getConfig(setting))
@@ -419,11 +420,21 @@ local function refresh()
     return
   end
 
+  -- The normal refresh interval is also 30 seconds, which is the HTTP
+  -- client's request timeout. Do not start a second status request while the
+  -- previous one is still pending: otherwise the next refresh increments
+  -- `generation` just before a timed-out request's callback runs, causing
+  -- that callback to be discarded as stale and leaving the panel at
+  -- "Connecting…" forever.
+  if statusRequestActive then return end
+
   generation += 1
   local myGeneration = generation
+  statusRequestActive = true
   noctalia.state.set("ha.refreshing", true)
 
   local started = haRequest(server, token, statusTemplate(queryIds()), function(response)
+    statusRequestActive = false
     if myGeneration ~= generation then return end
     noctalia.state.set("ha.refreshing", false)
     if not response.ok or response.status ~= 200 then
@@ -469,6 +480,7 @@ local function refresh()
     noctalia.state.set("ha.refreshed_at", os.time())
   end)
   if not started then
+    statusRequestActive = false
     publishError("Could not start Home Assistant status query")
   end
 end

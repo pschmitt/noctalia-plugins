@@ -2056,7 +2056,14 @@ render = function()
   if errorMessage ~= "" and view == "list" then
     children[#children + 1] = ui.row({ fill = "error/0.08", radius = 8, paddingH = 9, paddingV = 6, align = "center", gap = 6 }, {
       ui.glyph({ name = "alert-circle", size = 12, color = "error" }),
-      ui.label({ text = errorMessage, fontSize = 11, color = "error", maxLines = 1 }),
+      ui.label({ text = errorMessage, fontSize = 11, color = "error", maxLines = 1, flexGrow = 1 }),
+      ui.button({
+        glyph = "refresh",
+        variant = "ghost",
+        controlSize = "sm",
+        tooltip = "Retry connection",
+        onClick = function() sendCommand({ action = "refresh" }) end,
+      }),
     })
   end
   children[#children + 1] = view == "list" and listView() or (view == "browse" and browseView() or detailsView())

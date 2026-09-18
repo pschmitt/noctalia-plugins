@@ -226,7 +226,14 @@ local function render()
   if errorMessage ~= "" then
     children[#children + 1] = ui.row({ fill = "error/0.08", radius = 8, paddingH = 9, paddingV = 6, align = "center", gap = 6 }, {
       ui.glyph({ name = "alert-circle", size = 12, color = "error" }),
-      ui.label({ text = errorMessage, fontSize = 11, color = "error", maxLines = 1 }),
+      ui.label({ text = errorMessage, fontSize = 11, color = "error", maxLines = 1, flexGrow = 1 }),
+      ui.button({
+        glyph = "refresh",
+        variant = "ghost",
+        controlSize = "sm",
+        tooltip = "Retry connection",
+        onClick = "onRefresh",
+      }),
     })
   end
   children[#children + 1] = ui.scroll({ flexGrow = 1, gap = compact and 6 or 10 }, content)
