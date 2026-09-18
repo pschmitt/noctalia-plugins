@@ -60,15 +60,21 @@ function M.folder(folder)
   return FOLDER_RAW_GLYPHS[folder.rawState] or FOLDER_STATE_GLYPHS[folder.state] or "help-circle"
 end
 
--- Glyph for the state half of a device row.
-function M.device(device)
+-- Glyph for the state half of a device row. `syncing` (any folder shared with
+-- this device still transferring) distinguishes "Up to Date" from mid-sync —
+-- Syncthing has no per-device completion in what the service already polls,
+-- so the caller derives this from the folders' own states.
+function M.device(device, syncing)
   if device.paused then
     return "player-pause" -- fa-pause
   end
   if not device.connected then
     return "power" -- fa-power-off
   end
-  return "check" -- fa-check
+  if syncing then
+    return "refresh" -- fa-sync-alt, same glyph as a syncing folder
+  end
+  return "check" -- fa-check ("Up to Date")
 end
 
 -- Connection bucket behind the signal glyph, also the suffix of its
@@ -81,13 +87,19 @@ function M.connKind(device)
 end
 
 -- Ink for the state half of a device row: the web GUI's green check when the
--- device is up, its violet power glyph when it is not, and the row's own state
--- color (paused) in between.
-function M.deviceColor(device, fallback)
+-- device is up to date, its violet power glyph when it is not connected, and
+-- the row's own state color (paused, or syncing) in between.
+function M.deviceColor(device, fallback, syncing)
   if device.paused then
     return fallback
   end
-  return device.connected and M.CHECK_COLOR or M.POWER_COLOR
+  if not device.connected then
+    return M.POWER_COLOR
+  end
+  if syncing then
+    return fallback
+  end
+  return M.CHECK_COLOR
 end
 
 -- Glyph for the signal half of a device row.

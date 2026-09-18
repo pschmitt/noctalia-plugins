@@ -89,8 +89,12 @@ local function tooltipRows()
     end
     if (snapshot.rateIn or 0) >= 1024 or (snapshot.rateOut or 0) >= 1024 then
       table.insert(rows, {
-        key = noctalia.tr("tooltip.rates"),
-        value = `↓ {formatRate(snapshot.rateIn or 0)} · ↑ {formatRate(snapshot.rateOut or 0)}`,
+        key = noctalia.tr("tooltip.download-rate"),
+        value = formatRate(snapshot.rateIn or 0),
+      })
+      table.insert(rows, {
+        key = noctalia.tr("tooltip.upload-rate"),
+        value = formatRate(snapshot.rateOut or 0),
       })
     end
     table.insert(rows, { key = noctalia.tr("tooltip.checked"), value = snapshot.checkedAt })

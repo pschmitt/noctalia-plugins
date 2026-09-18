@@ -156,6 +156,19 @@ description_key = "settings.insecure_tls.description"
 default = false
 advanced = true
 
+# Noctalia's ui.label has no italic style of its own, so the panel's empty-
+# state hints ("No folder errors.", "No shared folders.", ...) get there
+# through a family that resolves to an italic face instead -- typically a
+# fontconfig alias that pins slant=italic, same trick as the timewarrior
+# plugin's italic_font_family. Empty keeps the shell font.
+[[setting]]
+key = "italic_font_family"
+type = "string"
+label_key = "settings.italic_font_family.label"
+description_key = "settings.italic_font_family.description"
+default = ""
+advanced = true
+
 # ── Entries ──────────────────────────────────────────────────────────────────
 
 [[service]]

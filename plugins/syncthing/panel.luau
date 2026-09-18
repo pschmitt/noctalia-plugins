@@ -1,9 +1,11 @@
 --!nonstrict
 -- Syncthing detail panel — the [[panel]] entry.
 --
--- Header with live state + refresh and pause-all/resume-all buttons, stat
--- tiles (devices / folders / pending), list views, and folder/device detail
--- pages with their relevant actions and metadata.
+-- Header with live state + refresh and a pause toggle that targets whatever
+-- is on screen (bulk pause-all/resume-all on the list views, the single
+-- selected folder/device in a detail view), stat tiles (devices / folders /
+-- pending), list views, and folder/device detail pages with their relevant
+-- actions and metadata (rescan/open-folder, device QR/shared folders).
 --
 -- Per-row buttons pass a closure that captures the row's folder or device, so
 -- neither list has a length limit and there are no numbered callback globals.
@@ -76,8 +78,12 @@ local function selectedDevice()
   return nil
 end
 
+local function splitTimestamp(value)
+  return (value or ""):match("^(%d%d%d%d%-%d%d%-%d%d)T(%d%d:%d%d)")
+end
+
 local function shortTimestamp(value)
-  local date, time = (value or ""):match("^(%d%d%d%d%-%d%d%-%d%d)T(%d%d:%d%d)")
+  local date, time = splitTimestamp(value)
   return date and `{date} {time}` or value or ""
 end
 
@@ -129,7 +135,7 @@ local function allDevicesPaused()
 end
 
 local function bulkPauseKind()
-  return view == "folders" or view == "folder" and "folders" or "devices"
+  return (view == "folders" or view == "folder") and "folders" or "devices"
 end
 
 local function bulkPaused()
@@ -151,10 +157,6 @@ local deviceStateText
 local function togglePaused(kind, id, paused)
   local verb = paused and "resume" or "pause"
   sendCmd(`{kind}_{verb}`, id)
-end
-
-local function rescanFolder(folder)
-  sendCmd("rescan", folder.id)
 end
 
 local function openFolderDetails(folder)
@@ -192,7 +194,54 @@ local function header()
   local device = selectedDevice()
   local selected = folder or device
   local state = snapshot and snapshot.state or "unconfigured"
-  local paused = bulkPaused()
+  -- The header's pause toggle targets whatever is on screen: the single
+  -- selected folder/device in a detail view (mirroring its own row's
+  -- pause/resume action), or a bulk pause-all/resume-all while browsing the
+  -- list, same as before.
+  local pauseGlyph, pauseTooltip, pauseOnClick
+  if folder then
+    pauseGlyph = folder.paused and "player-play" or "player-pause"
+    pauseTooltip = folder.paused and tr("panel.folder-resume") or tr("panel.folder-pause")
+    pauseOnClick = function()
+      togglePaused("folder", folder.id, folder.paused)
+    end
+  elseif device then
+    pauseGlyph = device.paused and "player-play" or "player-pause"
+    pauseTooltip = device.paused and tr("panel.device-resume") or tr("panel.device-pause")
+    pauseOnClick = function()
+      togglePaused("device", device.id, device.paused)
+    end
+  else
+    local paused = bulkPaused()
+    pauseGlyph = paused and "player-play" or "player-pause"
+    pauseTooltip = bulkPauseLabel(paused)
+    pauseOnClick = paused and onResumeAll or onPauseAll
+  end
+  -- Same idea as the pause toggle: the header's primary link button opens
+  -- this folder in the file manager while its detail view is open, since
+  -- that action lives nowhere else once the row's own copy moved here, and
+  -- falls back to the app-wide "open web GUI" action on the list views. The
+  -- device detail view has no equivalent per-device action, so it hides
+  -- entirely there instead of showing the unrelated app-wide GUI link.
+  local primaryGlyph, primaryTooltip, primaryVisible, primaryOnClick
+  if folder then
+    primaryGlyph = "folder"
+    primaryTooltip = tr("panel.open-folder")
+    primaryVisible = true
+    primaryOnClick = function()
+      sendCmd("open_folder", folder.id)
+    end
+  elseif device then
+    primaryGlyph = "external-link"
+    primaryTooltip = tr("panel.open-gui")
+    primaryVisible = false
+    primaryOnClick = onOpenGui
+  else
+    primaryGlyph = "external-link"
+    primaryTooltip = tr("panel.open-gui")
+    primaryVisible = snapshot ~= nil and snapshot.sources.resolvedUrl ~= ""
+    primaryOnClick = onOpenGui
+  end
   local title = folder and folder.label or device and device.name or tr("panel.title")
   local subtitle = folder and folderStateText(folder) or device and deviceStateText(device) or tr(`state.{state}`)
   local leading = selected and ui.button({
@@ -203,46 +252,59 @@ local function header()
     onClick = "onBack",
   }) or ui.image({
     path = statusIcon.path(state),
-    width = 28,
-    height = 28,
+    width = 34,
+    height = 34,
     fit = "contain",
   })
   return ui.row({ gap = 8, align = "center" }, {
     leading,
-    folder and ui.image({
-      path = statusIcon.path(selected.state),
-      width = 28,
-      height = 28,
-      fit = "contain",
+    folder and ui.glyph({
+      name = "folder",
+      size = 34,
+      color = stateColors.get(folder.state),
     }) or device and ui.glyph({
       name = "devices-pc",
-      size = 28,
+      size = 34,
       color = rowIcons.deviceColor(device, stateColors.get(device.connected and "idle" or "error")),
     }) or ui.box({ width = 0, height = 0 }),
-    ui.column({ gap = 2, flexGrow = 1 }, {
+    ui.column({ gap = 0, flexGrow = 1 }, {
       ui.label({ text = title, fontSize = 16, fontWeight = "bold", maxLines = 1 }),
       ui.label({ text = subtitle, fontSize = 12, color = stateColors.get(selected and selected.state or state), maxLines = 1 }),
     }),
     ui.button({
-      glyph = "external-link",
+      glyph = primaryGlyph,
       variant = "ghost",
       controlSize = "sm",
-      tooltip = tr("panel.open-gui"),
-      visible = snapshot ~= nil and snapshot.sources.resolvedUrl ~= "",
-      onClick = "onOpenGui",
+      enabled = true,
+      tooltip = primaryTooltip,
+      visible = primaryVisible,
+      onClick = primaryOnClick,
     }),
     ui.button({
-      glyph = paused and "player-play" or "player-pause",
-      variant = "outline",
+      glyph = "refresh",
+      variant = "ghost",
       controlSize = "sm",
-      tooltip = bulkPauseLabel(paused),
-      onClick = paused and "onResumeAll" or "onPauseAll",
+      enabled = folder ~= nil and not folder.paused,
+      tooltip = tr("panel.folder-rescan"),
+      visible = folder ~= nil,
+      onClick = function()
+        sendCmd("folder_rescan_details", folder.id)
+      end,
+    }),
+    ui.button({
+      glyph = pauseGlyph,
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = pauseTooltip,
+      onClick = pauseOnClick,
     }),
     ui.button({
       glyph = "settings",
       variant = "ghost",
       controlSize = "sm",
+      enabled = true,
       tooltip = tr("panel.open-settings"),
+      visible = not selected,
       onClick = "onSettings",
     }),
   })
@@ -335,6 +397,7 @@ local function folderRow(folder)
       openFolderDetails(folder)
     end,
   }, {
+    ui.glyph({ name = "folder", size = 20, color = "on_surface/0.5" }),
     ui.column({ gap = 2, flexGrow = 1 }, {
       ui.label({ text = folder.label, fontWeight = "bold", fontSize = 13, maxLines = 1 }),
       -- The status glyph is a tooltip-carrying button and so has no color of
@@ -358,44 +421,14 @@ local function folderRow(folder)
     ui.button({
       glyph = rowIcons.folder(folder),
       variant = "ghost",
-      glyphSize = 14,
-      width = 22,
-      height = 22,
+      glyphSize = 18,
+      width = 26,
+      height = 26,
       color = folder.state == "idle" and rowIcons.CHECK_COLOR or color,
       tooltip = folderStateText(folder),
       -- A button with no callback at all keeps its input area disabled, and a
       -- disabled input area never hovers — so the tooltip would never show.
       onHover = noop,
-    }),
-    ui.button({
-      glyph = "chevron-right",
-      variant = "ghost",
-      controlSize = "sm",
-      tooltip = tr("panel.folder-details"),
-      onClick = function()
-        openFolderDetails(folder)
-      end,
-    }),
-    -- Keeps the status indicators from reading as more action buttons.
-    ui.box({ width = 1, height = 18, fill = "on_surface/0.15" }),
-    ui.button({
-      glyph = folder.paused and "player-play" or "player-pause",
-      variant = "ghost",
-      controlSize = "sm",
-      tooltip = folder.paused and tr("panel.folder-resume") or tr("panel.folder-pause"),
-      onClick = function()
-        togglePaused("folder", folder.id, folder.paused)
-      end,
-    }),
-    ui.button({
-      glyph = "refresh",
-      variant = "ghost",
-      controlSize = "sm",
-      enabled = not folder.paused,
-      tooltip = tr("panel.folder-rescan"),
-      onClick = function()
-        rescanFolder(folder)
-      end,
     }),
   })
 end
@@ -409,20 +442,54 @@ deviceStateText = function(device)
   return device.connected and tr("device.connected") or tr("device.disconnected")
 end
 
+local function folderHasDevice(folder, deviceId)
+  for _, id in (folder.deviceIds or {}) do
+    if id == deviceId then
+      return true
+    end
+  end
+  return false
+end
+
+-- Whether any folder shared with this device is still syncing. Syncthing has
+-- no per-device completion in what the service already polls, but every
+-- shared folder's own state is enough to tell "Up to Date" apart from
+-- "Syncing" on the device row's status glyph without an extra request.
+local function deviceFoldersSyncing(device)
+  if not snapshot then
+    return false
+  end
+  for _, folder in snapshot.folders do
+    if folder.state == "syncing" and folderHasDevice(folder, device.id) then
+      return true
+    end
+  end
+  return false
+end
+
+-- Hover text for the device row's status glyph specifically: unlike the row
+-- subtitle (plain connected/disconnected/paused), the glyph also distinguishes
+-- "Up to Date" from "Syncing" once connected.
+local function deviceSyncStatusText(device, syncing)
+  if device.paused then
+    return tr("device.paused")
+  end
+  if not device.connected then
+    return tr("device.disconnected")
+  end
+  return syncing and tr("device.syncing") or tr("device.up-to-date")
+end
+
 local function deviceRow(device)
+  local syncing = device.connected and not device.paused and deviceFoldersSyncing(device)
   -- A device that is simply not connected reads as a problem, so it takes the
   -- error color (the `on_error` role is the ink for an error-*filled* surface —
   -- near-black in a dark palette — and would be unreadable here).
   local color = device.paused and stateColors.get("paused")
-    or (device.connected and stateColors.get("idle") or stateColors.get("error"))
+    or (device.connected and stateColors.get(syncing and "syncing" or "idle") or stateColors.get("error"))
   local subtitle = deviceStateText(device)
-  if device.connected and not device.paused then
-    if device.address ~= "" then
-      subtitle = device.address
-    end
-    if device.version ~= "" then
-      subtitle = `{subtitle} · {device.version}`
-    end
+  if device.connected and not device.paused and device.address ~= "" then
+    subtitle = device.address
   end
   return ui.row({
     key = `device-{device.shortId}`,
@@ -436,8 +503,18 @@ local function deviceRow(device)
       openDeviceDetails(device)
     end,
   }, {
+    ui.glyph({ name = "devices-pc", size = 20, color = "on_surface/0.5" }),
     ui.column({ gap = 1, flexGrow = 1 }, {
-      ui.label({ text = device.name, fontWeight = "bold", fontSize = 13, maxLines = 1 }),
+      ui.row({ gap = 6, align = "center" }, {
+        ui.label({ text = device.name, fontWeight = "bold", fontSize = 13, maxLines = 1 }),
+        ui.label({
+          text = device.version,
+          fontSize = 10,
+          color = "on_surface/0.5",
+          maxLines = 1,
+          visible = device.connected and not device.paused and device.version ~= "",
+        }),
+      }),
       ui.label({
         text = subtitle,
         fontSize = 11,
@@ -445,50 +522,30 @@ local function deviceRow(device)
         maxLines = 1,
       }),
     }),
-    ui.button({
-      glyph = "chevron-right",
-      variant = "ghost",
-      controlSize = "sm",
-      tooltip = tr("panel.device-details"),
-      onClick = function()
-        openDeviceDetails(device)
-      end,
-    }),
     -- State glyph plus connection-type meter, the same pair (and order) the
     -- web GUI shows at the right edge of a device row.
     ui.row({ gap = 0, align = "center" }, {
       ui.button({
-        glyph = rowIcons.device(device),
+        glyph = rowIcons.device(device, syncing),
         variant = "ghost",
-        glyphSize = 14,
-        width = 22,
-        height = 22,
-        color = rowIcons.deviceColor(device, color),
-        tooltip = deviceStateText(device),
+        glyphSize = 18,
+        width = 26,
+        height = 26,
+        color = rowIcons.deviceColor(device, color, syncing),
+        tooltip = deviceSyncStatusText(device, syncing),
         -- See folderRow: no callback means no hover means no tooltip.
         onHover = noop,
       }),
       ui.button({
         glyph = rowIcons.signal(device),
         variant = "ghost",
-        glyphSize = 14,
-        width = 22,
-        height = 22,
+        glyphSize = 18,
+        width = 26,
+        height = 26,
         color = (device.connected and not device.paused) and color or "on_surface/0.35",
         tooltip = tr(`device.conn-{rowIcons.connKind(device)}`),
         onHover = noop,
       }),
-    }),
-    -- Keeps the status indicators from reading as more action buttons.
-    ui.box({ width = 1, height = 18, fill = "on_surface/0.15" }),
-    ui.button({
-      glyph = device.paused and "player-play" or "player-pause",
-      variant = "ghost",
-      controlSize = "sm",
-      tooltip = device.paused and tr("panel.device-resume") or tr("panel.device-pause"),
-      onClick = function()
-        togglePaused("device", device.id, device.paused)
-      end,
     }),
   })
 end
@@ -500,12 +557,28 @@ local function infoStat(value, label)
   })
 end
 
-local function detailSection(title, rows, emptyText)
-  local children = {
+-- Empty-state hints ("No folder errors.", "No shared folders.", ...) lean on
+-- an italic face to read as an aside rather than a data row. Noctalia's
+-- ui.label has no italic style of its own, so italic_font_family (a
+-- fontconfig alias that pins slant=italic, same trick as the timewarrior
+-- plugin) is what actually slants it; empty keeps the shell font.
+local function hintLabel(text)
+  local label = { text = text, fontSize = 11, color = "on_surface/0.6" }
+  local family = noctalia.getConfig("italic_font_family")
+  if family ~= nil and family ~= "" then
+    label.fontFamily = family
+  end
+  return ui.label(label)
+end
+
+local function detailSection(title, rows, emptyText, glyph)
+  local titleNode = glyph and ui.row({ gap = 6, align = "center" }, {
+    ui.glyph({ name = glyph, size = 14, color = "on_surface/0.6" }),
     ui.label({ text = title, fontSize = 12, fontWeight = "bold" }),
-  }
+  }) or ui.label({ text = title, fontSize = 12, fontWeight = "bold" })
+  local children = { titleNode }
   if #rows == 0 and emptyText then
-    table.insert(children, ui.label({ text = emptyText, fontSize = 11, color = "on_surface/0.6" }))
+    table.insert(children, hintLabel(emptyText))
   else
     for _, row in rows do
       table.insert(children, row)
@@ -538,19 +611,86 @@ local function changeColor(action)
   return "on_surface_variant"
 end
 
-local function recentChangeRow(item)
-  local action = item.action ~= "" and item.action or item.source
-  local metadata = item.source
-  if item.time ~= "" then
-    metadata = `{metadata} · {shortTimestamp(item.time)}`
+local function changeGlyph(action)
+  local normalized = string.lower(action or "")
+  if normalized == "deleted" or normalized == "delete" or normalized == "removed" or normalized == "remove" then
+    return "file-minus"
   end
-  return ui.column({ gap = 1, padding = 6, fill = "surface/0.35", radius = 6 }, {
-    ui.label({ text = item.path, fontSize = 11, maxLines = 2 }),
-    ui.row({ gap = 3, align = "center" }, {
-      ui.label({ text = action, fontSize = 10, color = changeColor(action), maxLines = 1 }),
-      ui.label({ text = `· {metadata}`, fontSize = 10, color = "on_surface/0.6", maxLines = 1 }),
+  if normalized == "created" or normalized == "create" or normalized == "added" or normalized == "add" then
+    return "file-plus"
+  end
+  if normalized == "modified" or normalized == "modify" or normalized == "updated" or normalized == "update" then
+    return "pencil"
+  end
+  if normalized == "renamed" or normalized == "rename" then
+    return "arrow-right"
+  end
+  return "file"
+end
+
+-- Matches the ha plugin's activityCard day grouping (panel.luau there), not
+-- localized there either -- keeping parity rather than half-translating it.
+local function changeDayLabel(date)
+  if not date then
+    return ""
+  end
+  local today = os.date("%Y-%m-%d")
+  if date == today then
+    return "Today"
+  end
+  local yesterday = os.date("%Y-%m-%d", os.time() - 24 * 60 * 60)
+  if date == yesterday then
+    return "Yesterday"
+  end
+  return date
+end
+
+-- "remote" reads as the more notable case (someone/something else touched
+-- this folder); "local" stays the same muted gray as the separator dot,
+-- since it's the unremarkable default. A fixed cyan rather than a theme role
+-- — "secondary" is already the action color for "modified" (changeColor
+-- above), and a remote-modified row would otherwise show the same color
+-- twice for two unrelated facts. Palette-independent on purpose, same as
+-- row_icons.luau's CHECK_COLOR/POWER_COLOR.
+local function sourceColor(source)
+  return source == "remote" and "#22D3EE" or "on_surface/0.6"
+end
+
+-- One timeline row: an icon-in-rail on the left (connected to the next row by
+-- a vertical line, same construction as the ha plugin's activityEntry), path
+-- + action/source in the middle, time on the right. Returns the row's date
+-- too so the caller can group consecutive same-day entries under one label.
+local function changeEntry(item, isLast)
+  local date, time = splitTimestamp(item.time)
+  local action = item.action ~= "" and item.action or item.source
+  local color = changeColor(action)
+  local rail = {
+    ui.row({ width = 14, height = 18, align = "center", justify = "center" }, {
+      ui.glyph({ name = changeGlyph(action), size = 14, color = color }),
     }),
-  })
+  }
+  if not isLast then
+    table.insert(rail, ui.box({ width = 2, height = 10, flexGrow = 1, fill = "outline/0.55" }))
+  end
+  return {
+    date = date,
+    row = ui.row({ align = "stretch", gap = 8 }, {
+      ui.column({ width = 14, align = "center", gap = 4, paddingV = 3 }, rail),
+      ui.column({ flexGrow = 1, gap = 1, paddingV = 3 }, {
+        ui.row({ align = "start", gap = 8 }, {
+          ui.column({ flexGrow = 1, gap = 1 }, {
+            ui.label({ text = item.path, fontSize = 11, maxLines = 2 }),
+            ui.row({ gap = 3, align = "center" }, {
+              ui.label({ text = action, fontSize = 10, color = color, maxLines = 1 }),
+              ui.label({ text = "·", fontSize = 10, color = "on_surface/0.5", maxLines = 1 }),
+              ui.label({ text = item.source, fontSize = 10, color = sourceColor(item.source), maxLines = 1 }),
+            }),
+          }),
+          ui.label({ text = time or "", width = 40, fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
+        }),
+      }),
+    }),
+  }
 end
 
 local function folderDetailsView()
@@ -560,36 +700,6 @@ local function folderDetailsView()
   end
 
   local children = {
-    ui.row({ gap = 6 }, {
-      ui.button({
-        text = tr("panel.open-folder"),
-        glyph = "folder",
-        variant = "primary",
-        flexGrow = 1,
-        onClick = function()
-          sendCmd("open_folder", folder.id)
-        end,
-      }),
-      ui.button({
-        glyph = folder.paused and "player-play" or "player-pause",
-        variant = "ghost",
-        controlSize = "sm",
-        tooltip = folder.paused and tr("panel.folder-resume") or tr("panel.folder-pause"),
-        onClick = function()
-          togglePaused("folder", folder.id, folder.paused)
-        end,
-      }),
-      ui.button({
-        glyph = "refresh",
-        variant = "ghost",
-        controlSize = "sm",
-        enabled = not folder.paused,
-        tooltip = tr("panel.folder-rescan"),
-        onClick = function()
-          sendCmd("folder_rescan_details", folder.id)
-        end,
-      }),
-    }),
     ui.column({ gap = 2, padding = 8, fill = "surface_variant/0.5", radius = 8 }, {
       ui.label({ text = tr("panel.folder-path"), fontSize = 10, color = "on_surface/0.6" }),
       ui.label({
@@ -622,14 +732,14 @@ local function folderDetailsView()
     for _, item in (folderDetail.errors or {}) do
       table.insert(errors, detailFileRow(item.path, item.message, "error/0.9"))
     end
-    table.insert(children, detailSection(tr("panel.folder-errors"), errors, tr("panel.folder-no-errors")))
+    table.insert(children, detailSection(tr("panel.folder-errors"), errors, tr("panel.folder-no-errors"), "alert-triangle"))
 
     local conflicts = {}
     for _, path in (folderDetail.conflicts or {}) do
       table.insert(conflicts, detailFileRow(path, tr("panel.folder-conflict"), "error/0.9"))
     end
     if #conflicts > 0 then
-      table.insert(children, detailSection(tr("panel.folder-conflicts"), conflicts))
+      table.insert(children, detailSection(tr("panel.folder-conflicts"), conflicts, nil, "alert-circle"))
     end
 
     local pending = {}
@@ -640,24 +750,27 @@ local function folderDetailsView()
       end
       table.insert(pending, detailFileRow(item.name, subtitle, "secondary"))
     end
-    table.insert(children, detailSection(tr("panel.folder-pending-files"), pending, tr("panel.folder-no-pending")))
+    table.insert(children, detailSection(tr("panel.folder-pending-files"), pending, tr("panel.folder-no-pending"), "download"))
 
     local changes = {}
-    for _, item in (folderDetail.changes or {}) do
-      table.insert(changes, recentChangeRow(item))
+    local changeItems = folderDetail.changes or {}
+    local previousDate = nil
+    for index, item in changeItems do
+      local entry = changeEntry(item, index == #changeItems)
+      if entry.date ~= previousDate then
+        table.insert(changes, ui.label({
+          text = changeDayLabel(entry.date),
+          fontSize = 11,
+          fontWeight = "semibold",
+          color = "on_surface_variant",
+        }))
+        previousDate = entry.date
+      end
+      table.insert(changes, entry.row)
     end
-    table.insert(children, detailSection(tr("panel.folder-recent-changes"), changes, tr("panel.folder-no-recent-changes")))
+    table.insert(children, detailSection(tr("panel.folder-recent-changes"), changes, tr("panel.folder-no-recent-changes"), "history"))
   end
   return ui.scroll({ gap = 8, flexGrow = 1 }, children)
-end
-
-local function folderHasDevice(folder, deviceId)
-  for _, id in (folder.deviceIds or {}) do
-    if id == deviceId then
-      return true
-    end
-  end
-  return false
 end
 
 local function deviceDetailsView()
@@ -668,17 +781,6 @@ local function deviceDetailsView()
 
   local connection = tr(`device.conn-{rowIcons.connKind(device)}`)
   local children = {
-    ui.row({ gap = 6 }, {
-      ui.button({
-        text = device.paused and tr("panel.device-resume") or tr("panel.device-pause"),
-        glyph = device.paused and "player-play" or "player-pause",
-        variant = "primary",
-        flexGrow = 1,
-        onClick = function()
-          togglePaused("device", device.id, device.paused)
-        end,
-      }),
-    }),
     ui.column({ gap = 4, padding = 8, fill = "surface_variant/0.5", radius = 8 }, {
       ui.label({ text = tr("panel.device-id"), fontSize = 10, color = "on_surface/0.6" }),
       ui.row({ gap = 6, align = "center" }, {
@@ -699,7 +801,7 @@ local function deviceDetailsView()
       ui.label({ text = connection, fontSize = 11, color = "on_surface/0.7" }),
       ui.label({ text = device.address ~= "" and device.address or tr("panel.device-no-address"), fontSize = 11, color = "on_surface/0.7" }),
       ui.label({ text = device.version ~= "" and device.version or tr("panel.device-no-version"), fontSize = 11, color = "on_surface/0.7" }),
-    }),
+    }, nil, "plug-connected"),
   }
 
   local folders = {}
@@ -718,9 +820,9 @@ local function deviceDetailsView()
     end
   end
   if #folders == 0 then
-    table.insert(folders, ui.label({ text = tr("panel.device-no-folders"), fontSize = 11, color = "on_surface/0.6" }))
+    table.insert(folders, hintLabel(tr("panel.device-no-folders")))
   end
-  table.insert(children, detailSection(tr("panel.device-folders"), folders))
+  table.insert(children, detailSection(tr("panel.device-folders"), folders, nil, "folder"))
   if deviceQrLoading then
     table.insert(children, ui.label({ text = tr("panel.device-qr-loading"), fontSize = 11, color = "on_surface/0.6" }))
   elseif deviceQr and deviceQr.path then
