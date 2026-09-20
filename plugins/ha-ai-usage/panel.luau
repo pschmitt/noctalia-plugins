@@ -99,34 +99,75 @@ local function ringLines(metric, compact)
   return lines
 end
 
--- Experiment: instead of one card per window sitting side by side (which
--- halves the width each bar gets), stack every headline window of a provider
--- in a single card -- full-width bars, one ring each. Providers differ in how
--- many headline windows they have (Copilot one, Antigravity four), so
--- this is the only renderer for them: a one-window provider must not fall
--- back to a differently-sized ring in a differently-shaped card next to a
--- two-window one.
+-- Instead of one card per window sitting side by side (which halves the width
+-- each bar gets), keep every provider in one card and arrange its metrics in
+-- the configured one- or two-column grid. Providers differ in how many
+-- headline windows they have (Copilot one, Antigravity four), so a final
+-- unmatched metric keeps the same fixed width rather than stretching.
 local RING_DISPLAY_SIZE = 34
-local RING_DISPLAY_SIZE_COMPACT = 22
+local RING_DISPLAY_SIZE_COMPACT = 28
+local PANEL_METRIC_WIDTH = 280
+local PANEL_METRIC_GAP = 14
 
-local function ringCard(metrics, compact)
+local function panelColumns()
+  return math.max(1, math.min(2, tonumber(noctalia.getConfig("panel_columns")) or 1))
+end
+
+local function metricWidget(metric, compact, columns, fillRow)
+  return ui.row({
+    align = "center",
+    gap = compact and 8 or 10,
+    flexGrow = (columns == 1 or fillRow) and 1 or nil,
+    width = columns == 2 and not fillRow and PANEL_METRIC_WIDTH or nil,
+  }, {
+    ringSlot(metric, compact and RING_DISPLAY_SIZE_COMPACT or RING_DISPLAY_SIZE),
+    ui.column({ gap = 3, flexGrow = 1 }, ringLines(metric, compact)),
+  })
+end
+
+local function ringCard(metrics, compact, columns)
   local rows = {}
-  for _, metric in ipairs(metrics) do
-    rows[#rows + 1] = ui.row({ align = "center", gap = compact and 7 or 10 }, {
-      ringSlot(metric, compact and RING_DISPLAY_SIZE_COMPACT or RING_DISPLAY_SIZE),
-      ui.column({ gap = 3, flexGrow = 1 }, ringLines(metric, compact)),
-    })
+  local currentRow = {}
+
+  local function appendRow(rowMetrics)
+    local fillRow = columns == 1 or #rowMetrics == columns
+    local widgets = {}
+    for _, metric in ipairs(rowMetrics) do
+      widgets[#widgets + 1] = metricWidget(metric, compact, columns, fillRow)
+    end
+    rows[#rows + 1] = ui.row({
+      gap = PANEL_METRIC_GAP,
+      align = "start",
+      flexGrow = 1,
+    }, widgets)
   end
+
+  for _, metric in ipairs(metrics) do
+    currentRow[#currentRow + 1] = metric
+    if #currentRow >= columns then
+      appendRow(currentRow)
+      currentRow = {}
+    end
+  end
+  if #currentRow > 0 then
+    appendRow(currentRow)
+  end
+  local metricLayout = ui.column({
+    gap = compact and 6 or 8,
+    align = "stretch",
+    flexGrow = 1,
+  }, rows)
   return ui.column({
-    gap = compact and 5 or 8,
+    gap = 0,
+    align = "stretch",
     fill = "surface_variant/0.4",
     radius = compact and 10 or 12,
     padding = compact and 7 or 10,
     flexGrow = 1,
-  }, rows)
+  }, { metricLayout })
 end
 
-local function card(card, compact, allMetrics)
+local function card(card, compact, allMetrics, columns)
   local headline, rest = {}, {}
   for _, metric in ipairs(card.metrics) do
     if shared.isHeadline(metric) then
@@ -172,7 +213,7 @@ local function card(card, compact, allMetrics)
     if allMetrics then
       for _, metric in ipairs(rest) do ordered[#ordered + 1] = metric end
     end
-    sections[#sections + 1] = ringCard(ordered, compact)
+    sections[#sections + 1] = ringCard(ordered, compact, columns)
   end
   return ui.column({
     fill = "surface_variant/0.58",
@@ -186,6 +227,7 @@ local function render()
   if not panelOpen then return end
   local compact = noctalia.getConfig("panel_compact") == true
   local allMetrics = noctalia.getConfig("panel_all_metrics") ~= false
+  local columns = panelColumns()
   local header = ui.row({ align = "center", justify = "space_between" }, {
     ui.row({ align = "center", gap = 10 }, {
       ui.row({ align = "center", justify = "center", width = 36, height = 36, fill = "primary/0.15", radius = 11 }, {
@@ -220,7 +262,7 @@ local function render()
   -- return the input unchanged -- every card, in shared.cards' own order.
   local cards = shared.filterCards(shared.cards(items), shared.config("panel_card_filter", ""))
   local content = {}
-  for _, item in ipairs(cards) do content[#content + 1] = card(item, compact, allMetrics) end
+  for _, item in ipairs(cards) do content[#content + 1] = card(item, compact, allMetrics, columns) end
   if #content == 0 then content[#content + 1] = ui.label({ text = "No active AI usage metrics were discovered.", color = "on_surface_variant" }) end
   local children = { header }
   if errorMessage ~= "" then

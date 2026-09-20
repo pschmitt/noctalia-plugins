@@ -24,6 +24,8 @@ The panel header's link icon opens `server_file`'s URL plus **Panel: Home Assist
 
 Enable **Panel: Compact mode** to fit more providers in the same panel height: smaller rings, tighter card padding/spacing/fonts -- pace, the relative reset countdown, and the absolute reset time all stay. Disable **Panel: Show all metrics** to drop each card down to just its headline session/weekly windows (or its promoted primary quota for a category-only provider like Copilot), hiding Copilot's Chat/Completions rows and Antigravity's 3P model rows.
 
+**Panel: Metric columns** controls whether metrics stay on separate wide rows (`1`, the default) or use two balanced widgets per row (`2`) in both compact and regular modes. A final unmatched metric in two-column mode remains narrow instead of stretching across the card.
+
 **Panel: Cards** works like **Bar: Cards** -- the same comma-separated, case-insensitive account-fragment matching -- but independently filters and orders the popup panel instead of the bar, and defaults to empty (every card, unreordered). Order matters: `Codex, Pro` puts the Codex card first even though the panel's own provider-then-label sort would otherwise put a Claude Pro card ahead of it.
 
 Set **Bar: Quota window** to **Both (stacked)** to show the 5h/session and weekly bars together, one above the other, instead of picking a single window. A card with only category quotas (Copilot) still shows one bar, not the same number duplicated twice.
@@ -37,15 +39,13 @@ Reset times support relative countdowns and three configurable local-date format
 ## Panel size
 
 Noctalia panels have a fixed outer height -- there is no runtime panel-resize
-API -- so **Panel: Size** picks between four preset panel geometries
-(`panel-small`/`panel`/`panel-large`/`panel-xlarge`, 700-1900px tall) rather
-than resizing one panel dynamically. **Automatic** (the default) estimates
-the right preset from the accounts and metrics Home Assistant currently
-reports, combined with **Panel: Compact mode** and **Panel: Show all
-metrics** -- a single lightly used account gets the small preset, a busy
-multi-provider account with every metric shown gets a larger one. Pick a
-fixed size instead if you'd rather the panel never change geometry as
-accounts come and go.
+API -- so **Panel: Height** picks from granular fixed geometries (10px steps
+from 400px to 1000px, plus larger presets through 1900px) rather than resizing
+one panel dynamically. **Automatic** (the default)
+estimates the smallest suitable height from the accounts and metrics Home
+Assistant currently reports, combined with **Panel: Compact mode** and **Panel:
+Show all metrics**. Pick an exact height instead if you'd rather the panel
+never change geometry as accounts come and go.
 
 Because the panel id is only resolved at click time, left-click is handled by
 the bar widget's own script rather than Noctalia's anchored panel-toggle

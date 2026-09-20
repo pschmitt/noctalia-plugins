@@ -148,6 +148,17 @@ label_key = "settings.panel_all_metrics.label"
 description_key = "settings.panel_all_metrics.description"
 default = true
 
+[[setting]]
+key = "panel_columns"
+type = "select"
+label_key = "settings.panel_columns.label"
+description_key = "settings.panel_columns.description"
+default = "1"
+options = [
+  { value = "1", label_key = "settings.panel_columns.one" },
+  { value = "2", label_key = "settings.panel_columns.two" },
+]
+
 # Noctalia has no runtime panel-resize API (see the osd plugin's README), so
 # a dynamic panel height isn't possible -- each size below is its own
 # fixed-geometry [[panel]] entry (see the bottom of this file) and "Auto"
@@ -160,11 +171,73 @@ label_key = "settings.panel_size.label"
 description_key = "settings.panel_size.description"
 default = "auto"
 options = [
-  { value = "auto", label_key = "settings.panel_size.auto" },
-  { value = "small", label_key = "settings.panel_size.small" },
-  { value = "medium", label_key = "settings.panel_size.medium" },
-  { value = "large", label_key = "settings.panel_size.large" },
-  { value = "xlarge", label_key = "settings.panel_size.xlarge" },
+ { value = "auto", label_key = "settings.panel_size.auto" },
+  { value = "h400", label_key = "settings.panel_size.h400" },
+  { value = "h410", label_key = "settings.panel_size.h410" },
+  { value = "h420", label_key = "settings.panel_size.h420" },
+  { value = "h430", label_key = "settings.panel_size.h430" },
+  { value = "h440", label_key = "settings.panel_size.h440" },
+  { value = "h450", label_key = "settings.panel_size.h450" },
+  { value = "h460", label_key = "settings.panel_size.h460" },
+  { value = "h470", label_key = "settings.panel_size.h470" },
+  { value = "h480", label_key = "settings.panel_size.h480" },
+  { value = "h490", label_key = "settings.panel_size.h490" },
+  { value = "h500", label_key = "settings.panel_size.h500" },
+  { value = "h510", label_key = "settings.panel_size.h510" },
+  { value = "h520", label_key = "settings.panel_size.h520" },
+  { value = "h530", label_key = "settings.panel_size.h530" },
+  { value = "h540", label_key = "settings.panel_size.h540" },
+  { value = "h550", label_key = "settings.panel_size.h550" },
+  { value = "h560", label_key = "settings.panel_size.h560" },
+  { value = "h570", label_key = "settings.panel_size.h570" },
+  { value = "h580", label_key = "settings.panel_size.h580" },
+  { value = "h590", label_key = "settings.panel_size.h590" },
+  { value = "h600", label_key = "settings.panel_size.h600" },
+  { value = "h610", label_key = "settings.panel_size.h610" },
+  { value = "h620", label_key = "settings.panel_size.h620" },
+  { value = "h630", label_key = "settings.panel_size.h630" },
+  { value = "h640", label_key = "settings.panel_size.h640" },
+  { value = "h650", label_key = "settings.panel_size.h650" },
+  { value = "h660", label_key = "settings.panel_size.h660" },
+  { value = "h670", label_key = "settings.panel_size.h670" },
+  { value = "h680", label_key = "settings.panel_size.h680" },
+  { value = "h690", label_key = "settings.panel_size.h690" },
+  { value = "h700", label_key = "settings.panel_size.h700" },
+  { value = "h710", label_key = "settings.panel_size.h710" },
+  { value = "h720", label_key = "settings.panel_size.h720" },
+  { value = "h730", label_key = "settings.panel_size.h730" },
+  { value = "h740", label_key = "settings.panel_size.h740" },
+  { value = "h750", label_key = "settings.panel_size.h750" },
+  { value = "h760", label_key = "settings.panel_size.h760" },
+  { value = "h770", label_key = "settings.panel_size.h770" },
+  { value = "h780", label_key = "settings.panel_size.h780" },
+  { value = "h790", label_key = "settings.panel_size.h790" },
+  { value = "h800", label_key = "settings.panel_size.h800" },
+  { value = "h810", label_key = "settings.panel_size.h810" },
+  { value = "h820", label_key = "settings.panel_size.h820" },
+  { value = "h830", label_key = "settings.panel_size.h830" },
+  { value = "h840", label_key = "settings.panel_size.h840" },
+  { value = "h850", label_key = "settings.panel_size.h850" },
+  { value = "h860", label_key = "settings.panel_size.h860" },
+  { value = "h870", label_key = "settings.panel_size.h870" },
+  { value = "h880", label_key = "settings.panel_size.h880" },
+  { value = "h890", label_key = "settings.panel_size.h890" },
+  { value = "h900", label_key = "settings.panel_size.h900" },
+  { value = "h910", label_key = "settings.panel_size.h910" },
+  { value = "h920", label_key = "settings.panel_size.h920" },
+  { value = "h930", label_key = "settings.panel_size.h930" },
+  { value = "h940", label_key = "settings.panel_size.h940" },
+  { value = "h950", label_key = "settings.panel_size.h950" },
+  { value = "h960", label_key = "settings.panel_size.h960" },
+  { value = "h970", label_key = "settings.panel_size.h970" },
+  { value = "h980", label_key = "settings.panel_size.h980" },
+  { value = "h990", label_key = "settings.panel_size.h990" },
+  { value = "h1000", label_key = "settings.panel_size.h1000" },
+  { value = "h1100", label_key = "settings.panel_size.h1100" },
+  { value = "h1200", label_key = "settings.panel_size.h1200" },
+  { value = "h1400", label_key = "settings.panel_size.h1400" },
+  { value = "h1600", label_key = "settings.panel_size.h1600" },
+  { value = "h1900", label_key = "settings.panel_size.h1900" },
 ]
 
 # The ring counts the window down, so it gets its own colours rather than
@@ -299,14 +372,311 @@ entry = "bar.luau"
 # pschmitt/battery-icon makes).
 
 # One [[panel]] entry per panel_size bucket, all sharing panel.luau -- see
-# the panel_size setting above and bar.luau's selectedPanelId(). "medium"
-# keeps the plugin's original id/geometry so existing panel-open callers are
-# unaffected.
+# the panel_size setting above and bar.luau's selectedPanelId().
 [[panel]]
-id = "panel-small"
+id = "panel-400"
 entry = "panel.luau"
 width = 600
-# Fits a single lightly-used account without leaving a wall of empty space.
+height = 400
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-410"
+entry = "panel.luau"
+width = 600
+height = 410
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-420"
+entry = "panel.luau"
+width = 600
+height = 420
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-430"
+entry = "panel.luau"
+width = 600
+height = 430
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-440"
+entry = "panel.luau"
+width = 600
+height = 440
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-450"
+entry = "panel.luau"
+width = 600
+height = 450
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-460"
+entry = "panel.luau"
+width = 600
+height = 460
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-470"
+entry = "panel.luau"
+width = 600
+height = 470
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-480"
+entry = "panel.luau"
+width = 600
+height = 480
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-490"
+entry = "panel.luau"
+width = 600
+height = 490
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-500"
+entry = "panel.luau"
+width = 600
+height = 500
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-510"
+entry = "panel.luau"
+width = 600
+height = 510
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-520"
+entry = "panel.luau"
+width = 600
+height = 520
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-530"
+entry = "panel.luau"
+width = 600
+height = 530
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-540"
+entry = "panel.luau"
+width = 600
+height = 540
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-550"
+entry = "panel.luau"
+width = 600
+height = 550
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-560"
+entry = "panel.luau"
+width = 600
+height = 560
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-570"
+entry = "panel.luau"
+width = 600
+height = 570
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-580"
+entry = "panel.luau"
+width = 600
+height = 580
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-590"
+entry = "panel.luau"
+width = 600
+height = 590
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-600"
+entry = "panel.luau"
+width = 600
+height = 600
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-610"
+entry = "panel.luau"
+width = 600
+height = 610
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-620"
+entry = "panel.luau"
+width = 600
+height = 620
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-630"
+entry = "panel.luau"
+width = 600
+height = 630
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-640"
+entry = "panel.luau"
+width = 600
+height = 640
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-650"
+entry = "panel.luau"
+width = 600
+height = 650
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-660"
+entry = "panel.luau"
+width = 600
+height = 660
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-670"
+entry = "panel.luau"
+width = 600
+height = 670
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-680"
+entry = "panel.luau"
+width = 600
+height = 680
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-690"
+entry = "panel.luau"
+width = 600
+height = 690
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-700"
+entry = "panel.luau"
+width = 600
 height = 700
 placement = "attached"
 position = "auto"
@@ -314,13 +684,299 @@ open_near_click = true
 dismiss_on_outside_click = true
 
 [[panel]]
-id = "panel"
+id = "panel-710"
 entry = "panel.luau"
 width = 600
-# Tall enough that Compact panel needs no scrolling for a realistic busy
-# account: 2 Claude accounts + Codex + Copilot + Antigravity, ~15 metric rows
-# across 5 cards. Non-compact still scrolls well before this with the same
-# data -- that mode is the verbose one by design.
+height = 710
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-720"
+entry = "panel.luau"
+width = 600
+height = 720
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-730"
+entry = "panel.luau"
+width = 600
+height = 730
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-740"
+entry = "panel.luau"
+width = 600
+height = 740
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-750"
+entry = "panel.luau"
+width = 600
+height = 750
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-760"
+entry = "panel.luau"
+width = 600
+height = 760
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-770"
+entry = "panel.luau"
+width = 600
+height = 770
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-780"
+entry = "panel.luau"
+width = 600
+height = 780
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-790"
+entry = "panel.luau"
+width = 600
+height = 790
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-800"
+entry = "panel.luau"
+width = 600
+height = 800
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-810"
+entry = "panel.luau"
+width = 600
+height = 810
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-820"
+entry = "panel.luau"
+width = 600
+height = 820
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-830"
+entry = "panel.luau"
+width = 600
+height = 830
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-840"
+entry = "panel.luau"
+width = 600
+height = 840
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-850"
+entry = "panel.luau"
+width = 600
+height = 850
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-860"
+entry = "panel.luau"
+width = 600
+height = 860
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-870"
+entry = "panel.luau"
+width = 600
+height = 870
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-880"
+entry = "panel.luau"
+width = 600
+height = 880
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-890"
+entry = "panel.luau"
+width = 600
+height = 890
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-900"
+entry = "panel.luau"
+width = 600
+height = 900
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-910"
+entry = "panel.luau"
+width = 600
+height = 910
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-920"
+entry = "panel.luau"
+width = 600
+height = 920
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-930"
+entry = "panel.luau"
+width = 600
+height = 930
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-940"
+entry = "panel.luau"
+width = 600
+height = 940
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-950"
+entry = "panel.luau"
+width = 600
+height = 950
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-960"
+entry = "panel.luau"
+width = 600
+height = 960
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-970"
+entry = "panel.luau"
+width = 600
+height = 970
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-980"
+entry = "panel.luau"
+width = 600
+height = 980
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-990"
+entry = "panel.luau"
+width = 600
+height = 990
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-1000"
+entry = "panel.luau"
+width = 600
 height = 1000
 placement = "attached"
 position = "auto"
@@ -328,11 +984,29 @@ open_near_click = true
 dismiss_on_outside_click = true
 
 [[panel]]
-id = "panel-large"
+id = "panel-1100"
 entry = "panel.luau"
 width = 600
-# Covers the "medium" busy-account scenario above rendered in non-compact
-# mode, which scrolls well before 1000px with the same data.
+height = 1100
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-1200"
+entry = "panel.luau"
+width = 600
+height = 1200
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-1400"
+entry = "panel.luau"
+width = 600
 height = 1400
 placement = "attached"
 position = "auto"
@@ -340,11 +1014,19 @@ open_near_click = true
 dismiss_on_outside_click = true
 
 [[panel]]
-id = "panel-xlarge"
+id = "panel-1600"
 entry = "panel.luau"
 width = 600
-# For accounts with more providers/metrics than the "large" bucket was sized
-# for; still scrolls past this rather than growing further.
+height = 1600
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "panel-1900"
+entry = "panel.luau"
+width = 600
 height = 1900
 placement = "attached"
 position = "auto"

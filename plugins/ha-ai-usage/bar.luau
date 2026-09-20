@@ -169,24 +169,30 @@ render()
 -- estimates the panel's rendered height from the same cards/settings panel.luau
 -- itself would use, rather than the bar's own cards/limit/window settings.
 
-local PANEL_IDS = {
-  small = "pschmitt/ha-ai-usage:panel-small",
-  medium = "pschmitt/ha-ai-usage:panel",
-  large = "pschmitt/ha-ai-usage:panel-large",
-  xlarge = "pschmitt/ha-ai-usage:panel-xlarge",
-}
-local SIZE_ORDER = { "small", "medium", "large", "xlarge" }
-local SIZE_HEIGHT = { small = 700, medium = 1000, large = 1400, xlarge = 1900 }
+local PANEL_IDS = {}
+local SIZE_ORDER = {}
+local SIZE_HEIGHT = {}
+
+local function addPanelSize(height)
+  local size = "h" .. tostring(height)
+  PANEL_IDS[size] = "pschmitt/ha-ai-usage:panel-" .. tostring(height)
+  SIZE_ORDER[#SIZE_ORDER + 1] = size
+  SIZE_HEIGHT[size] = height
+end
+
+for height = 400, 1000, 10 do addPanelSize(height) end
+for _, height in ipairs({ 1100, 1200, 1400, 1600, 1900 }) do addPanelSize(height) end
 
 -- Rough per-row/per-card pixel costs mirrored from panel.luau's own
 -- ringCard/ringLines paddings and gaps -- not pixel-exact, just enough to
 -- pick the right bucket.
-local function estimatedPanelHeight(cards, compact, allMetrics)
+local function estimatedPanelHeight(cards, compact, allMetrics, columns)
   local height = compact and 96 or 120 -- header row + outer panel padding
-  local rowHeight = compact and 44 or 58
-  local cardOverhead = compact and 46 or 60
+  local rowHeight = compact and 80 or 58
+  local cardOverhead = compact and 60 or 60
   for _, item in ipairs(cards) do
-    height += cardOverhead + shared.panelRowCount(item, allMetrics) * rowHeight
+    local rows = shared.panelRowCount(item, allMetrics)
+    height += cardOverhead + math.ceil(rows / columns) * rowHeight
   end
   return height
 end
@@ -195,17 +201,18 @@ local function autoSize()
   local cards = shared.filterCards(shared.cards(items), shared.config("panel_card_filter", ""))
   local compact = noctalia.getConfig("panel_compact") == true
   local allMetrics = noctalia.getConfig("panel_all_metrics") ~= false
-  local needed = estimatedPanelHeight(cards, compact, allMetrics)
+  local columns = math.max(1, math.min(2, tonumber(noctalia.getConfig("panel_columns")) or 1))
+  local needed = estimatedPanelHeight(cards, compact, allMetrics, columns)
   for _, size in ipairs(SIZE_ORDER) do
     if needed <= SIZE_HEIGHT[size] then return size end
   end
-  return "xlarge"
+  return SIZE_ORDER[#SIZE_ORDER]
 end
 
 local function selectedPanelId()
   local size = noctalia.getConfig("panel_size") or "auto"
   if size == "auto" then size = autoSize() end
-  return PANEL_IDS[size] or PANEL_IDS.medium
+  return PANEL_IDS[size] or PANEL_IDS.h670
 end
 
 -- Routed through noctalia.togglePanel() rather than a static
