@@ -598,6 +598,18 @@ local function detailsEntity()
   }
 end
 
+local function entityToggle(entity)
+  local unavailable = shared.isUnavailable(entity.state)
+  return ui.toggle({
+    key = "ha-toggle-" .. entity.entity_id,
+    width = 44,
+    height = 24,
+    checked = shared.isOn(entity.state),
+    enabled = not unavailable,
+    onChange = function() sendCommand({ action = "toggle", entity_id = entity.entity_id }) end,
+  })
+end
+
 local function detailToggleButtons(entity, domain)
   local buttons = {}
   if domain == "light" and lightHasColor(entity) then
@@ -609,23 +621,13 @@ local function detailToggleButtons(entity, domain)
       onClick = function() openLightColor(entity) end,
     })
   end
-  local on = shared.isOn(entity.state)
-  -- The action glyph describes what the button will do: a lit bulb means
-  -- "turn on" while the crossed-out bulb means "turn off".
-  local toggleGlyph = domain == "light" and (on and "bulb-off" or "bulb") or "power"
   if domain == "fan" then
     local directionButton = fanDirectionButton(entity)
     if directionButton then buttons[#buttons + 1] = directionButton end
     local oscillationButton = fanOscillationButton(entity)
     if oscillationButton then buttons[#buttons + 1] = oscillationButton end
   end
-  buttons[#buttons + 1] = ui.button({
-    glyph = toggleGlyph,
-    variant = "ghost",
-    controlSize = "sm",
-    tooltip = "Toggle",
-    onClick = function() sendCommand({ action = "toggle", entity_id = entity.entity_id }) end,
-  })
+  buttons[#buttons + 1] = entityToggle(entity)
   return ui.row({ gap = 2 }, buttons)
 end
 
@@ -1360,9 +1362,6 @@ local function entityRow(entity, isOther, isSelected)
   elseif not isOther and domain == "lock" then
     header[#header + 1] = lockButtons(entity, false)
   elseif not isOther and shared.isToggleable(domain) then
-    -- The action glyph describes what the button will do, while the entity
-    -- icon above carries the current light state.
-    local toggleGlyph = domain == "light" and (on and "bulb-off" or "bulb") or "power"
     if not editMode and domain == "light" and lightHasColor(entity) then
       header[#header + 1] = ui.button({
         glyph = "palette",
@@ -1376,13 +1375,7 @@ local function entityRow(entity, isOther, isSelected)
       local oscillationButton = fanOscillationButton(entity)
       if oscillationButton then header[#header + 1] = oscillationButton end
     end
-    header[#header + 1] = ui.button({
-      glyph = toggleGlyph,
-      variant = "ghost",
-      controlSize = "sm",
-      tooltip = "Toggle",
-      onClick = function() sendCommand({ action = "toggle", entity_id = entity.entity_id }) end,
-    })
+    header[#header + 1] = entityToggle(entity)
   end
 
   local rows = { ui.row({ align = "center", gap = 8 }, header) }
