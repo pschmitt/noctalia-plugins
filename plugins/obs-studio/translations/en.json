@@ -16,17 +16,13 @@
       "label": "obs-cli path",
       "description": "Path to the obs-cli executable, if not on PATH."
     },
-    "obs_control_path": {
-      "label": "obs-control path",
-      "description": "Path to the obs-control executable, if not on PATH."
-    },
     "launch_command": {
       "label": "Launch command",
       "description": "Command used to start OBS when it isn't running, split on whitespace (no shell). Default runs the plain `obs` binary; e.g. `gtk-launch obs-studio-custom` to launch a specific desktop entry instead."
     },
     "mic_input_name": {
       "label": "Microphone input name",
-      "description": "obs-websocket input name to target for mute status/toggling. Leave empty to mute all PulseAudio/PipeWire sources through obs-control instead."
+      "description": "obs-websocket input name to target for mute status/toggling. Leave empty to disable the built-in microphone toggle."
     },
     "refresh_interval": {
       "label": "Refresh interval (seconds)",
@@ -165,6 +161,8 @@
   },
   "notify": {
     "action_failed_title": "OBS Studio action failed",
-    "launch_failed_title": "Failed to start OBS Studio"
+    "launch_failed_title": "Failed to start OBS Studio",
+    "mic_input_missing_title": "Microphone input is not configured",
+    "mic_input_missing_message": "Set the OBS input name in the plugin settings to enable microphone mute."
   }
 }

@@ -44,7 +44,7 @@ local function scalarOrList(value)
 end
 
 -- Parses the file's text into { buttons = { { label = ..., icon = ...,
--- obs_control = "verb" | obs_cli = {...} | command = {...}, color = ... },
+-- obs_cli = {...} | command = {...}, color = ... },
 -- ... } }. Any line outside a recognized `buttons:` list item is ignored,
 -- so unrelated top-level keys (reserved for future use) don't error out.
 function M.parse(text)

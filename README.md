@@ -13,7 +13,7 @@ Personal [Noctalia](https://github.com/noctalia-dev/noctalia) plugins by
 | [`pschmitt/fan-control`](./plugins/fan-control) | Fan RPM indicator with manual speed control and a load-average panel. |
 | [`pschmitt/ha-ai-usage`](./plugins/ha-ai-usage) | Dynamically discovered AI plan quotas (Claude, Codex, Copilot, Gemini) sourced from Home Assistant. |
 | [`pschmitt/ha`](./plugins/ha) | Status and toggle for a chosen handful of Home Assistant entities, scoped and paginated so it works on large instances. |
-| [`pschmitt/obs-studio`](./plugins/obs-studio) | Current scene, recording/streaming/virtual-camera status, a scene switcher panel, and configurable quick actions for OBS Studio (via obs-cli/obs-control). |
+| [`pschmitt/obs-studio`](./plugins/obs-studio) | Current scene, recording/streaming/virtual-camera status, a scene switcher panel, and configurable quick actions for OBS Studio (via obs-cli and host-configured commands). |
 | [`pschmitt/osd`](./plugins/osd) | Scriptable, ad-hoc OSD/toast panels. |
 | [`pschmitt/screencast`](./plugins/screencast) | Red `REC` indicator while a portal screencast is active. |
 | [`pschmitt/syncthing`](./plugins/syncthing) | Syncthing status, controls, launcher provider, shortcut, and desktop widget. |

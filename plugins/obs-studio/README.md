@@ -4,18 +4,18 @@ Current scene, recording/streaming/virtual-camera status, and quick actions for 
 
 ## Why this exists
 
-There is no OBS Studio integration among Noctalia's official/community plugins. This one is deliberately built on top of two CLIs this repo already maintains rather than reimplementing obs-websocket access in Luau:
+There is no OBS Studio integration among Noctalia's official/community plugins. This one is deliberately built on top of `obs-cli` rather than reimplementing obs-websocket access in Luau:
 
 - [`obs-cli`](https://github.com/pschmitt/obs-cli) for everything obs-websocket exposes generically: scene list/switch/current, and recording/streaming/virtual-camera/input-mute status and toggling.
-- `obs-control` ([`pkgs/local/obs-control`](../../../pkgs/local/obs-control) in the main `nixos-config` flake) for the higher-level actions it already owns: PulseAudio/PipeWire mic mute that also syncs OBS's "Microphone off" overlay item, named scene shortcuts, the freeze-filter toggle, replay, and emoji reactions.
+- Arbitrary host commands for private or host-specific actions. The plugin only runs the explicit argv supplied in each button's `command: [...]` entry; it does not know or require those commands.
 
 Both are invoked through Noctalia's argument-array `runAsync()`, so scene names and custom button arguments never pass through a shell.
 
 ## Settings
 
-**Host**, **Port**, and **Password file** configure the obs-websocket connection `obs-cli` uses directly. The password file is read only at request time, the same sops-nix runtime-secret pattern `pschmitt/ha`'s `server_file`/`token_file` use; left at its default (`~/.config/obs-studio/obs-websocket.password`), it already points at the canonical path `obs-control` itself falls back to, so most hosts need no change here. Leave it empty for an unauthenticated obs-websocket server.
+**Host**, **Port**, and **Password file** configure the obs-websocket connection `obs-cli` uses directly. The password file is read only at request time, the same sops-nix runtime-secret pattern `pschmitt/ha`'s `server_file`/`token_file` use; left at its default (`~/.config/obs-studio/obs-websocket.password`), it is suitable for the host's OBS tooling too, so most hosts need no change here. Leave it empty for an unauthenticated obs-websocket server.
 
-**Microphone input name** targets one obs-websocket input for mute status/toggling (`obs-cli input toggle-mute/is-muted`). Leave it empty to mute/unmute every PulseAudio/PipeWire source through `obs-control toggle-mute` instead — the default, and what keeps OBS's own mute overlay in sync.
+**Microphone input name** targets one obs-websocket input for mute status/toggling (`obs-cli input toggle-mute/is-muted`). Leave it empty to disable the built-in microphone toggle; host-specific mute helpers belong in a custom `command: [...]` button.
 
 **Bar display** picks icon-only, scene-name-only, or both (the default). **Bar: Left/Right/Middle click** and **Bar: Scroll up/down** are each independently configurable (same convention as `pschmitt/ha` and `pschmitt/fan-control`): Open panel, Next/Previous scene, Toggle recording/streaming/virtual camera/mute, Refresh now, Start OBS, or Nothing. Defaults: left click opens the panel, right click toggles the mic, middle click toggles recording, scrolling switches scenes. A blinking red REC dot and a broadcast glyph reflect recording/streaming state in the bar (each independently toggleable, and animation can be disabled entirely).
 
@@ -38,25 +38,26 @@ An optional file at `~/.config/noctalia/obs-studio.yaml` declares extra buttons 
 buttons:
   - label: BRB
     icon: coffee
-    obs_control: brb
+    command: [obs-control, brb]
     bg: "#f4a340"
     fg: "#1a1200"
   - label: Alt camera
     icon: camera-rotate
-    obs_control: alt
+    command: [obs-control, alt]
   - label: Toggle freeze
     icon: snowflake
-    filter_source: Webcam
-    filter_name: Freeze
+    command: [obs-control, toggle-freeze]
+    state_filter_source: Webcam
+    state_filter_name: Freeze
   - label: Replay
     icon: repeat
-    obs_control: replay
+    command: [obs-control, replay]
   - label: 👍
     icon: thumb-up
-    obs_control: thumbs-up
+    command: [obs-control, thumbs-up]
   - label: Show roomba
     icon: robot
-    obs_control: roomba-show
+    command: [obs-control, roomba-show]
   - label: Custom scene
     icon: movie
     obs_cli: [scene, switch, "My Scene"]
@@ -67,11 +68,11 @@ buttons:
 
 Each button needs a `label` and, optionally, an `icon` (a Tabler glyph name; defaults to `player-play`) and `bg`/`fg` (hex colors for its background/text — a plain `ui.button` only offers theme variants for its background, not an arbitrary color, so a button with either set renders as a colored backdrop with a real button on top handling the click and tinting the text/glyph). Exactly one action is used per button, checked in this order:
 
-- `filter_source: <source>` + `filter_name: <filter>` (+ optional `filter_action: toggle|enable|disable`, default `toggle`) — flips a source filter/effect (OBS's Freeze filter, a color-correction filter, a chroma key, …) via `obs-cli filter <action> <source> <filter>`. This is the shorthand for the common "toggle one effect" button. Its current on/off state is polled alongside everything else: a plain-styled button gets the same selected look the record/stream/etc. toggles use, while a colored one gets a check mark plus a bright highlighted border.
-- `active_scene: <scene name>` — marks the button active while OBS is on this scene. Use this for scene-oriented `obs_control` or `obs_cli` actions when you want their current state shown; active buttons get a check mark and highlighted styling.
-- `obs_control: <verb>` — runs `obs-control <verb>` (any subcommand it supports: `brb`, `alt`, `webcam`, `cat`, `toggle-freeze`, `replay`, `mute`/`unmute`/`toggle-mute`, `thumbs-up`/`thumbs-down`, `roomba-show`/`roomba-hide`, `react <emoji>`, …).
+- `filter_source: <source>` + `filter_name: <filter>` (+ optional `filter_action: toggle|enable|disable`, default `toggle`) — flips a source filter/effect directly via `obs-cli filter <action> <source> <filter>`. Its current on/off state is polled alongside everything else.
+- `state_filter_source: <source>` + `state_filter_name: <filter>` — polls a filter's state for a button whose action is supplied another way, such as `command: [obs-control, toggle-freeze]`. This lets a host-specific command retain its own OSD/side effects while the panel still shows the OBS filter state.
+- `active_scene: <scene name>` — marks the button active while OBS is on this scene. Use this for scene-oriented `command` or `obs_cli` actions when you want their current state shown; active buttons get highlighted styling.
 - `obs_cli: [args...]` — runs `obs-cli` with the plugin's configured host/port/password plus these arguments (e.g. `[scene, switch, "My Scene"]`, `[hotkey, trigger, "OBSBasic.StartStreaming"]`, or `[filter, toggle, Source, Filter]` if you'd rather not use the `filter_source`/`filter_name` shorthand).
-- `command: [argv...]` — runs an arbitrary command as an explicit argument array (no shell), for anything neither CLI covers.
+- `command: [argv...]` — runs an arbitrary host command as an explicit argument array (no shell), for anything neither the plugin nor `obs-cli` covers. This is the intended place for private utilities such as `obs-control`.
 
 ## Nix usage (this flake)
 
@@ -87,6 +88,6 @@ programs.noctalia.settings.plugins.source = [
 programs.noctalia.settings.plugins.enabled = [ "pschmitt/obs-studio" ];
 ```
 
-`obs-cli` and `obs-control` must be on the PATH the Noctalia service runs with.
+`obs-cli` must be on the PATH the Noctalia service runs with. Commands referenced by custom `command: [...]` buttons are host configuration responsibilities.
 
 `assets/obs-studio-icon.png` is OBS Studio's own `com.obsproject.Studio` app icon, taken from the [obsproject/obs-studio](https://github.com/obsproject/obs-studio) repo's own `data/obs-studio/`, the same icon every Linux desktop installs shows for OBS Studio itself.

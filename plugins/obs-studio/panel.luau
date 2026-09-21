@@ -185,9 +185,6 @@ local function customButtonAction(button)
       })
     end
   end
-  if button.obs_control then
-    return function() dispatch({ action = "run_obs_control", args = { button.obs_control } }) end
-  end
   if button.obs_cli then
     return function() dispatch({ action = "run_obs_cli", args = button.obs_cli }) end
   end

@@ -5,9 +5,9 @@ plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
 icon = "video"
-description = "Current scene, recording/streaming status, a scene switcher panel, and configurable quick actions for OBS Studio, driven by obs-cli/obs-control."
+description = "Current scene, recording/streaming status, a scene switcher panel, and configurable quick actions for OBS Studio, driven by obs-cli and host-configured commands."
 tags = ["bar", "panel", "service", "indicator", "utility"]
-dependencies = ["obs-cli", "obs-control"]
+dependencies = ["obs-cli"]
 
 # ── Connection ───────────────────────────────────────────────────────────────
 
@@ -29,9 +29,8 @@ max = 65535
 
 # Read only at request time, the same sops-nix runtime-secret pattern
 # pschmitt/ha's server_file/token_file use. Left at its default, this already
-# points at the canonical path obs-control itself falls back to (see
-# home-manager/gui/go-hass-agent's obs/websocket/password sops template), so
-# most hosts need no change here at all.
+# points at the canonical path used by the host's OBS tooling, so most hosts
+# need no change here at all.
 [[setting]]
 key = "password_file"
 type = "file"
@@ -45,14 +44,6 @@ type = "string"
 label_key = "settings.obs_cli_path.label"
 description_key = "settings.obs_cli_path.description"
 default = "obs-cli"
-advanced = true
-
-[[setting]]
-key = "obs_control_path"
-type = "string"
-label_key = "settings.obs_control_path.label"
-description_key = "settings.obs_control_path.description"
-default = "obs-control"
 advanced = true
 
 # Split on whitespace into an argv for runAsync (no shell, so no quoting for

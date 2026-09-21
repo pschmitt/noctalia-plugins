@@ -1,14 +1,10 @@
 --!nonstrict
 -- OBS Studio — headless [[service]] entry.
 --
--- Talks to obs-websocket through two existing CLIs rather than reimplementing
--- either: `obs-cli` (pschmitt/obs-cli) for scene/record/stream/virtualcam/
--- input status and switching, and `obs-control` (pkgs/local/obs-control) for
--- the higher-level actions it already owns (mic mute that also syncs OBS's
--- "Microphone off" overlay, scene shortcuts, freeze-filter toggle, replay,
--- emoji reactions). Custom buttons can call either, or any other command,
+-- Talks to obs-websocket through `obs-cli` rather than reimplementing its
+-- protocol. Custom buttons can call obs-cli or any host-configured command
 -- through the same argument-array runAsync() every action here uses -- no
--- shell, no quoting to get wrong.
+-- shell, no quoting to get wrong, and no dependency on private utilities.
 
 local configFile = require("./lib/config.luau")
 
@@ -89,16 +85,6 @@ local function obsCliArgv(subArgs, wantJson)
   return argv
 end
 
-local function obsControlArgv(subArgs)
-  local argv = {
-    trim(noctalia.getConfig("obs_control_path")) ~= "" and noctalia.getConfig("obs_control_path") or "obs-control",
-  }
-  for _, arg in subArgs do
-    table.insert(argv, tostring(arg))
-  end
-  return argv
-end
-
 local function publish()
   noctalia.state.set(SNAPSHOT, snapshot)
 end
@@ -136,7 +122,6 @@ local function loadCustomButtons()
       table.insert(buttons, {
         label = button.label,
         icon = type(button.icon) == "string" and button.icon ~= "" and button.icon or "player-play",
-        obs_control = type(button.obs_control) == "string" and button.obs_control or nil,
         obs_cli = type(button.obs_cli) == "table" and button.obs_cli or nil,
         command = type(button.command) == "table" and button.command or nil,
         -- Shorthand for the common "flip a source filter/effect" case (e.g.
@@ -145,6 +130,8 @@ local function loadCustomButtons()
         filter_source = type(button.filter_source) == "string" and button.filter_source ~= "" and button.filter_source or nil,
         filter_name = type(button.filter_name) == "string" and button.filter_name ~= "" and button.filter_name or nil,
         filter_action = type(button.filter_action) == "string" and button.filter_action ~= "" and button.filter_action or "toggle",
+        state_filter_source = type(button.state_filter_source) == "string" and button.state_filter_source ~= "" and button.state_filter_source or nil,
+        state_filter_name = type(button.state_filter_name) == "string" and button.state_filter_name ~= "" and button.state_filter_name or nil,
         active_scene = type(button.active_scene) == "string" and button.active_scene ~= "" and button.active_scene or nil,
         bg = type(button.bg) == "string" and button.bg ~= "" and button.bg or nil,
         fg = type(button.fg) == "string" and button.fg ~= "" and button.fg or nil,
@@ -194,10 +181,10 @@ end
 -- ── Polling ──────────────────────────────────────────────────────────────────
 
 -- Custom buttons can expose state when their configuration describes something
--- stable to query: filter_source/filter_name for an OBS filter, or
+-- stable to query: state_filter_source/state_filter_name for an OBS filter, or
 -- active_scene for an action that selects a scene. There is no equivalent for
--- arbitrary obs_control/obs_cli/command buttons -- those run an action with no
--- fixed notion of "on" or "off" to query.
+-- arbitrary obs_cli/command buttons -- those run an action with no fixed
+-- notion of "on" or "off" to query.
 local function pollButtonStates(onDone)
   local buttons = snapshot.customButtons
   local index = 0
@@ -213,13 +200,15 @@ local function pollButtonStates(onDone)
       next_()
       return
     end
-    if not button.filter_source or not button.filter_name then
+    local filterSource = button.state_filter_source or button.filter_source
+    local filterName = button.state_filter_name or button.filter_name
+    if not filterSource or not filterName then
       button.active = nil
       next_()
       return
     end
     noctalia.runAsync(
-      obsCliArgv({ "-q", "filter", "status", button.filter_source, button.filter_name }, false),
+      obsCliArgv({ "-q", "filter", "status", filterSource, filterName }, false),
       function(result)
         button.active = result.exitCode == 0
         next_()
@@ -428,7 +417,7 @@ local function toggleMute()
   if micInput ~= "" then
     run(obsCliArgv({ "input", "toggle-mute", micInput }, false), true)
   else
-    run(obsControlArgv({ "toggle-mute" }), true)
+    noctalia.notifyError(noctalia.tr("notify.mic_input_missing_title"), noctalia.tr("notify.mic_input_missing_message"))
   end
 end
 
@@ -458,8 +447,6 @@ noctalia.state.watch(COMMAND, function(cmd)
     captureScreenshot()
   elseif action == "obs_cmd" then
     launchObs()
-  elseif action == "run_obs_control" and type(cmd.args) == "table" then
-    run(obsControlArgv(cmd.args), true)
   elseif action == "run_obs_cli" and type(cmd.args) == "table" then
     run(obsCliArgv(cmd.args, false), true)
   elseif action == "run_command" and type(cmd.args) == "table" and #cmd.args > 0 then

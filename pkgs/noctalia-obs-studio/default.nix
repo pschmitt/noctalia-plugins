@@ -38,7 +38,7 @@ stdenvNoCC.mkDerivation {
   '';
 
   meta = {
-    description = "Current scene, recording/streaming status, a scene switcher panel, and configurable quick actions for OBS Studio, driven by obs-cli/obs-control";
+    description = "Current scene, recording/streaming status, a scene switcher panel, and configurable quick actions for OBS Studio, driven by obs-cli and host-configured commands";
     license = lib.licenses.gpl3Only;
     maintainers = with lib.maintainers; [ pschmitt ];
     platforms = lib.platforms.linux;
