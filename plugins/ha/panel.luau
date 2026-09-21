@@ -897,18 +897,36 @@ local function copyDetailValueOnDoubleClick(label, value)
   end
 end
 
-local function detailRow(label, value, indented)
-  local children = {}
-  if indented then children[#children + 1] = ui.box({ width = 10, height = 1, fill = "on_surface/0" }) end
-  children[#children + 1] = ui.label({ text = label, width = 125, fontSize = 11, color = "on_surface_variant", maxLines = 1 })
-  children[#children + 1] = ui.row({
-    key = "ha-detail-value-" .. label,
-    flexGrow = 1,
-    onClick = function() copyDetailValueOnDoubleClick(label, value) end,
-  }, {
-    ui.label({ text = detailValue(value), flexGrow = 1, fontSize = 12, maxLines = 4 }),
+local function detailRow(label, value)
+  return ui.row({ align = "start", gap = 10, paddingV = 4 }, {
+    ui.label({ text = label, width = 125, fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
+    ui.row({
+      key = "ha-detail-value-" .. label,
+      flexGrow = 1,
+      onClick = function() copyDetailValueOnDoubleClick(label, value) end,
+    }, {
+      ui.label({ text = detailValue(value), flexGrow = 1, fontSize = 12, maxLines = 4 }),
+    }),
   })
-  return ui.row({ align = "start", gap = 10, paddingV = 4 }, children)
+end
+
+local function attributeRow(label, value, index)
+  return ui.row({
+    align = "start",
+    gap = 10,
+    padding = 6,
+    radius = 6,
+    fill = index % 2 == 0 and "surface/0.28" or "surface/0.16",
+  }, {
+    ui.label({ text = label, width = 135, fontSize = 11, color = "on_surface_variant", maxLines = 2 }),
+    ui.row({
+      key = "ha-attribute-value-" .. label,
+      flexGrow = 1,
+      onClick = function() copyDetailValueOnDoubleClick(label, value) end,
+    }, {
+      ui.label({ text = detailValue(value), flexGrow = 1, fontSize = 12, maxLines = 4 }),
+    }),
+  })
 end
 
 local function cameraPreview(entity)
@@ -1254,10 +1272,10 @@ local function detailsView()
     local attributeRows = {}
     for index, key in ipairs(keys) do
       if index > 80 then break end
-      attributeRows[#attributeRows + 1] = detailRow(key, attributes[key], true)
+      attributeRows[#attributeRows + 1] = attributeRow(key, attributes[key], index)
     end
-    detailsCard[#detailsCard + 1] = sectionHeading("list-details", "Attributes", 12)
-    detailsCard[#detailsCard + 1] = ui.column({ gap = 0 }, attributeRows)
+    detailsCard[#detailsCard + 1] = sectionHeading("list-details", "Attributes (" .. tostring(#keys) .. ")", 12)
+    detailsCard[#detailsCard + 1] = ui.column({ gap = 4 }, attributeRows)
     if #keys > 80 then
       detailsCard[#detailsCard + 1] = ui.label({ text = "Showing the first 80 attributes.", fontSize = 11, color = "on_surface_variant" })
     end
