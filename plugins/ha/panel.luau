@@ -60,6 +60,14 @@ local historyLoading = false
 local historyErrorMessage = noctalia.state.get("ha.history_error") or ""
 local historyHover = nil
 local CARD_STYLE = { fill = "surface_variant/0.58", radius = 12, padding = 10, gap = 2 }
+
+local function sectionHeading(glyph, text, fontSize)
+  return ui.row({ align = "center", gap = 6 }, {
+    ui.glyph({ name = glyph, size = 14, color = "on_surface_variant" }),
+    ui.label({ text = text, fontSize = fontSize or 13, fontWeight = "semibold" }),
+  })
+end
+
 local ENTITY_DRAG_TYPE = "ha-entity"
 local SECTION_DRAG_TYPE = "ha-section"
 local animationFrame = 0
@@ -1034,7 +1042,7 @@ local function activityCard(entity)
     body[#body + 1] = ui.column({ gap = 0 }, rows)
   end
   return ui.column(CARD_STYLE, {
-    ui.label({ text = "Activity", fontSize = 13, fontWeight = "semibold" }),
+    sectionHeading("activity", "Activity"),
     ui.column({ gap = 0 }, body),
   })
 end
@@ -1104,14 +1112,14 @@ local function historyCard(entity)
 
   if historyErrorMessage ~= "" then
     return ui.column(CARD_STYLE, {
-      ui.label({ text = "History (24h)", fontSize = 13, fontWeight = "semibold" }),
+      sectionHeading("chart-line", "History (24h)"),
       ui.label({ text = historyErrorMessage, fontSize = 12, color = "error" }),
     })
   end
 
   if historyLoading and (not history or history.entity_id ~= entity.entity_id or not history.available) then
     return ui.column(CARD_STYLE, {
-      ui.label({ text = "History (24h)", fontSize = 13, fontWeight = "semibold" }),
+      sectionHeading("chart-line", "History (24h)"),
       ui.label({ text = "Loading history…", fontSize = 12, color = "on_surface_variant" }),
     })
   end
@@ -1163,7 +1171,7 @@ local function historyCard(entity)
 
   return ui.column(CARD_STYLE, {
     ui.row({ align = "center", justify = "space_between" }, {
-      ui.label({ text = "History (24h)", fontSize = 13, fontWeight = "semibold" }),
+      sectionHeading("chart-line", "History (24h)"),
       headerRight,
     }),
     graphControl,
@@ -1189,7 +1197,7 @@ local function detailsView()
   if not configuredSet()[entity.entity_id] then
     content[#content + 1] = ui.column(CARD_STYLE, {
       ui.row({ align = "center", justify = "space_between" }, {
-        ui.label({ text = "Dashboard", fontSize = 13, fontWeight = "semibold" }),
+        sectionHeading("smart-home", "Dashboard"),
         ui.button({
           text = "Add to dashboard",
           glyph = "plus",
@@ -1202,13 +1210,13 @@ local function detailsView()
   end
   if controls then
     content[#content + 1] = ui.column(CARD_STYLE, {
-      ui.label({ text = "Controls", fontSize = 13, fontWeight = "semibold" }),
+      sectionHeading("settings", "Controls"),
       controls,
     })
   end
   if shared.domainOf(entity.entity_id) == "camera" then
     content[#content + 1] = ui.column(CARD_STYLE, {
-      ui.label({ text = "Live preview", fontSize = 13, fontWeight = "semibold" }),
+      sectionHeading("camera", "Live preview"),
       cameraPreview(entity),
     })
   end
@@ -1219,7 +1227,7 @@ local function detailsView()
   content[#content + 1] = activityCard(entity)
   local detailsCard = {
     ui.row({ align = "center", justify = "space_between" }, {
-      ui.label({ text = "Details", fontSize = 13, fontWeight = "semibold" }),
+      sectionHeading("info-circle", "Details"),
       ui.button({
         glyph = "external-link",
         variant = "ghost",
@@ -1248,7 +1256,7 @@ local function detailsView()
       if index > 80 then break end
       attributeRows[#attributeRows + 1] = detailRow(key, attributes[key], true)
     end
-    detailsCard[#detailsCard + 1] = ui.label({ text = "Attributes", fontSize = 12, fontWeight = "semibold", color = "on_surface_variant" })
+    detailsCard[#detailsCard + 1] = sectionHeading("list-details", "Attributes", 12)
     detailsCard[#detailsCard + 1] = ui.column({ gap = 0 }, attributeRows)
     if #keys > 80 then
       detailsCard[#detailsCard + 1] = ui.label({ text = "Showing the first 80 attributes.", fontSize = 11, color = "on_surface_variant" })
