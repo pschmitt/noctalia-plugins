@@ -9,15 +9,17 @@ right now" — `lan-mouse cli list` only reports per-client connection state
 focus. This plugin instead polls a sentinel file that nixos-config's
 `home-manager/gui/lan-mouse.nix` `enter_hook` maintains: it holds the peer's
 name while control is away from this host, and is removed once control
-returns. The bar icon is hidden while control is on this host, and shows
+returns. The bar icon is hidden while control is on this host or while the
+local `lan-mouse.service` is stopped, and shows
 "→ \<peer\>" while it's away.
 
 The panel lists configured peers (from `lan-mouse cli list`) with their
 connection state, and an Enable/Disable button per peer
 (`lan-mouse cli activate`/`deactivate`).
 
-A lockscreen widget adds a "Bring input back" button, shown only while
-`incoming_sentinel` says a peer's input is actually flowing into this host.
+A lockscreen widget adds a "Bring input back" button, shown only while the
+local service is active and `incoming_sentinel` says a peer's input is
+actually flowing into this host.
 lan-mouse normally releases capture by watching the cursor cross back over
 the screen edge on the receiving side, but a session lock there grabs input
 exclusively, so that check never fires — confirmed live 2026-09-17, mouse

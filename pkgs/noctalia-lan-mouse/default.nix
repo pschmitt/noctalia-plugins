@@ -1,8 +1,12 @@
-{ lib, stdenvNoCC }:
+{
+  lib,
+  stdenvNoCC,
+  systemd,
+}:
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-lan-mouse";
-  version = "0.1.0";
+  version = "0.1.1";
 
   src = lib.fileset.toSource {
     root = ../../plugins/lan-mouse;
@@ -26,7 +30,9 @@ stdenvNoCC.mkDerivation {
     dest=$out/share/noctalia-plugins/lan-mouse
     mkdir -p "$dest"
 
-    cp plugin.toml service.luau bar.luau panel.luau lockscreen.luau README.md "$dest"/
+    cp plugin.toml bar.luau panel.luau lockscreen.luau README.md "$dest"/
+    substitute service.luau "$dest"/service.luau \
+      --replace-fail "@systemctl@" "${lib.getExe' systemd "systemctl"}"
     cp -r translations "$dest"/
 
     runHook postInstall

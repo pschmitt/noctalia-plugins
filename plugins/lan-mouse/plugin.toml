@@ -6,6 +6,8 @@
 # holds the peer's name while control is away, and is absent while control is
 # on this host. The panel's peer list (hostname, position, connection state)
 # comes straight from `lan-mouse cli list`.
+# The bar and lockscreen widget also disappear while lan-mouse.service is not
+# active, even if a stale sentinel remains from the previous session.
 #
 # Also ships a lockscreen widget (lockscreen.luau): a "bring input back"
 # button for when a peer's session is locked and can no longer release
@@ -14,7 +16,7 @@
 
 id = "pschmitt/lan-mouse"
 name = "Lan Mouse"
-version = "0.1.0"
+version = "0.1.1"
 plugin_api = 24 # argument-array runAsync() keeps the `lan-mouse cli` call shell-free
 author = "pschmitt"
 license = "GPL-3.0-only"

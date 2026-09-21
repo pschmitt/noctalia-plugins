@@ -145,6 +145,7 @@ local function loadCustomButtons()
         filter_source = type(button.filter_source) == "string" and button.filter_source ~= "" and button.filter_source or nil,
         filter_name = type(button.filter_name) == "string" and button.filter_name ~= "" and button.filter_name or nil,
         filter_action = type(button.filter_action) == "string" and button.filter_action ~= "" and button.filter_action or "toggle",
+        active_scene = type(button.active_scene) == "string" and button.active_scene ~= "" and button.active_scene or nil,
         bg = type(button.bg) == "string" and button.bg ~= "" and button.bg or nil,
         fg = type(button.fg) == "string" and button.fg ~= "" and button.fg or nil,
       })
@@ -192,12 +193,11 @@ end
 
 -- ── Polling ──────────────────────────────────────────────────────────────────
 
--- Custom buttons backed by a filter (the "flip one effect" shorthand -- see
--- filter_source/filter_name above) can show whether that filter is currently
--- enabled, the same way the built-in record/stream/virtualcam/mute toggles
--- show their own state. There's no equivalent for obs_control/obs_cli/
--- command buttons -- those run an arbitrary action with no fixed notion of
--- "on" or "off" to query.
+-- Custom buttons can expose state when their configuration describes something
+-- stable to query: filter_source/filter_name for an OBS filter, or
+-- active_scene for an action that selects a scene. There is no equivalent for
+-- arbitrary obs_control/obs_cli/command buttons -- those run an action with no
+-- fixed notion of "on" or "off" to query.
 local function pollButtonStates(onDone)
   local buttons = snapshot.customButtons
   local index = 0
@@ -208,7 +208,13 @@ local function pollButtonStates(onDone)
       onDone()
       return
     end
+    if button.active_scene then
+      button.active = snapshot.currentScene == button.active_scene
+      next_()
+      return
+    end
     if not button.filter_source or not button.filter_name then
+      button.active = nil
       next_()
       return
     end
@@ -383,6 +389,10 @@ local function run(argv, notifyOnError)
       noctalia.notifyError(noctalia.tr("notify.action_failed_title"), trim(result.stderr))
     end
     poll()
+    -- Refresh the preview even when the action did not change the current
+    -- scene (custom buttons, mute, filters, etc.). Scene changes also get a
+    -- second capture from poll() once the new scene name is known.
+    captureScreenshot()
   end, ACTION_TIMEOUT_MS)
 end
 
@@ -461,6 +471,12 @@ end)
 
 function update()
   poll()
+  -- refresh_interval is also the preview cadence once the service has left
+  -- its short post-launch fast-poll window. captureScreenshot() is guarded
+  -- against overlapping requests, so a slow OBS screenshot cannot pile up.
+  if snapshot.connected and fastPollTicksLeft == 0 then
+    captureScreenshot()
+  end
   if fastPollTicksLeft > 0 then
     fastPollTicksLeft -= 1
     if snapshot.connected or fastPollTicksLeft == 0 then

@@ -63,13 +63,20 @@ local function parsePeers(raw)
 end
 
 local lastKey = ""
+local serviceActive = false
+local away = false
+local peerName = nil
+local incoming = false
+local incomingFrom = nil
 
-local function publish(away, peerName, incoming, incomingFrom, peers)
+local function publish(peers)
   local parts = {}
   for _, peer in ipairs(peers) do
     table.insert(parts, peer.hostname .. ":" .. tostring(peer.active))
   end
-  local key = tostring(away)
+  local key = tostring(serviceActive)
+    .. "|"
+    .. tostring(away)
     .. "|"
     .. (peerName or "")
     .. "|"
@@ -83,6 +90,7 @@ local function publish(away, peerName, incoming, incomingFrom, peers)
   end
   lastKey = key
   noctalia.state.set("lan_mouse_status", {
+    serviceActive = serviceActive,
     away = away,
     peerName = peerName,
     incoming = incoming,
@@ -92,44 +100,59 @@ local function publish(away, peerName, incoming, incomingFrom, peers)
 end
 
 local lastPeers = {}
-local polling = false
+local servicePolling = false
+local peerPolling = false
 
-local function poll()
+local function readSentinels()
   local path = sentinelPath()
-  local away = noctalia.fileExists(path)
-  local peerName = away and noctalia.string.trim(noctalia.readFile(path) or "") or nil
+  away = noctalia.fileExists(path)
+  peerName = away and noctalia.string.trim(noctalia.readFile(path) or "") or nil
   if peerName == "" then
     peerName = nil
   end
 
   local incomingPath = incomingSentinelPath()
-  local incoming = noctalia.fileExists(incomingPath)
-  local incomingFrom = incoming and noctalia.string.trim(noctalia.readFile(incomingPath) or "") or nil
+  incoming = noctalia.fileExists(incomingPath)
+  incomingFrom = incoming and noctalia.string.trim(noctalia.readFile(incomingPath) or "") or nil
   if incomingFrom == "" then
     incomingFrom = nil
   end
+end
 
-  -- Publish the sentinel-derived state immediately -- these are cheap
-  -- synchronous file reads, unlike the `lan-mouse cli list` call below.
-  -- Confirmed live (2026-09-17) that this poller's single in-flight
-  -- runAsync call can get stuck and never resolve, which used to silently
-  -- freeze the *entire* published state (away/incoming included) until
-  -- noctalia.service was restarted -- exactly the bar icon and lockscreen
-  -- button this plugin exists for. Publishing away/incoming up front, and
-  -- guarding the peer-list call with `polling` so a stuck call can't pile
-  -- up new ones either, means only the panel's peer list (which tolerates
-  -- staleness) can lag; the signals that matter can't get wedged.
-  publish(away, peerName, incoming, incomingFrom, lastPeers)
-
-  if polling then
+local function pollPeers()
+  if peerPolling or not serviceActive then
     return
   end
-  polling = true
+  peerPolling = true
   noctalia.runAsync({ "lan-mouse", "cli", "list" }, function(result)
-    polling = false
-    lastPeers = result.exitCode == 0 and parsePeers(result.stdout or "") or lastPeers
-    publish(away, peerName, incoming, incomingFrom, lastPeers)
+    peerPolling = false
+    if result.exitCode == 0 then
+      lastPeers = parsePeers(result.stdout or "")
+    end
+    publish(lastPeers)
   end, POLL_TIMEOUT_MS)
+end
+
+local function poll()
+  readSentinels()
+
+  -- Publish the sentinel-derived state immediately -- these are cheap
+  -- synchronous file reads, unlike the service and CLI checks below.
+  -- The service check is separate so a stale sentinel cannot keep either
+  -- widget visible after lan-mouse.service has stopped.
+  publish(lastPeers)
+
+  if not servicePolling then
+    servicePolling = true
+    noctalia.runAsync({ "@systemctl@", "--user", "is-active", "--quiet", "lan-mouse.service" }, function(result)
+      servicePolling = false
+      serviceActive = result.exitCode == 0
+      publish(lastPeers)
+      pollPeers()
+    end, POLL_TIMEOUT_MS)
+  end
+
+  pollPeers()
 end
 
 poll()

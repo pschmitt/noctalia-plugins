@@ -30,7 +30,7 @@
     },
     "refresh_interval": {
       "label": "Refresh interval (seconds)",
-      "description": "How often to poll OBS for scene, recording, streaming, and virtual camera status."
+      "description": "How often to poll OBS for scene, recording, streaming, and virtual camera status, and refresh the panel preview."
     },
     "bar_display_mode": {
       "label": "Bar display",

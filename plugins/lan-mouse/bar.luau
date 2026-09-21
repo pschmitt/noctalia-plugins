@@ -1,18 +1,19 @@
 --!nonstrict
 -- Lan Mouse bar widget — the [[widget]] entry.
 --
--- Hidden while control is on this host (the common case); shows a mouse
--- glyph + the peer's name whenever service.luau's away_sentinel poll finds
--- control has moved away. Clicking opens the peer/status panel defined in
--- plugin.toml.
+-- Hidden while control is on this host (the common case), or while the local
+-- lan-mouse.service is stopped; shows a mouse glyph + the peer's name
+-- whenever service.luau's away_sentinel poll finds control has moved away.
+-- Clicking opens the peer/status panel defined in plugin.toml.
 
-local state = noctalia.state.get("lan_mouse_status") or { away = false, peerName = nil, peers = {} }
+local state = noctalia.state.get("lan_mouse_status") or { serviceActive = false, away = false, peerName = nil, peers = {} }
 
 local IDLE_TICK_MS = 5000
 
 local function render()
-  barWidget.setVisible(state.away == true)
-  if not state.away then
+  local visible = state.serviceActive == true and state.away == true
+  barWidget.setVisible(visible)
+  if not visible then
     return
   end
 

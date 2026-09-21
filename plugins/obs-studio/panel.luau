@@ -220,8 +220,7 @@ local function customButtonWidget(button, index)
       key = key,
       text = label,
       glyph = button.icon,
-      variant = "ghost",
-      selected = active,
+      variant = active and "outline" or "ghost",
       flexGrow = 1,
       onClick = customButtonAction(button),
     })
@@ -234,7 +233,7 @@ local function customButtonWidget(button, index)
     align = "center",
     justify = "center",
     fill = button.bg or "surface_variant",
-    border = active and "#ffffff" or nil,
+    border = active and "primary" or nil,
     borderWidth = active and 2 or nil,
   }, {
     ui.button({
@@ -246,6 +245,7 @@ local function customButtonWidget(button, index)
       height = 36,
       onClick = customButtonAction(button),
     }),
+    active and ui.box({ width = 6, height = 6, radius = 3, fill = "primary" }) or nil,
   })
 end
 
@@ -339,11 +339,14 @@ local function render_()
     local buttons = customButtons()
     if buttons then
       table.insert(body, ui.separator({}))
-      table.insert(body, ui.label({
-        text = noctalia.tr("panel.custom_buttons"),
-        fontSize = 12,
-        fontWeight = "bold",
-        color = "on_surface_variant",
+      table.insert(body, ui.row({ gap = 6, align = "center" }, {
+        ui.glyph({ name = "bolt", size = 14, color = "on_surface_variant" }),
+        ui.label({
+          text = noctalia.tr("panel.custom_buttons"),
+          fontSize = 12,
+          fontWeight = "bold",
+          color = "on_surface_variant",
+        }),
       }))
       table.insert(body, buttons)
     end

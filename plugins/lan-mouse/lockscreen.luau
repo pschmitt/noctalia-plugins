@@ -20,7 +20,7 @@
 -- enter_hook on the *next* real capture into it, even though capture
 -- itself kept working.)
 
-local state = noctalia.state.get("lan_mouse_status") or { incoming = false, incomingFrom = nil }
+local state = noctalia.state.get("lan_mouse_status") or { serviceActive = false, incoming = false, incomingFrom = nil }
 local pending = false
 
 local function goBackPath()
@@ -48,7 +48,7 @@ local function render()
   -- -- `ui.row({ visible = false }, {})` is the exact pattern used
   -- elsewhere in this repo (timewarrior/panel.luau) for "hide this row
   -- entirely", always paired with empty children there.
-  local visible = state.incoming == true
+  local visible = state.serviceActive == true and state.incoming == true
   renderer.render(ui.row({
     gap = 6,
     align = "center",
