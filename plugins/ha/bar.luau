@@ -203,6 +203,11 @@ local function render()
         children[#children + 1] = ui.glyph({ name = iconName, size = iconSize(), color = "on_surface_variant" })
       end
     end
+    -- Keep the stable single-icon slot while allowing declarative widgets
+    -- (such as a washer timer) to appear beside it.
+    for _, item in ipairs(barItems) do
+      if item.visible and item.widget ~= "badge" then children[#children + 1] = customBarItem(item) end
+    end
   else
     local customIds = {}
     for _, item in ipairs(barItems) do
