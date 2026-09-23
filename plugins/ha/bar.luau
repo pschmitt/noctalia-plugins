@@ -5,6 +5,7 @@ local entities = noctalia.state.get("ha.entities") or {}
 local sections = noctalia.state.get("ha.sections") or {}
 local barItems = noctalia.state.get("ha.bar_items") or {}
 local barConfig = noctalia.state.get("ha.bar_config") or {}
+local barIcon = noctalia.state.get("ha.bar_icon")
 local errorMessage = noctalia.state.get("ha.error") or ""
 local barTargetEntity = noctalia.state.get("ha.bar_target")
 local barActions = noctalia.state.get("ha.bar_actions") or {}
@@ -66,6 +67,36 @@ local function segment(entity)
   return ui.glyph({ name = shared.glyphFor(domain, entity.icon, entity.state), size = iconSize(), color = shared.iconColor(entity) })
 end
 
+local function durationSeconds(value, unit)
+  local numeric = tonumber(value)
+  if numeric ~= nil then
+    local unitName = shared.trim(unit):lower()
+    local factors = {
+      s = 1, sec = 1, second = 1, seconds = 1,
+      m = 60, min = 60, mins = 60, minute = 60, minutes = 60,
+      h = 3600, hr = 3600, hour = 3600, hours = 3600,
+    }
+    return numeric * (factors[unitName] or 1)
+  end
+  local text = shared.trim(value)
+  local hours, minutes, seconds = text:match("^(%d+):(%d+):(%d+)$")
+  if hours then return tonumber(hours) * 3600 + tonumber(minutes) * 60 + tonumber(seconds) end
+  local totalMinutes, remainingSeconds = text:match("^(%d+):(%d+)$")
+  if totalMinutes then return tonumber(totalMinutes) * 60 + tonumber(remainingSeconds) end
+  return nil
+end
+
+local function shortDuration(seconds)
+  seconds = math.max(0, math.floor(seconds))
+  if seconds >= 3600 then
+    local hours = math.floor(seconds / 3600)
+    local minutes = math.floor(seconds % 3600 / 60)
+    return minutes > 0 and (hours .. "h " .. minutes .. "m") or (hours .. "h")
+  end
+  if seconds >= 60 then return math.floor(seconds / 60) .. "m" end
+  return seconds .. "s"
+end
+
 local function tooltip()
   local rows = {}
   local sectioned = {}
@@ -111,9 +142,20 @@ local function customBarItem(item)
     size = iconSize(),
     color = color,
   })
-  local text = ui.label({ text = item.display_state or item.state or "", fontSize = 11, fontWeight = "semibold", color = color, maxLines = 1 })
+  local displayState = item.display_state or item.state or ""
+  if item.state_format == "short_duration" then
+    local seconds = durationSeconds(displayState)
+    if seconds ~= nil then displayState = shortDuration(seconds) end
+  end
+  local text = ui.label({ text = displayState, fontSize = 11, fontWeight = "semibold", color = color, maxLines = 1 })
   if item.widget == "progress" then
     local percentage = tonumber(item.display_state or item.state)
+    if item.total_state ~= nil then
+      local remaining = durationSeconds(item.display_state or item.state)
+      local total = durationSeconds(item.total_state, item.total_unit)
+      percentage = remaining ~= nil and total ~= nil and total > 0
+        and ((total - remaining) / total * 100) or nil
+    end
     local nodes = { icon }
     if percentage ~= nil then
       nodes[#nodes + 1] = ui.progress({
@@ -152,21 +194,21 @@ local function badgeLogo(config)
   if not dataDir then return nil end
   local fileNameColor = color:sub(2):lower()
   local active = badgeIsActive(config)
-  local path = dataDir .. "/ha-badge-" .. position .. "-" .. fileNameColor .. (active and "-on.svg" or "-off.svg")
+  local path = dataDir .. "/ha-badge-v2-" .. position .. "-" .. fileNameColor .. (active and "-on.svg" or "-off.svg")
   if noctalia.fileExists(path) then return path end
 
   local logo = noctalia.readFile(noctalia.pluginDir() .. "/assets/home-assistant-icon.png")
   if type(logo) ~= "string" or logo == "" then return nil end
   local locations = {
-    top_left = { 12, 12 },
-    top_right = { 52, 12 },
-    bottom_left = { 12, 52 },
-    bottom_right = { 52, 52 },
+    top_left = { 16, 16 },
+    top_right = { 48, 16 },
+    bottom_left = { 16, 48 },
+    bottom_right = { 48, 48 },
   }
   local point = locations[position] or locations.top_right
   local badge = ""
   if active then
-    badge = string.format('<circle cx="%d" cy="%d" r="9" fill="%s" stroke="#ffffff" stroke-width="3"/>', point[1], point[2], color)
+    badge = string.format('<circle cx="%d" cy="%d" r="14" fill="%s" stroke="#ffffff" stroke-width="3"/>', point[1], point[2], color)
   end
   local svg = string.format(
     '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><image href="data:image/png;base64,%s" width="64" height="64"/>%s</svg>',
@@ -193,14 +235,17 @@ end
 local function render()
   local children = {}
   local badge = badgeConfig()
-  if badge then children[#children + 1] = badgeNode(badge) end
-  if shared.config("bar_display_mode", "entities") == "single" then
-    if not badge then
-      local iconName = shared.trim(shared.config("bar_icon", "smart-home"))
+  local singleMode = shared.config("bar_display_mode", "entities") == "single"
+  local badgeActive = badge and badgeIsActive(badge)
+  if singleMode then
+    if badgeActive or (badge and not barIcon) then
+      children[#children + 1] = badgeNode(badge)
+    else
+      local iconName = shared.trim(barIcon or shared.config("bar_icon", "smart-home"))
       if iconName == "" or iconName == "smart-home" then
         children[#children + 1] = ui.image({ path = "assets/home-assistant-icon.png", width = iconSize(), height = iconSize(), fit = "contain" })
       else
-        children[#children + 1] = ui.glyph({ name = iconName, size = iconSize(), color = "on_surface_variant" })
+        children[#children + 1] = ui.glyph({ name = shared.glyphFor("sensor", iconName), size = iconSize(), color = "on_surface_variant" })
       end
     end
     -- Keep the stable single-icon slot while allowing declarative widgets
@@ -209,6 +254,7 @@ local function render()
       if item.visible and item.widget ~= "badge" then children[#children + 1] = customBarItem(item) end
     end
   else
+    if badge then children[#children + 1] = badgeNode(badge) end
     local customIds = {}
     for _, item in ipairs(barItems) do
       if item.visible and item.widget ~= "badge" then customIds[item.entity_id] = true end
@@ -249,6 +295,11 @@ end)
 
 noctalia.state.watch("ha.bar_config", function(value)
   barConfig = type(value) == "table" and value or {}
+  render()
+end)
+
+noctalia.state.watch("ha.bar_icon", function(value)
+  barIcon = type(value) == "string" and value or nil
   render()
 end)
 

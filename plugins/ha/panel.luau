@@ -2504,60 +2504,6 @@ function onKey(chord, pressed)
     return
   end
 
-  if k == "left" then
-    if view == "details" then
-      onBackToList()
-      return
-    end
-    if view == "list" and not editMode and selectedItemIndex ~= nil then
-      local selected = visibleItems[selectedItemIndex]
-      if selected then
-        if selected.type == "section" then
-          collapsedSections[selected.key] = true
-          render()
-          return
-        elseif selected.type == "entity" and selected.sectionKey ~= nil then
-          collapsedSections[selected.sectionKey] = true
-          for idx, item in ipairs(visibleItems) do
-            if item.type == "section" and item.key == selected.sectionKey then
-              selectedItemIndex = idx
-              break
-            end
-          end
-          render()
-          return
-        end
-      end
-    end
-    return
-  end
-
-  if k == "right" then
-    if view == "list" and not editMode and selectedItemIndex ~= nil then
-      local selected = visibleItems[selectedItemIndex]
-      if selected then
-        if selected.type == "section" then
-          local isCollapsed = collapsedSections[selected.key]
-          if isCollapsed == nil then
-            isCollapsed = selected.section.collapsed == true
-          end
-          if isCollapsed then
-            collapsedSections[selected.key] = false
-            render()
-          elseif selectedItemIndex < #visibleItems and visibleItems[selectedItemIndex + 1].type == "entity" and visibleItems[selectedItemIndex + 1].sectionKey == selected.key then
-            selectedItemIndex = selectedItemIndex + 1
-            render()
-          end
-          return
-        elseif selected.type == "entity" then
-          openDetails(selected.entityId)
-          return
-        end
-      end
-    end
-    return
-  end
-
   if view ~= "list" or editMode then return end
 
   if k == "down" or k == "up" then

@@ -62,6 +62,7 @@ local stateAttributes = {}
 local stateTemplates = {}
 local favoritePositions = {}
 local layoutBarItems = {}
+local layoutBarIcon = nil
 local barTargetEntity = nil
 local barActions = {}
 local currentRows = {}
@@ -111,7 +112,7 @@ local function statePath()
 end
 
 local function emptyLayout()
-  return { entities = {}, sections = {}, labels = {}, icons = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_items = {}, bar_target = nil, bar_actions = {} }
+  return { entities = {}, sections = {}, labels = {}, icons = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_items = {}, bar_icon = nil, bar_target = nil, bar_actions = {} }
 end
 
 local function readLayout(path)
@@ -131,6 +132,7 @@ local function publishLayout()
   noctalia.state.set("ha.bar_target", barTargetEntity)
   noctalia.state.set("ha.bar_actions", barActions)
   noctalia.state.set("ha.bar_config", layoutBarItems)
+  noctalia.state.set("ha.bar_icon", layoutBarIcon)
 end
 
 local function applyLayout(layout)
@@ -148,6 +150,7 @@ local function applyLayout(layout)
   barTargetEntity = layout.bar_target
   barActions = layout.bar_actions or {}
   layoutBarItems = layout.bar_items or {}
+  layoutBarIcon = layout.bar_icon
   publishLayout()
 end
 
@@ -167,6 +170,7 @@ local function currentLayout()
     bar_target = barTargetEntity,
     bar_actions = barActions,
     bar_items = layoutBarItems,
+    bar_icon = layoutBarIcon,
   }
 end
 
@@ -208,7 +212,10 @@ end
 local function queryIds()
   local ids = {}
   for _, entityId in ipairs(configuredEntities) do ids[entityId] = true end
-  for _, item in ipairs(layoutBarItems) do ids[item.entity_id] = true end
+  for _, item in ipairs(layoutBarItems) do
+    ids[item.entity_id] = true
+    if type(item.total_entity_id) == "string" then ids[item.total_entity_id] = true end
+  end
   for entityId in pairs(conditionEntityIds()) do ids[entityId] = true end
   local ordered = {}
   for entityId in pairs(ids) do ordered[#ordered + 1] = entityId end
@@ -491,6 +498,10 @@ local function refresh()
           name = row.name,
           icon = item.icon or row.icon,
           widget = item.widget or "text",
+          total_state = item.total_entity_id and byId[item.total_entity_id] and byId[item.total_entity_id].state or nil,
+          total_unit = item.total_unit or (item.total_entity_id and byId[item.total_entity_id] and byId[item.total_entity_id].unit_of_measurement or nil),
+          total_entity_id = item.total_entity_id,
+          state_format = item.state_format,
           color = item.color,
           position = item.position or "top_right",
           visible = conditionMatches(item.conditions or entityConditions[item.entity_id], byId),

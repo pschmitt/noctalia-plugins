@@ -92,7 +92,7 @@ local function setField(object, key, value)
 end
 
 function M.parse(text)
-  local result = { entities = {}, entity_conditions = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, sections = {}, labels = {}, icons = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_items = {}, bar_target = nil, bar_actions = {} }
+  local result = { entities = {}, entity_conditions = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, sections = {}, labels = {}, icons = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_items = {}, bar_icon = nil, bar_target = nil, bar_actions = {} }
   local mode = nil
   local section = nil
   local subsection = nil
@@ -121,6 +121,9 @@ function M.parse(text)
         barItem = nil
         if key == "entities" then
           if inline ~= "" then addUnique(result.entities, scalar(inline)) end
+        elseif key == "bar_icon" then
+          local icon = scalar(inline)
+          if type(icon) == "string" and icon ~= "" then result.bar_icon = icon end
         elseif key == "sections" then
           -- The sequence follows on subsequent indented lines.
         elseif key == "bar" then
@@ -380,6 +383,15 @@ function M.parse(text)
         elseif key == "state_template" then
           local template = scalar(value)
           if type(template) == "string" and template ~= "" then result.state_templates[barItem.entity_id] = template end
+        elseif key == "total_entity_id" then
+          local id = scalar(value)
+          if type(id) == "string" and id ~= "" then barItem.total_entity_id = id end
+        elseif key == "total_unit" then
+          local unit = scalar(value)
+          if type(unit) == "string" and unit ~= "" then barItem.total_unit = unit end
+        elseif key == "state_format" then
+          local format = scalar(value)
+          if format == "short_duration" then barItem.state_format = format end
         elseif key == "icon" then
           local icon = scalar(value)
           if type(icon) == "string" and icon ~= "" then barItem.icon = icon end
@@ -466,8 +478,9 @@ function M.serialize(layout)
     "# Home Assistant entities and panel layout.",
     "# This file is the writable Noctalia state overlay; edit the declarative",
     "# base at ~/.config/noctalia/ha.yaml instead when using Home Manager.",
-    "entities:",
   }
+  if layout.bar_icon then lines[#lines + 1] = "bar_icon: " .. quote(layout.bar_icon) end
+  lines[#lines + 1] = "entities:"
   for _, entityId in ipairs(layout.entities or {}) do
     local condition = layout.entity_conditions and layout.entity_conditions[entityId]
     local stateAttr = layout.state_attributes and layout.state_attributes[entityId]
@@ -562,6 +575,9 @@ function M.serialize(layout)
     for _, item in ipairs(layout.bar_items) do
       lines[#lines + 1] = "  - entity_id: " .. quote(item.entity_id)
       lines[#lines + 1] = "    widget: " .. quote(item.widget or "text")
+      if item.total_entity_id then lines[#lines + 1] = "    total_entity_id: " .. quote(item.total_entity_id) end
+      if item.total_unit then lines[#lines + 1] = "    total_unit: " .. quote(item.total_unit) end
+      if item.state_format then lines[#lines + 1] = "    state_format: " .. quote(item.state_format) end
       if item.icon then lines[#lines + 1] = "    icon: " .. quote(item.icon) end
       if item.color then lines[#lines + 1] = "    color: " .. quote(item.color) end
       if item.position then lines[#lines + 1] = "    position: " .. quote(item.position) end

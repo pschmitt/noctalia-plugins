@@ -119,12 +119,24 @@ for the current panel session.
 The optional top-level `bar` list defines dedicated status widgets independently
 of the panel entity list. Each item names an `entity_id`, may include a
 `conditions` block and `state_template`, and chooses `widget: text` (glyph plus
-display value) or `widget: progress` (glyph, a 0–100 progress strip, and the
-display value). `widget: badge` overlays a dot on the Home Assistant logo;
-`color` accepts a hex color and `position` is `top_left`, `top_right`,
-`bottom_left`, or `bottom_right`. The badge stays off while its conditions do
-not match. `icon` accepts a Tabler name or an HA `mdi:` name. Bar entities and
-condition entities are included in the bounded status request automatically.
+display value) or `widget: progress` (glyph, a progress strip, and the display
+value). For progress calculated from a remaining value, set `total_entity_id`
+to another HA entity; its state and unit are queried automatically. `total_unit`
+can override that entity's unit when it has none. A numeric value without a
+unit is treated as seconds. `state_format: short_duration` displays clock-like
+durations as compact values such as `4m` or `1h 20m`; omit it to keep the raw
+state. `state_template` also accepts Home Assistant Jinja filters for custom
+formats.
+
+`widget: badge` overlays a dot on the Home Assistant logo; `color` accepts a
+hex color and `position` is `top_left`, `top_right`, `bottom_left`, or
+`bottom_right`. The badge stays off while its conditions do not match. The
+default dot size matches the notification badge. `icon` accepts a Tabler name
+or an HA `mdi:` name. Top-level `bar_icon` optionally replaces the main icon in
+single-icon mode; when a badge is configured, its HA logo remains the badge
+anchor, and the custom icon is used while the badge is inactive. Bar entities
+and condition entities are included in the bounded status request
+automatically.
 
 Panel controls can be customized for an entire domain, or overridden for one
 entity. Entity-level `panel_controls` always wins over the matching
