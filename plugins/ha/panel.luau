@@ -1584,6 +1584,7 @@ local function listView()
       local key = tostring(index) .. ":" .. tostring(section.name)
       local collapsed = collapsedSections[key]
       if collapsed == nil then collapsed = section.collapsed == true end
+      if searchActive then collapsed = false end
 
       local matchingEntities = {}
       local seenInSection = {}
