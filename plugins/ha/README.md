@@ -69,47 +69,46 @@ The supported layout is intentionally small and readable:
 
 ```yaml
 entities:
-  - light.hue_office_light
-  - entity_id: sensor.washing_machine_status
+  - light.example_office_lamp
+  - entity_id: sensor.example_status
     state_attr: current_program_guess
-  - entity_id: switch.garden_pump
+  - entity_id: switch.example_pump
     conditions:
-      entity: input_boolean.garden_mode
+      entity: input_boolean.example_mode
       state: "on"
-  - entity_id: cover.office_blind
+  - entity_id: cover.example_blind
     favorite_positions: [0, 50, 100]
 sections:
-  - name: Office
+  - name: Example room
     collapsed: true
     entities:
-      - entity_id: light.hue_office_light
+      - entity_id: light.example_office_lamp
         bar_target: true
-  - name: Garden
+  - name: Example garden
     conditions:
-      entity: input_boolean.garden_mode
+      entity: input_boolean.example_mode
       state: "on"
     entities:
-      - switch.garden_pump
+      - switch.example_pump
 bar:
-  - entity_id: sensor.schmutzi_current_status
-    widget: text
+  - entity_id: sensor.example_washer_state
+    widget: progress
     icon: mdi:washing-machine
-    state_template: "{{ states('sensor.schmutzi_time_remaining') }}"
-    conditions:
-      entity: sensor.schmutzi_current_status
-      state: [running, spinning, rinsing]
-  - entity_id: binary_sensor.washing_machine_done
+    state_template: "{{ states('sensor.example_time_remaining') }}"
+    total_entity_id: sensor.example_total_time
+    total_unit: minutes
+  - entity_id: binary_sensor.example_washer_done
     widget: badge
     color: "#ff0000"
     position: top_right
     conditions:
-      entity: binary_sensor.washing_machine_done
+      entity: binary_sensor.example_washer_done
       state: "on"
-  homeassistant:
-    customize:
-      light.hue_office_light:
-        friendly_name: Office lamp
-        icon: mdi:desk-lamp
+homeassistant:
+  customize:
+    light.example_office_lamp:
+      friendly_name: Example lamp
+      icon: mdi:desk-lamp
 ```
 
 An entity listed in a section is selected automatically, so the top-level
