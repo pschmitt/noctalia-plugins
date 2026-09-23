@@ -8,6 +8,24 @@ The community `pozzoo/hassio` plugin's entity browser asks Home Assistant to ren
 
 This plugin never makes either kind of unbounded request. The bar/status query names only the entities you've configured, however few. The "Add entity" browser pages through Home Assistant's entity list a bounded chunk at a time (see **Advanced: Browser page size**), optionally scoped to one domain, so every single request stays small regardless of how many entities the instance has.
 
+The optional top-level `automations` list watches state transitions for explicitly named entities. It currently supports Home Assistant-style state triggers and the `notify` action, which creates a Noctalia notification. Rules only fire after the initial state snapshot, so loading or restarting the plugin does not replay existing states.
+
+```yaml
+automations:
+  - alias: Example finished
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.example_done
+        to: "on"
+    action:
+      - service: notify
+        data:
+          title: Example
+          message: "{{ trigger.entity_id }} changed from {{ trigger.from_state.state }} to {{ trigger.to_state.state }}"
+```
+
+Notification text accepts `{{ trigger.entity_id }}`, `{{ trigger.from_state.state }}`, and `{{ trigger.to_state.state }}` placeholders. A trigger may omit `from` or `to` to match any state transition; multiple triggers on one automation are combined with OR semantics.
+
 The status query also carries a light's brightness, a fan's speed and a cover's position along with each entity's state, so the bar tooltip and each panel card can show e.g. "on · 62%" or "open · 40%" instead of a bare state word, with no extra request per entity.
 
 ## Usage

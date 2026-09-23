@@ -65,6 +65,7 @@ local layoutBarItems = {}
 local layoutBarIcon = nil
 local barTargetEntity = nil
 local barActions = {}
+local automations = {}
 local currentRows = {}
 local entityCacheRows = {}
 local entityCacheScanRows = nil
@@ -113,7 +114,7 @@ local function statePath()
 end
 
 local function emptyLayout()
-  return { entities = {}, sections = {}, labels = {}, icons = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_items = {}, bar_icon = nil, bar_target = nil, bar_actions = {} }
+  return { entities = {}, sections = {}, labels = {}, icons = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_items = {}, bar_icon = nil, bar_target = nil, bar_actions = {}, automations = {} }
 end
 
 local function readLayout(path)
@@ -152,6 +153,7 @@ local function applyLayout(layout)
   barActions = layout.bar_actions or {}
   layoutBarItems = layout.bar_items or {}
   layoutBarIcon = layout.bar_icon
+  automations = layout.automations or {}
   publishLayout()
 end
 
@@ -172,6 +174,7 @@ local function currentLayout()
     bar_actions = barActions,
     bar_items = layoutBarItems,
     bar_icon = layoutBarIcon,
+    automations = automations,
   }
 end
 
@@ -218,6 +221,18 @@ local function queryIds()
     if type(item.total_entity_id) == "string" then ids[item.total_entity_id] = true end
   end
   for entityId in pairs(conditionEntityIds()) do ids[entityId] = true end
+  for _, automation in ipairs(automations) do
+    for _, trigger in ipairs(automation.triggers or {}) do
+      local triggerIds = trigger.entity_id
+      if type(triggerIds) == "string" then
+        ids[triggerIds] = true
+      elseif type(triggerIds) == "table" then
+        for _, entityId in ipairs(triggerIds) do
+          if type(entityId) == "string" and entityId ~= "" then ids[entityId] = true end
+        end
+      end
+    end
+  end
   local ordered = {}
   for entityId in pairs(ids) do ordered[#ordered + 1] = entityId end
   table.sort(ordered)
@@ -267,6 +282,57 @@ local function conditionMatches(condition, states)
   if not seconds or seconds <= 0 then return true end
   local changedAt = type(record) == "table" and tonumber(record.last_changed) or nil
   return changedAt ~= nil and os.time() - changedAt >= seconds
+end
+
+local function replaceAutomationTokens(text, entityId, oldState, newState)
+  text = tostring(text or "")
+  local tokens = {
+    ["{{ trigger.entity_id }}"] = entityId,
+    ["{{ trigger.from_state.state }}"] = oldState,
+    ["{{ trigger.to_state.state }}"] = newState,
+  }
+  for token, value in pairs(tokens) do
+    text = text:gsub(token:gsub("([%(%)%.%+%-%*%?%[%]%^%$%%])", "%%%1"), function() return tostring(value or "") end)
+  end
+  return text
+end
+
+local function notifyAutomationTransitions(previousRows, nextRows)
+  for _, automation in ipairs(automations) do
+    local matchingTransition = nil
+    for _, trigger in ipairs(automation.triggers or {}) do
+      if trigger.platform == nil or trigger.platform == "state" then
+        local triggerIds = trigger.entity_id
+        if type(triggerIds) == "string" then triggerIds = { triggerIds } end
+        for _, entityId in ipairs(type(triggerIds) == "table" and triggerIds or {}) do
+          local previous = previousRows[entityId]
+          local current = nextRows[entityId]
+          if previous and current and previous.state ~= current.state
+            and (trigger.from == nil or stateMatches(previous.state, trigger.from))
+            and (trigger.to == nil or stateMatches(current.state, trigger.to)) then
+            matchingTransition = { entity_id = entityId, from = previous.state, to = current.state }
+            break
+          end
+        end
+      end
+      if matchingTransition then break end
+    end
+
+    if matchingTransition then
+      for _, action in ipairs(automation.actions or {}) do
+        if action.service == "notify" then
+          local data = action.data or {}
+          local title = data.title
+          if type(title) ~= "string" or shared.trim(title) == "" then title = automation.alias end
+          if type(title) ~= "string" or shared.trim(title) == "" then title = "Home Assistant" end
+          title = replaceAutomationTokens(title, matchingTransition.entity_id, matchingTransition.from, matchingTransition.to)
+          local message = data.message or (matchingTransition.entity_id .. " changed to " .. matchingTransition.to)
+          message = replaceAutomationTokens(message, matchingTransition.entity_id, matchingTransition.from, matchingTransition.to)
+          noctalia.notify(title, message)
+        end
+      end
+    end
+  end
 end
 
 local function loadLayout()
@@ -458,6 +524,7 @@ local function refresh()
     local allRows = parseStatusResponse(response.body)
     local byId = {}
     for _, row in ipairs(allRows) do byId[row.entity_id] = row end
+    notifyAutomationTransitions(currentRows, byId)
     currentRows = byId
 
     local sectionVisibility = {}

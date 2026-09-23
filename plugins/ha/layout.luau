@@ -2,7 +2,8 @@
 
 -- A deliberately small YAML subset for the user-facing HA layout file.
 -- The file is meant to be easy to maintain by hand, not to be a general YAML
--- implementation: entities, sections, booleans, labels, conditions, per-media
+-- implementation: entities, sections, booleans, labels, conditions, automation
+-- notifications, per-media
 -- player remotes, panel control actions, bar control actions, and small
 -- display-state overrides/templates are all we need.
 
@@ -92,7 +93,7 @@ local function setField(object, key, value)
 end
 
 function M.parse(text)
-  local result = { entities = {}, entity_conditions = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, sections = {}, labels = {}, icons = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_items = {}, bar_icon = nil, bar_target = nil, bar_actions = {} }
+  local result = { entities = {}, entity_conditions = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, sections = {}, labels = {}, icons = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_items = {}, bar_icon = nil, bar_target = nil, bar_actions = {}, automations = {} }
   local mode = nil
   local section = nil
   local subsection = nil
@@ -102,6 +103,9 @@ function M.parse(text)
   local customizationDomain = nil
   local labelEntity = nil
   local barItem = nil
+  local automationEntry = nil
+  local automationTrigger = nil
+  local automationAction = nil
 
   for rawLine in tostring(text or ""):gmatch("[^\n]+") do
     rawLine = rawLine:gsub("\r$", "")
@@ -119,6 +123,9 @@ function M.parse(text)
         customizationDomain = nil
         labelEntity = nil
         barItem = nil
+        automationEntry = nil
+        automationTrigger = nil
+        automationAction = nil
         if key == "entities" then
           if inline ~= "" then addUnique(result.entities, scalar(inline)) end
         elseif key == "bar_icon" then
@@ -128,6 +135,8 @@ function M.parse(text)
           -- The sequence follows on subsequent indented lines.
         elseif key == "bar" then
           -- Configurable status widgets, independent of the panel entity list.
+        elseif key == "automations" then
+          -- State-triggered Noctalia actions follow below.
         elseif key == "labels" then
           -- Labels are parsed as an indented key/value mapping below.
         end
@@ -374,6 +383,68 @@ function M.parse(text)
             end
           end
         end
+      elseif mode == "automations" and indent == 2 then
+        local inline = content:match("^%-%s*(.*)$")
+        if inline then
+          automationEntry = { alias = "", triggers = {}, actions = {} }
+          result.automations[#result.automations + 1] = automationEntry
+          automationTrigger = nil
+          automationAction = nil
+          subsection = nil
+          local key, value = inline:match("^([%w_]+):%s*(.*)$")
+          if key == "alias" or key == "id" then automationEntry.alias = scalar(value) end
+        else
+          automationEntry = nil
+          automationTrigger = nil
+          automationAction = nil
+        end
+      elseif mode == "automations" and automationEntry and indent == 4 then
+        local key, value = content:match("^([%w_]+):%s*(.*)$")
+        if key == "alias" or key == "id" then
+          automationEntry.alias = scalar(value)
+        elseif key == "trigger" or key == "triggers" then
+          subsection = "automation_triggers"
+          automationTrigger = nil
+        elseif key == "action" or key == "actions" then
+          subsection = "automation_actions"
+          automationAction = nil
+        end
+      elseif mode == "automations" and automationEntry and indent == 6 then
+        local inline = content:match("^%-%s*(.*)$")
+        if inline and subsection == "automation_triggers" then
+          automationTrigger = {}
+          automationEntry.triggers[#automationEntry.triggers + 1] = automationTrigger
+          local key, value = inline:match("^([%w_]+):%s*(.*)$")
+          if key then automationTrigger[key] = scalar(value) end
+        elseif inline and (subsection == "automation_actions" or subsection == "automation_action_data") then
+          subsection = "automation_actions"
+          automationAction = { service = "", data = {} }
+          automationEntry.actions[#automationEntry.actions + 1] = automationAction
+          local key, value = inline:match("^([%w_]+):%s*(.*)$")
+          if key == "service" or key == "action" then automationAction.service = scalar(value) end
+        end
+      elseif mode == "automations" and automationEntry and automationTrigger
+        and subsection == "automation_triggers" and indent == 8 then
+        local key, value = content:match("^([%w_]+):%s*(.*)$")
+        if key == "platform" or key == "entity_id" or key == "from" or key == "to" then
+          automationTrigger[key] = scalar(value)
+        end
+      elseif mode == "automations" and automationEntry and automationAction
+        and subsection == "automation_actions" and indent == 8 then
+        local key, value = content:match("^([%w_]+):%s*(.*)$")
+        if key == "service" or key == "action" then
+          automationAction.service = scalar(value)
+        elseif key == "data" then
+          subsection = "automation_action_data"
+        elseif key == "title" or key == "message" then
+          automationAction.data[key] = scalar(value)
+        end
+      elseif mode == "automations" and automationEntry and automationAction
+        and subsection == "automation_action_data" and indent == 10 then
+        local key, value = content:match("^([%w_]+):%s*(.*)$")
+        if key == "title" or key == "message" then
+          automationAction.data[key] = scalar(value)
+        end
       elseif mode == "bar" and barItem and indent == 4 then
         local key, value = content:match("^([%w_]+):%s*(.*)$")
         if key == "conditions" or key == "if" then
@@ -591,6 +662,30 @@ function M.serialize(layout)
       end
       local stateTemplate = (layout.state_templates or {})[item.entity_id]
       if stateTemplate then lines[#lines + 1] = "    state_template: " .. quote(stateTemplate) end
+    end
+  end
+
+  if #(layout.automations or {}) > 0 then
+    lines[#lines + 1] = "automations:"
+    for _, automation in ipairs(layout.automations) do
+      lines[#lines + 1] = "  - alias: " .. quote(automation.alias or "")
+      lines[#lines + 1] = "    trigger:"
+      for _, trigger in ipairs(automation.triggers or {}) do
+        lines[#lines + 1] = "      - platform: " .. quote(trigger.platform or "state")
+        if trigger.entity_id then lines[#lines + 1] = "        entity_id: " .. quote(trigger.entity_id) end
+        if trigger.from ~= nil then lines[#lines + 1] = "        from: " .. quote(trigger.from) end
+        if trigger.to ~= nil then lines[#lines + 1] = "        to: " .. quote(trigger.to) end
+      end
+      lines[#lines + 1] = "    action:"
+      for _, action in ipairs(automation.actions or {}) do
+        lines[#lines + 1] = "      - service: " .. quote(action.service or "")
+        local data = action.data or {}
+        if data.title ~= nil or data.message ~= nil then
+          lines[#lines + 1] = "        data:"
+          if data.title ~= nil then lines[#lines + 1] = "          title: " .. quote(data.title) end
+          if data.message ~= nil then lines[#lines + 1] = "          message: " .. quote(data.message) end
+        end
+      end
     end
   end
 
