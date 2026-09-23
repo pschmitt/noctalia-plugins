@@ -78,6 +78,7 @@ local activeDetailsEntityId = nil
 local cameraImagePaths = {}
 local cameraRequestGeneration = {}
 local detailsRequestGeneration = 0
+local relatedRequestGeneration = 0
 local logbookRequestGeneration = 0
 local lastLogbookEntityId = nil
 local lastLogbookFetchedAt = 0
@@ -1021,14 +1022,24 @@ end
 -- plugin should not make a user wait for thousands of sorted entities before
 -- finding one near the end of that list.
 local function entitySearchTemplate(query)
-  local needle = quoteJinja(shared.trim(query):lower())
+  local normalized = shared.trim(query):lower()
+  local domain, remainder = normalized:match("^([%w_]+)%.(.*)$")
+  if not domain then remainder = normalized end
+  local needle = quoteJinja(remainder)
+  local domainFilterStart = domain and ("{% if eid.startswith(" .. quoteJinja(domain .. ".") .. ") -%}") or ""
+  local domainFilterEnd = domain and "{% endif -%}" or ""
   local limit = pageSize()
   return "{% set ns = namespace(count=0) -%}"
     .. "{% set needle = " .. needle .. " -%}"
     .. "{% set terms = needle.replace('.', ' ').replace('_', ' ').replace('-', ' ').split() -%}"
+    .. "{% set actionable_domains = ['automation','button','climate','cover','fan','input_boolean','input_button','light','lock','media_player','scene','script','switch','vacuum'] -%}"
+    .. "{% for phase in [0, 1] -%}"
     .. "{% for s in (states | sort(attribute='entity_id') | list) -%}"
     .. "{% set name = (s.name or s.entity_id) | string -%}"
     .. "{% set eid = s.entity_id | lower -%}"
+    .. "{% set actionable = eid.split('.')[0] in actionable_domains -%}"
+    .. "{% if (phase == 0 and actionable) or (phase == 1 and not actionable) -%}"
+    .. domainFilterStart
     .. "{% set name_lower = name | lower -%}"
     .. "{% set haystack = eid ~ ' ' ~ eid.replace('.', ' ').replace('_', ' ') ~ ' ' ~ name_lower ~ ' ' ~ (s.state | string | lower) -%}"
     .. "{% set match = namespace(ok=true) -%}"
@@ -1041,7 +1052,47 @@ local function entitySearchTemplate(query)
     .. "{{ s.entity_id }}\t{{ s.state }}\t{{ name | replace('\\t',' ') | replace('\\n',' ') }}\t{{ state_attr(s.entity_id,'current_position') or '' }}\t{{ (state_attr(s.entity_id,'unit_of_measurement') or '') | string | replace('\\t',' ') | replace('\\n',' ') }}\n"
     .. "{% set ns.count = ns.count + 1 -%}"
     .. "{% endif -%}"
+    .. domainFilterEnd
+    .. "{% endif -%}"
     .. "{% endfor -%}"
+    .. "{% endfor -%}"
+end
+
+local function relatedEntitiesTemplate(entityId)
+  local quotedEntityId = quoteJinja(entityId)
+  return "{% set current = " .. quotedEntityId .. " -%}"
+    .. "{% set did = device_id(current) -%}"
+    .. "{% if did -%}{% for id in (device_entities(did) | sort | list) -%}"
+    .. "{% if id != current -%}device\t{{ id }}\t{{ (state_attr(id,'friendly_name') or id) | replace('\\t',' ') | replace('\\n',' ') }}\n{% endif -%}"
+    .. "{% endfor -%}{% endif -%}"
+    .. "{% set aid = area_id(current) -%}"
+    .. "{% if aid -%}{% for id in (area_entities(aid) | sort | list) -%}"
+    .. "{% if id != current -%}area\t{{ id }}\t{{ (state_attr(id,'friendly_name') or id) | replace('\\t',' ') | replace('\\n',' ') }}\n{% endif -%}"
+    .. "{% endfor -%}{% endif -%}"
+end
+
+local function fetchRelatedEntities(server, token, entityId)
+  relatedRequestGeneration += 1
+  local relatedId = relatedRequestGeneration
+  local started = haRequest(server, token, relatedEntitiesTemplate(entityId), function(response)
+    if activeDetailsEntityId ~= entityId or relatedId ~= relatedRequestGeneration then return end
+    if not response.ok or response.status ~= 200 then
+      noctalia.state.set("ha.related_entities", { entity_id = entityId, rows = {}, loading = false, error = "Could not load related entities (HTTP " .. tostring(response.status) .. ")" })
+      return
+    end
+    local rows, seen = {}, {}
+    for line in tostring(response.body or ""):gmatch("[^\n]+") do
+      local group, id, name = line:match("^([^\t]*)\t([^\t]*)\t(.*)$")
+      if id and id ~= "" and not seen[id] then
+        seen[id] = true
+        rows[#rows + 1] = { group = group, entity_id = id, name = name ~= "" and name or id }
+      end
+    end
+    noctalia.state.set("ha.related_entities", { entity_id = entityId, rows = rows, loading = false, error = "" })
+  end)
+  if not started then
+    noctalia.state.set("ha.related_entities", { entity_id = entityId, rows = {}, loading = false, error = "Could not start related entities request" })
+  end
 end
 
 -- Areas come from Home Assistant's own area registry (see listAreas() below),
@@ -1709,6 +1760,13 @@ noctalia.state.watch("ha.command", function(command)
     listAreas()
   elseif command.action == "details" then
     activeDetailsEntityId = command.entity_id
+    noctalia.state.set("ha.related_entities", { entity_id = command.entity_id, rows = {}, loading = true, error = "" })
+    local relatedServer, relatedToken, relatedError = credentials()
+    if relatedError then
+      noctalia.state.set("ha.related_entities", { entity_id = command.entity_id, rows = {}, loading = false, error = relatedError })
+    else
+      fetchRelatedEntities(relatedServer, relatedToken, command.entity_id)
+    end
     lastLogbookEntityId = nil
     lastLogbookFetchedAt = 0
     lastHistoryEntityId = nil
@@ -1721,6 +1779,8 @@ noctalia.state.watch("ha.command", function(command)
   elseif command.action == "details_close" then
     activeDetailsEntityId = nil
     detailsRequestGeneration += 1
+    relatedRequestGeneration += 1
+    noctalia.state.set("ha.related_entities", { entity_id = "", rows = {}, loading = false, error = "" })
     logbookRequestGeneration += 1
     historyRequestGeneration += 1
     lastLogbookEntityId = nil

@@ -267,12 +267,16 @@ end
 function M.prepareSearch(query)
   local q = M.trim(query):lower()
   if q == "" then return nil end
+  local domain, remainder = q:match("^([%w_]+)%.(.*)$")
+  if not domain then remainder = q end
   local terms = {}
-  for term in q:gsub("[._-]", " "):gmatch("%S+") do
+  for term in remainder:gsub("[._-]", " "):gmatch("%S+") do
     terms[#terms + 1] = term
   end
   return {
     raw = q,
+    domain = domain,
+    remainder = remainder,
     terms = terms,
   }
 end
@@ -281,18 +285,20 @@ function M.matchScore(entityId, name, section, state, pq)
   if type(pq) == "string" then
     pq = M.prepareSearch(pq)
   end
-  if not pq or not pq.terms or #pq.terms == 0 then return 1 end
+  if not pq then return nil end
 
   local eid = entityId and (entityId:match("%u") and entityId:lower() or entityId) or ""
   local nm = name and (name:match("%u") and name:lower() or name) or ""
+  if pq.domain and M.domainOf(eid) ~= pq.domain then return nil end
+  if #pq.terms == 0 then return 1 end
 
   -- 1. Full string exact match
-  if (eid ~= "" and eid == pq.raw) or (nm ~= "" and nm == pq.raw) then
+  if (eid ~= "" and eid == pq.remainder) or (nm ~= "" and nm == pq.remainder) then
     return 10000 - #eid
   end
 
   -- 2. Exact prefix match
-  if (eid ~= "" and eid:find(pq.raw, 1, true) == 1) or (nm ~= "" and nm:find(pq.raw, 1, true) == 1) then
+  if (eid ~= "" and eid:find(pq.remainder, 1, true) == 1) or (nm ~= "" and nm:find(pq.remainder, 1, true) == 1) then
     return 8000 - #nm
   end
 
@@ -333,6 +339,20 @@ function M.matchScore(entityId, name, section, state, pq)
 
   totalScore = totalScore - (#nm + #eid) * 0.1
   return totalScore
+end
+
+local ACTIONABLE_DOMAINS = {
+  light = true, switch = true, input_boolean = true, input_button = true,
+  button = true, cover = true, climate = true, fan = true, lock = true,
+  media_player = true, vacuum = true, scene = true, script = true,
+  automation = true,
+}
+
+function M.actionabilityRank(entityId)
+  local domain = M.domainOf(entityId or "")
+  if ACTIONABLE_DOMAINS[domain] then return 0 end
+  if domain == "sensor" or domain == "binary_sensor" then return 2 end
+  return 1
 end
 
 -- Fuzzy relevance scoring for entities across their ID, friendly name,
