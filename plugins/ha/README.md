@@ -54,8 +54,6 @@ entities:
   - light.hue_office_light
   - entity_id: sensor.washing_machine_status
     state_attr: current_program_guess
-  - entity_id: sensor.schmutzi_current_status
-    state_template: "{{ states('sensor.schmutzi_time_remaining') }}"
   - entity_id: switch.garden_pump
     conditions:
       entity: input_boolean.garden_mode
@@ -74,6 +72,21 @@ sections:
       state: "on"
     entities:
       - switch.garden_pump
+bar:
+  - entity_id: sensor.schmutzi_current_status
+    widget: text
+    icon: mdi:washing-machine
+    state_template: "{{ states('sensor.schmutzi_time_remaining') }}"
+    conditions:
+      entity: sensor.schmutzi_current_status
+      state: [running, spinning, rinsing]
+  - entity_id: binary_sensor.washing_machine_done
+    widget: badge
+    color: "#ff0000"
+    position: top_right
+    conditions:
+      entity: binary_sensor.washing_machine_done
+      state: "on"
   homeassistant:
     customize:
       light.hue_office_light:
@@ -102,6 +115,16 @@ entities, so this remains bounded and does not fetch all of HA. Section-less
 entities are shown first, followed by sections in file order. `collapsed` is
 the initial state for each panel open; clicking a section header changes it
 for the current panel session.
+
+The optional top-level `bar` list defines dedicated status widgets independently
+of the panel entity list. Each item names an `entity_id`, may include a
+`conditions` block and `state_template`, and chooses `widget: text` (glyph plus
+display value) or `widget: progress` (glyph, a 0–100 progress strip, and the
+display value). `widget: badge` overlays a dot on the Home Assistant logo;
+`color` accepts a hex color and `position` is `top_left`, `top_right`,
+`bottom_left`, or `bottom_right`. The badge stays off while its conditions do
+not match. `icon` accepts a Tabler name or an HA `mdi:` name. Bar entities and
+condition entities are included in the bounded status request automatically.
 
 Panel controls can be customized for an entire domain, or overridden for one
 entity. Entity-level `panel_controls` always wins over the matching

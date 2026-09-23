@@ -90,7 +90,10 @@ end
 
 local ON_STATES = {
   on = true, open = true, unlocked = true, home = true, playing = true,
-  cleaning = true, detected = true, active = true,
+  cleaning = true, detected = true, active = true, running = true,
+  spinning = true, rinsing = true, reserved = true, rinse_hold = true,
+  drying = true, detecting = true, steam_softening = true, cool_down = true,
+  refreshing = true, pause = true,
 }
 local UNAVAILABLE_STATES = { unavailable = true, unknown = true, [""] = true }
 

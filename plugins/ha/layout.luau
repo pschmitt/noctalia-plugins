@@ -92,7 +92,7 @@ local function setField(object, key, value)
 end
 
 function M.parse(text)
-  local result = { entities = {}, entity_conditions = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, sections = {}, labels = {}, icons = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_target = nil, bar_actions = {} }
+  local result = { entities = {}, entity_conditions = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, sections = {}, labels = {}, icons = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_items = {}, bar_target = nil, bar_actions = {} }
   local mode = nil
   local section = nil
   local subsection = nil
@@ -101,6 +101,7 @@ function M.parse(text)
   local panelControlEntry = nil
   local customizationDomain = nil
   local labelEntity = nil
+  local barItem = nil
 
   for rawLine in tostring(text or ""):gmatch("[^\n]+") do
     rawLine = rawLine:gsub("\r$", "")
@@ -117,10 +118,13 @@ function M.parse(text)
         panelControlEntry = nil
         customizationDomain = nil
         labelEntity = nil
+        barItem = nil
         if key == "entities" then
           if inline ~= "" then addUnique(result.entities, scalar(inline)) end
         elseif key == "sections" then
           -- The sequence follows on subsequent indented lines.
+        elseif key == "bar" then
+          -- Configurable status widgets, independent of the panel entity list.
         elseif key == "labels" then
           -- Labels are parsed as an indented key/value mapping below.
         end
@@ -354,6 +358,48 @@ function M.parse(text)
           section.when = section.when or {}
           section.when[key] = scalar(value)
         end
+      elseif mode == "bar" and indent == 2 then
+        local inline = content:match("^%-%s*(.*)$")
+        if inline then
+          local key, value = inline:match("^([%w_]+):%s*(.*)$")
+          if key == "entity_id" or key == "id" then
+            local id = scalar(value)
+            if type(id) == "string" and id ~= "" then
+              barItem = { entity_id = id, widget = "text", color = nil, position = "top_right" }
+              result.bar_items[#result.bar_items + 1] = barItem
+              result.entity_conditions[id] = barItem.conditions or {}
+            end
+          end
+        end
+      elseif mode == "bar" and barItem and indent == 4 then
+        local key, value = content:match("^([%w_]+):%s*(.*)$")
+        if key == "conditions" or key == "if" then
+          barItem.conditions = {}
+          result.entity_conditions[barItem.entity_id] = barItem.conditions
+          subsection = "bar_when"
+        elseif key == "state_template" then
+          local template = scalar(value)
+          if type(template) == "string" and template ~= "" then result.state_templates[barItem.entity_id] = template end
+        elseif key == "icon" then
+          local icon = scalar(value)
+          if type(icon) == "string" and icon ~= "" then barItem.icon = icon end
+        elseif key == "widget" or key == "type" then
+          local widget = scalar(value)
+          if widget == "text" or widget == "progress" or widget == "badge" then barItem.widget = widget end
+        elseif key == "color" then
+          local color = scalar(value)
+          if type(color) == "string" and color ~= "" then barItem.color = color end
+        elseif key == "position" then
+          local position = scalar(value)
+          if position == "top_left" or position == "top_right" or position == "bottom_left" or position == "bottom_right" then
+            barItem.position = position
+          end
+        end
+      elseif mode == "bar" and barItem and subsection == "bar_when" and indent == 6 then
+        local key, value = content:match("^([%w_]+):%s*(.*)$")
+        if key == "entity" or key == "state" or key == "not" or key == "for" then
+          barItem.conditions[key] = scalar(value)
+        end
       elseif mode == "labels" and indent == 2 then
         local key, value = content:match("^([^:]+):%s*(.*)$")
         if key and value ~= "" then
@@ -508,6 +554,27 @@ function M.serialize(layout)
       else
         lines[#lines + 1] = "      - " .. quote(entityId)
       end
+    end
+  end
+
+  if #(layout.bar_items or {}) > 0 then
+    lines[#lines + 1] = "bar:"
+    for _, item in ipairs(layout.bar_items) do
+      lines[#lines + 1] = "  - entity_id: " .. quote(item.entity_id)
+      lines[#lines + 1] = "    widget: " .. quote(item.widget or "text")
+      if item.icon then lines[#lines + 1] = "    icon: " .. quote(item.icon) end
+      if item.color then lines[#lines + 1] = "    color: " .. quote(item.color) end
+      if item.position then lines[#lines + 1] = "    position: " .. quote(item.position) end
+      local condition = item.conditions or (layout.entity_conditions or {})[item.entity_id]
+      if condition and condition.entity and condition.state ~= nil then
+        lines[#lines + 1] = "    conditions:"
+        lines[#lines + 1] = "      entity: " .. quote(condition.entity)
+        lines[#lines + 1] = "      state: " .. quote(condition.state)
+        if condition["not"] == true then lines[#lines + 1] = "      not: true" end
+        if condition["for"] ~= nil then lines[#lines + 1] = "      for: " .. quote(condition["for"]) end
+      end
+      local stateTemplate = (layout.state_templates or {})[item.entity_id]
+      if stateTemplate then lines[#lines + 1] = "    state_template: " .. quote(stateTemplate) end
     end
   end
 

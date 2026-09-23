@@ -61,6 +61,7 @@ local domainControls = {}
 local stateAttributes = {}
 local stateTemplates = {}
 local favoritePositions = {}
+local layoutBarItems = {}
 local barTargetEntity = nil
 local barActions = {}
 local currentRows = {}
@@ -110,7 +111,7 @@ local function statePath()
 end
 
 local function emptyLayout()
-  return { entities = {}, sections = {}, labels = {}, icons = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_target = nil, bar_actions = {} }
+  return { entities = {}, sections = {}, labels = {}, icons = {}, entity_remotes = {}, panel_controls = {}, domain_controls = {}, state_attributes = {}, state_templates = {}, favorite_positions = {}, bar_items = {}, bar_target = nil, bar_actions = {} }
 end
 
 local function readLayout(path)
@@ -129,6 +130,7 @@ local function publishLayout()
   noctalia.state.set("ha.favorite_positions", favoritePositions)
   noctalia.state.set("ha.bar_target", barTargetEntity)
   noctalia.state.set("ha.bar_actions", barActions)
+  noctalia.state.set("ha.bar_config", layoutBarItems)
 end
 
 local function applyLayout(layout)
@@ -145,6 +147,7 @@ local function applyLayout(layout)
   favoritePositions = layout.favorite_positions or {}
   barTargetEntity = layout.bar_target
   barActions = layout.bar_actions or {}
+  layoutBarItems = layout.bar_items or {}
   publishLayout()
 end
 
@@ -163,6 +166,7 @@ local function currentLayout()
     favorite_positions = favoritePositions,
     bar_target = barTargetEntity,
     bar_actions = barActions,
+    bar_items = layoutBarItems,
   }
 end
 
@@ -204,6 +208,7 @@ end
 local function queryIds()
   local ids = {}
   for _, entityId in ipairs(configuredEntities) do ids[entityId] = true end
+  for _, item in ipairs(layoutBarItems) do ids[item.entity_id] = true end
   for entityId in pairs(conditionEntityIds()) do ids[entityId] = true end
   local ordered = {}
   for entityId in pairs(ids) do ordered[#ordered + 1] = entityId end
@@ -411,8 +416,9 @@ local function refresh()
     return
   end
   if cacheEntityPage then cacheEntityPage(false) end
-  if #configuredEntities == 0 then
+  if #queryIds() == 0 then
     noctalia.state.set("ha.entities", {})
+    noctalia.state.set("ha.bar_items", {})
     noctalia.state.set("ha.hidden", {})
     noctalia.state.set("ha.section_visibility", {})
     noctalia.state.set("ha.error", "")
@@ -474,6 +480,24 @@ local function refresh()
     end
 
     noctalia.state.set("ha.entities", visibleRows)
+    local barRows = {}
+    for _, item in ipairs(layoutBarItems) do
+      local row = byId[item.entity_id]
+      if row then
+        barRows[#barRows + 1] = {
+          entity_id = item.entity_id,
+          state = row.state,
+          display_state = row.display_state,
+          name = row.name,
+          icon = item.icon or row.icon,
+          widget = item.widget or "text",
+          color = item.color,
+          position = item.position or "top_right",
+          visible = conditionMatches(item.conditions or entityConditions[item.entity_id], byId),
+        }
+      end
+    end
+    noctalia.state.set("ha.bar_items", barRows)
     noctalia.state.set("ha.hidden", hidden)
     noctalia.state.set("ha.section_visibility", sectionVisibility)
     noctalia.state.set("ha.error", "")
