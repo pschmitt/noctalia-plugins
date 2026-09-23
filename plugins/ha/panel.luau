@@ -250,6 +250,11 @@ local function filteredBrowseRows()
   return out
 end
 
+local function searchDomain(query)
+  local parsed = shared.prepareSearch(query)
+  return parsed and parsed.domain or nil
+end
+
 -- ── "My entities" view ───────────────────────────────────────────────────────
 
 -- entity_id -> previewed 0-100 slider value while a brightness/fan-speed drag
@@ -1521,13 +1526,23 @@ local function listView()
   local showSearch = noctalia.getConfig("panel_show_search") == true
   local searchAtBottom = noctalia.getConfig("panel_search_position") ~= "top"
   local function entitySearch()
-    return ui.input({
-      key = "ha_entity_search_" .. tostring(listSearchFocusRevision),
-      placeholder = "Search entities…",
-      value = listSearchText,
-      focus = focusListSearch,
-      onChange = "onEntitySearchChange",
-      onSubmit = "onEntitySearchSubmit",
+    local domain = searchDomain(listSearchText)
+    return ui.row({ align = "center", gap = 6 }, {
+      ui.input({
+        key = "ha_entity_search_" .. tostring(listSearchFocusRevision),
+        placeholder = "Search entities…",
+        value = listSearchText,
+        flexGrow = 1,
+        focus = focusListSearch,
+        onChange = "onEntitySearchChange",
+        onSubmit = "onEntitySearchSubmit",
+      }),
+      ui.label({
+        text = domain and ("FILTER: " .. string.upper(domain)) or "",
+        color = "primary",
+        fontSize = 10,
+        fontWeight = "semibold",
+      }),
     })
   end
   if showSearch and not searchAtBottom then content[#content + 1] = entitySearch() end
@@ -1954,12 +1969,21 @@ end
 
 local function browseView()
   local content = {
-    ui.input({
-      key = "ha_search_" .. tostring(browseSearchFocusRevision),
-      placeholder = "Search entities…",
-      value = searchText,
-      focus = focusBrowseSearch,
-      onChange = "onSearchChange",
+    ui.row({ align = "center", gap = 6 }, {
+      ui.input({
+        key = "ha_search_" .. tostring(browseSearchFocusRevision),
+        placeholder = "Search entities…",
+        value = searchText,
+        flexGrow = 1,
+        focus = focusBrowseSearch,
+        onChange = "onSearchChange",
+      }),
+      ui.label({
+        text = searchDomain(searchText) and ("FILTER: " .. string.upper(searchDomain(searchText))) or "",
+        color = "primary",
+        fontSize = 10,
+        fontWeight = "semibold",
+      }),
     }),
     ui.row({ align = "center", gap = 8 }, {
       ui.label({ text = "Domain", width = 52, fontSize = 11, fontWeight = "semibold", color = "on_surface_variant" }),
