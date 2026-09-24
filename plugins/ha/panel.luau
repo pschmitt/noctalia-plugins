@@ -51,6 +51,9 @@ local relatedEntityData = noctalia.state.get("ha.related_entities") or {}
 local detailsLoading = false
 local detailsErrorMessage = noctalia.state.get("ha.details_error") or ""
 local detailsEntityId = nil
+-- Entities whose details page led to the current one via a related-entity
+-- link, oldest first; the back button walks this before returning to the list.
+local detailsHistory = {}
 local lastDetailValueClickAt = {}
 local logbook = noctalia.state.get("ha.logbook") or {}
 local logbookLoading = false
@@ -142,7 +145,16 @@ local function findConfiguredEntity(entityId)
   return liveSearchEntities[entityId]
 end
 
-local function openDetails(entityId)
+-- navigation: "push" remembers the current details page so back returns to
+-- it, "back" is a history pop, and anything else starts a fresh history.
+local function openDetails(entityId, navigation)
+  if navigation == "push" then
+    if view == "details" and detailsEntityId and detailsEntityId ~= entityId then
+      detailsHistory[#detailsHistory + 1] = detailsEntityId
+    end
+  elseif navigation ~= "back" then
+    detailsHistory = {}
+  end
   view = "details"
   detailsEntityId = entityId
   details = {}
@@ -1329,7 +1341,7 @@ local function detailsView()
           for key, value in pairs(CARD_STYLE) do clickable[key] = value end
           clickable.key = "ha-related-" .. row.entity_id
           local relatedEntityId = row.entity_id
-          clickable.onClick = function() openDetails(relatedEntityId) end
+          clickable.onClick = function() openDetails(relatedEntityId, "push") end
           relatedCard[#relatedCard + 1] = ui.row(clickable, {
             entityIcon({ entity_id = row.entity_id, name = row.name, state = live and live.state }, 18),
             ui.column({ gap = 0, flexGrow = 1 }, {
@@ -2117,7 +2129,7 @@ local function header()
     or detailsEntityId
     or "Entity details"
   local children = {
-    ui.button({ glyph = "arrow-left", variant = "ghost", controlSize = "sm", onClick = "onBackToList" }),
+    ui.button({ glyph = "arrow-left", variant = "ghost", controlSize = "sm", onClick = "onBack" }),
   }
   if titleEntity then
     children[#children + 1] = entityIcon(titleEntity, 20)
@@ -2538,8 +2550,17 @@ function onOpenBrowser()
   fetchBrowsePage(true)
 end
 
+function onBack()
+  if view == "details" and #detailsHistory > 0 then
+    openDetails(table.remove(detailsHistory), "back")
+    return
+  end
+  onBackToList()
+end
+
 function onBackToList()
   if view == "details" then sendCommand({ action = "details_close" }) end
+  detailsHistory = {}
   local previousEntityId = detailsEntityId
   view = "list"
   detailsLoading = false

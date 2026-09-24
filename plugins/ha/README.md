@@ -201,7 +201,9 @@ using its `more-info-entity-id` deep link. It fetches
 that entity from Home Assistant and shows its actual state, last-changed and
 last-updated timestamps, plus its attributes. Below that, a Related entities card lists the
 other entities on the same device and the automations, scripts, scenes and
-groups that reference the entity; selecting one opens its details. Home
+groups that reference the entity; selecting one opens its details, and the
+back button then returns to the previous entity's details before going back
+to the list. Home
 Assistant only exposes those references through its websocket
 `search/related` command, so the bundled stdlib-only `search-related.py`
 helper (requires `python3`) runs that search, reading the configured
