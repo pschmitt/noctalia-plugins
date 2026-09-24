@@ -199,9 +199,14 @@ header repeats the entity's friendly state summary from the main view as a
 subtitle. Its external-link button opens the same entity in Home Assistant
 using its `more-info-entity-id` deep link. It fetches
 that entity from Home Assistant and shows its actual state, last-changed and
-last-updated timestamps, plus its attributes. Below that, a Related entities card groups
-other entities assigned to the same device or area; selecting one opens its
-details. While the view is open, details
+last-updated timestamps, plus its attributes. Below that, a Related entities card lists the
+other entities on the same device and the automations, scripts, scenes and
+groups that reference the entity; selecting one opens its details. Home
+Assistant only exposes those references through its websocket
+`search/related` command, so the bundled stdlib-only `search-related.py`
+helper (requires `python3`) runs that search, reading the configured
+server and token files itself. Without it, only same-device entities are
+listed. While the view is open, details
 are refreshed every two seconds and again immediately after a control call, so
 the displayed state follows interactions without leaving the page. Attribute
 values are bounded for display; double-click any displayed value to copy its

@@ -1125,41 +1125,135 @@ local function entitySearchTemplate(query)
     .. "{% endfor -%}"
 end
 
+-- One tab-separated `<group>\t<entity_id>\t<name>` line per related entity.
+local function relatedRowsLine(group, idExpr)
+  return group .. "\t{{ " .. idExpr .. " }}\t{{ (state_attr(" .. idExpr .. ",'friendly_name') or " .. idExpr
+    .. ") | replace('\\t',' ') | replace('\\n',' ') }}\n"
+end
+
 local function relatedEntitiesTemplate(entityId)
-  local quotedEntityId = quoteJinja(entityId)
-  return "{% set current = " .. quotedEntityId .. " -%}"
+  return "{% set current = " .. quoteJinja(entityId) .. " -%}"
     .. "{% set did = device_id(current) -%}"
     .. "{% if did -%}{% for id in (device_entities(did) | sort | list) -%}"
-    .. "{% if id != current -%}device\t{{ id }}\t{{ (state_attr(id,'friendly_name') or id) | replace('\\t',' ') | replace('\\n',' ') }}\n{% endif -%}"
+    .. "{% if id != current -%}" .. relatedRowsLine("device", "id") .. "{% endif -%}"
     .. "{% endfor -%}{% endif -%}"
-    .. "{% set aid = area_id(current) -%}"
-    .. "{% if aid -%}{% for id in (area_entities(aid) | sort | list) -%}"
-    .. "{% if id != current -%}area\t{{ id }}\t{{ (state_attr(id,'friendly_name') or id) | replace('\\t',' ') | replace('\\n',' ') }}\n{% endif -%}"
-    .. "{% endfor -%}{% endif -%}"
+end
+
+local function relatedNamesTemplate(usedBy)
+  local parts = {}
+  for _, row in ipairs(usedBy) do
+    parts[#parts + 1] = "{% set id = " .. quoteJinja(row.entity_id) .. " -%}" .. relatedRowsLine(row.group, "id")
+  end
+  return table.concat(parts)
+end
+
+local function parseRelatedRows(body, rows, seen)
+  for line in tostring(body or ""):gmatch("[^\n]+") do
+    local group, id, name = line:match("^([^\t]*)\t([^\t]*)\t(.*)$")
+    if id and id ~= "" and not seen[id] then
+      seen[id] = true
+      rows[#rows + 1] = { group = group, entity_id = id, name = name ~= "" and name or id }
+    end
+  end
+end
+
+-- Automations, scripts, scenes and groups referencing an entity are only
+-- exposed by Home Assistant's websocket `search/related` command, which
+-- Noctalia's HTTP client cannot reach, so search-related.py (stdlib-only
+-- Python) runs it. It reads the configured server/token files itself rather
+-- than taking the token as an argument. A missing python3 or a failed search
+-- only drops those groups; same-device entities still come from the template.
+local function searchRelated(entityId, callback)
+  local pluginDir = noctalia.pluginDir()
+  if not pluginDir then return callback({}) end
+  local argv = {
+    pluginDir .. "/search-related.py",
+    shared.trim(noctalia.getConfig("server_file")),
+    shared.trim(noctalia.getConfig("token_file")),
+    entityId,
+  }
+  if noctalia.getConfig("allow_insecure_tls") == true then argv[#argv + 1] = "--insecure" end
+  local started = noctalia.runAsync(argv, function(result)
+    local rows = {}
+    if result.exitCode ~= 0 then
+      noctalia.log("ha: related search failed: " .. shared.trim(result.stderr or ""))
+    else
+      for line in tostring(result.stdout or ""):gmatch("[^\n]+") do
+        local group, id = line:match("^([^\t]+)\t(.+)$")
+        if id then rows[#rows + 1] = { group = group, entity_id = id } end
+      end
+    end
+    callback(rows)
+  end, 15000)
+  if not started then callback({}) end
 end
 
 local function fetchRelatedEntities(server, token, entityId)
   relatedRequestGeneration += 1
   local relatedId = relatedRequestGeneration
-  local started = haRequest(server, token, relatedEntitiesTemplate(entityId), function(response)
-    if activeDetailsEntityId ~= entityId or relatedId ~= relatedRequestGeneration then return end
-    if not response.ok or response.status ~= 200 then
-      noctalia.state.set("ha.related_entities", { entity_id = entityId, rows = {}, loading = false, error = "Could not load related entities (HTTP " .. tostring(response.status) .. ")" })
-      return
-    end
-    local rows, seen = {}, {}
-    for line in tostring(response.body or ""):gmatch("[^\n]+") do
-      local group, id, name = line:match("^([^\t]*)\t([^\t]*)\t(.*)$")
-      if id and id ~= "" and not seen[id] then
-        seen[id] = true
-        rows[#rows + 1] = { group = group, entity_id = id, name = name ~= "" and name or id }
+  local function current() return activeDetailsEntityId == entityId and relatedId == relatedRequestGeneration end
+  local deviceRows, usedByRows = nil, nil
+  local deviceError = ""
+  local function publish()
+    local rows, seen = {}, { [entityId] = true }
+    for _, row in ipairs(deviceRows or {}) do
+      if not seen[row.entity_id] then
+        seen[row.entity_id] = true
+        rows[#rows + 1] = row
       end
     end
-    noctalia.state.set("ha.related_entities", { entity_id = entityId, rows = rows, loading = false, error = "" })
+    for _, row in ipairs(usedByRows or {}) do
+      if not seen[row.entity_id] then
+        seen[row.entity_id] = true
+        rows[#rows + 1] = row
+      end
+    end
+    noctalia.state.set("ha.related_entities", {
+      entity_id = entityId,
+      rows = rows,
+      loading = deviceRows == nil or usedByRows == nil,
+      error = #rows == 0 and deviceError or "",
+    })
+  end
+
+  local started = haRequest(server, token, relatedEntitiesTemplate(entityId), function(response)
+    if not current() then return end
+    deviceRows = {}
+    if not response.ok or response.status ~= 200 then
+      deviceError = "Could not load related entities (HTTP " .. tostring(response.status) .. ")"
+    else
+      parseRelatedRows(response.body, deviceRows, {})
+    end
+    publish()
   end)
   if not started then
-    noctalia.state.set("ha.related_entities", { entity_id = entityId, rows = {}, loading = false, error = "Could not start related entities request" })
+    deviceRows = {}
+    deviceError = "Could not start related entities request"
   end
+
+  searchRelated(entityId, function(found)
+    if not current() then return end
+    if #found == 0 then
+      usedByRows = {}
+      return publish()
+    end
+    local namesStarted = haRequest(server, token, relatedNamesTemplate(found), function(response)
+      if not current() then return end
+      usedByRows = {}
+      if response.ok and response.status == 200 then
+        parseRelatedRows(response.body, usedByRows, {})
+      else
+        for _, row in ipairs(found) do
+          usedByRows[#usedByRows + 1] = { group = row.group, entity_id = row.entity_id, name = row.entity_id }
+        end
+      end
+      publish()
+    end)
+    if not namesStarted then
+      usedByRows = found
+      publish()
+    end
+  end)
 end
 
 -- Areas come from Home Assistant's own area registry (see listAreas() below),

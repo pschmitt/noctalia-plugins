@@ -1204,6 +1204,15 @@ local function historyCard(entity)
   })
 end
 
+local RELATED_GROUP_LIMIT = 8
+local RELATED_GROUP_LABELS = {
+  device = "Same device",
+  automation = "Used by automations",
+  script = "Used by scripts",
+  scene = "Used by scenes",
+  group = "Member of groups",
+}
+
 local function detailsView()
   if detailsLoading then
     return ui.column({ flexGrow = 1, gap = 10 }, {
@@ -1296,36 +1305,49 @@ local function detailsView()
     elseif #relatedRows == 0 then
       relatedCard[#relatedCard + 1] = ui.label({ text = "Loading related entities…", color = "on_surface_variant", fontSize = 11 })
     else
-      local shownGroup = nil
-      for index, row in ipairs(relatedRows) do
-        if index > 16 then break end
+      -- Rows arrive grouped (same device first, then what references the
+      -- entity). Each group is capped on its own so a device with many
+      -- entities cannot push the automations out of view.
+      local groupCounts = {}
+      for _, row in ipairs(relatedRows) do groupCounts[row.group] = (groupCounts[row.group] or 0) + 1 end
+      local shownGroup, shownInGroup = nil, 0
+      for _, row in ipairs(relatedRows) do
         if row.group ~= shownGroup then
-          shownGroup = row.group
+          shownGroup, shownInGroup = row.group, 0
           relatedCard[#relatedCard + 1] = ui.label({
-            text = shownGroup == "device" and "Same device" or "Same area",
+            text = RELATED_GROUP_LABELS[shownGroup] or shownGroup,
             color = "on_surface_variant",
             fontSize = 10,
             fontWeight = "semibold",
           })
         end
-        local domain = shared.domainOf(row.entity_id)
-        local live = findConfiguredEntity(row.entity_id) or liveSearchEntities[row.entity_id]
-        local clickable = {}
-        for key, value in pairs(CARD_STYLE) do clickable[key] = value end
-        clickable.key = "ha-related-" .. row.entity_id
-        local relatedEntityId = row.entity_id
-        clickable.onClick = function() openDetails(relatedEntityId) end
-        relatedCard[#relatedCard + 1] = ui.row(clickable, {
-          entityIcon({ entity_id = row.entity_id, name = row.name, state = live and live.state }, 18),
-          ui.column({ gap = 0, flexGrow = 1 }, {
-            ui.label({ text = row.name or row.entity_id, fontSize = 12, maxLines = 1 }),
-            ui.label({ text = live and shared.statusText(live) or shared.domainLabel(domain), fontSize = 10, color = "on_surface_variant", maxLines = 1 }),
-          }),
-          ui.glyph({ name = "chevron-right", size = 13, color = "on_surface_variant" }),
-        })
+        shownInGroup += 1
+        if shownInGroup <= RELATED_GROUP_LIMIT then
+          local domain = shared.domainOf(row.entity_id)
+          local live = findConfiguredEntity(row.entity_id) or liveSearchEntities[row.entity_id]
+          local clickable = {}
+          for key, value in pairs(CARD_STYLE) do clickable[key] = value end
+          clickable.key = "ha-related-" .. row.entity_id
+          local relatedEntityId = row.entity_id
+          clickable.onClick = function() openDetails(relatedEntityId) end
+          relatedCard[#relatedCard + 1] = ui.row(clickable, {
+            entityIcon({ entity_id = row.entity_id, name = row.name, state = live and live.state }, 18),
+            ui.column({ gap = 0, flexGrow = 1 }, {
+              ui.label({ text = row.name or row.entity_id, fontSize = 12, maxLines = 1 }),
+              ui.label({ text = live and shared.statusText(live) or shared.domainLabel(domain), fontSize = 10, color = "on_surface_variant", maxLines = 1 }),
+            }),
+            ui.glyph({ name = "chevron-right", size = 13, color = "on_surface_variant" }),
+          })
+        elseif shownInGroup == RELATED_GROUP_LIMIT + 1 then
+          relatedCard[#relatedCard + 1] = ui.label({
+            text = "Showing " .. tostring(RELATED_GROUP_LIMIT) .. " of " .. tostring(groupCounts[shownGroup]) .. ".",
+            color = "on_surface_variant",
+            fontSize = 10,
+          })
+        end
       end
-      if #relatedRows > 16 then
-        relatedCard[#relatedCard + 1] = ui.label({ text = "Showing 16 of " .. tostring(#relatedRows) .. " related entities.", color = "on_surface_variant", fontSize = 10 })
+      if relatedEntityData.loading then
+        relatedCard[#relatedCard + 1] = ui.label({ text = "Searching automations and scripts…", color = "on_surface_variant", fontSize = 10 })
       end
     end
     content[#content + 1] = ui.column(CARD_STYLE, relatedCard)
