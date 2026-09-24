@@ -73,54 +73,37 @@ local function metricRow(glyph, label, value, unit, isError)
   })
 end
 
-local function batteryLevelGlyph(percent)
-  local p = tonumber(percent) or 0
-  if p >= 85 then
-    return "battery-4"
-  elseif p >= 55 then
-    return "battery-3"
-  elseif p >= 30 then
-    return "battery-2"
-  elseif p >= 10 then
-    return "battery-1"
-  end
-  return "battery-0"
-end
-
 local function header()
   local status = ""
-  local statusGlyph = nil
-  local statusGlyphColor = "on_surface_variant"
-
-  local lowThreshold = tonumber(noctalia.getConfig("low_threshold")) or 20
-  local isLow = (tonumber(details.percent) or 0) <= lowThreshold
-
   if details.charging then
     status = noctalia.tr("panel.charging")
-    statusGlyph = "bolt"
-    statusGlyphColor = "primary"
   elseif details.plugged then
     status = noctalia.tr("panel.plugged")
-    statusGlyph = "plug"
-    statusGlyphColor = "on_surface_variant"
   elseif details.status == "Discharging" or (details.percent and not details.plugged) then
     status = noctalia.tr("panel.discharging")
-    statusGlyph = batteryLevelGlyph(details.percent)
-    statusGlyphColor = isLow and "error" or "on_surface_variant"
+  end
+
+  local rate = details.rateWatts and string.format("%.1f", details.rateWatts) or nil
+  if rate == "0.0" then
+    rate = nil
   end
 
   local titleChildren = {}
   if status ~= "" then
-    if statusGlyph then
-      table.insert(titleChildren, ui.glyph({ name = statusGlyph, size = 16, color = statusGlyphColor }))
-    end
     table.insert(titleChildren, ui.label({ text = status, fontSize = 16, fontWeight = "bold" }))
+  end
+  if rate then
+    local prefix = details.charging and "+" or (details.status == "Discharging" and "−" or "")
+    table.insert(
+      titleChildren,
+      ui.label({ text = prefix .. rate .. " W", fontSize = 10, color = "on_surface_variant" })
+    )
   end
   local children = {
     batteryIcon.path
         and ui.image({ path = batteryIcon.path, width = 44, height = 24, fit = "contain" })
       or ui.glyph({ name = "battery-2", size = 28, color = "on_surface" }),
-    ui.row({ gap = 6, align = "center", flexGrow = 1 }, titleChildren),
+    ui.column({ gap = 2, flexGrow = 1 }, titleChildren),
   }
   for _, spec in PROFILES do
     table.insert(children, profileButton(spec))
@@ -137,11 +120,6 @@ local function batteryRows()
       details.health and "%" or nil
     ),
   }
-  if details.rateWatts ~= nil then
-    local prefix = details.charging and "+" or (details.status == "Discharging" and "−" or "")
-    local rateLabel = details.plugged and noctalia.tr("panel.charge_rate") or noctalia.tr("panel.discharging_rate")
-    table.insert(rows, metricRow("bolt", rateLabel, prefix .. string.format("%.1f", details.rateWatts), "W"))
-  end
   local eta = details.charging and details.timeToFull
     or (details.status == "Discharging" and details.timeToEmpty or nil)
   if eta and eta > 0 then
