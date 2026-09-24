@@ -199,7 +199,7 @@ header repeats the entity's friendly state summary from the main view as a
 subtitle. Its external-link button opens the same entity in Home Assistant
 using its `more-info-entity-id` deep link. It fetches
 that entity from Home Assistant and shows its actual state, last-changed and
-last-updated timestamps, plus its attributes. A Related entities card groups
+last-updated timestamps, plus its attributes. Below that, a Related entities card groups
 other entities assigned to the same device or area; selecting one opens its
 details. While the view is open, details
 are refreshed every two seconds and again immediately after a control call, so

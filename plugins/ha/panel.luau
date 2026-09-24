@@ -1239,48 +1239,6 @@ local function detailsView()
       controls,
     })
   end
-  local relatedRows = relatedEntityData.entity_id == entity.entity_id and relatedEntityData.rows or {}
-  if #relatedRows > 0 or relatedEntityData.loading or (relatedEntityData.error or "") ~= "" then
-    local relatedCard = { sectionHeading("affiliate", "Related entities") }
-    if relatedEntityData.error and relatedEntityData.error ~= "" then
-      relatedCard[#relatedCard + 1] = ui.label({ text = relatedEntityData.error, color = "error", fontSize = 11 })
-    elseif #relatedRows == 0 then
-      relatedCard[#relatedCard + 1] = ui.label({ text = "Loading related entities…", color = "on_surface_variant", fontSize = 11 })
-    else
-      local shownGroup = nil
-      for index, row in ipairs(relatedRows) do
-        if index > 16 then break end
-        if row.group ~= shownGroup then
-          shownGroup = row.group
-          relatedCard[#relatedCard + 1] = ui.label({
-            text = shownGroup == "device" and "Same device" or "Same area",
-            color = "on_surface_variant",
-            fontSize = 10,
-            fontWeight = "semibold",
-          })
-        end
-        local domain = shared.domainOf(row.entity_id)
-        local live = findConfiguredEntity(row.entity_id) or liveSearchEntities[row.entity_id]
-        local clickable = {}
-        for key, value in pairs(CARD_STYLE) do clickable[key] = value end
-        clickable.key = "ha-related-" .. row.entity_id
-        local relatedEntityId = row.entity_id
-        clickable.onClick = function() openDetails(relatedEntityId) end
-        relatedCard[#relatedCard + 1] = ui.row(clickable, {
-          entityIcon({ entity_id = row.entity_id, name = row.name, state = live and live.state }, 18),
-          ui.column({ gap = 0, flexGrow = 1 }, {
-            ui.label({ text = row.name or row.entity_id, fontSize = 12, maxLines = 1 }),
-            ui.label({ text = live and shared.statusText(live) or shared.domainLabel(domain), fontSize = 10, color = "on_surface_variant", maxLines = 1 }),
-          }),
-          ui.glyph({ name = "chevron-right", size = 13, color = "on_surface_variant" }),
-        })
-      end
-      if #relatedRows > 16 then
-        relatedCard[#relatedCard + 1] = ui.label({ text = "Showing 16 of " .. tostring(#relatedRows) .. " related entities.", color = "on_surface_variant", fontSize = 10 })
-      end
-    end
-    content[#content + 1] = ui.column(CARD_STYLE, relatedCard)
-  end
   if shared.domainOf(entity.entity_id) == "camera" then
     content[#content + 1] = ui.column(CARD_STYLE, {
       sectionHeading("camera", "Live preview"),
@@ -1330,6 +1288,48 @@ local function detailsView()
     end
   end
   content[#content + 1] = ui.column(CARD_STYLE, detailsCard)
+  local relatedRows = relatedEntityData.entity_id == entity.entity_id and relatedEntityData.rows or {}
+  if #relatedRows > 0 or relatedEntityData.loading or (relatedEntityData.error or "") ~= "" then
+    local relatedCard = { sectionHeading("affiliate", "Related entities") }
+    if relatedEntityData.error and relatedEntityData.error ~= "" then
+      relatedCard[#relatedCard + 1] = ui.label({ text = relatedEntityData.error, color = "error", fontSize = 11 })
+    elseif #relatedRows == 0 then
+      relatedCard[#relatedCard + 1] = ui.label({ text = "Loading related entities…", color = "on_surface_variant", fontSize = 11 })
+    else
+      local shownGroup = nil
+      for index, row in ipairs(relatedRows) do
+        if index > 16 then break end
+        if row.group ~= shownGroup then
+          shownGroup = row.group
+          relatedCard[#relatedCard + 1] = ui.label({
+            text = shownGroup == "device" and "Same device" or "Same area",
+            color = "on_surface_variant",
+            fontSize = 10,
+            fontWeight = "semibold",
+          })
+        end
+        local domain = shared.domainOf(row.entity_id)
+        local live = findConfiguredEntity(row.entity_id) or liveSearchEntities[row.entity_id]
+        local clickable = {}
+        for key, value in pairs(CARD_STYLE) do clickable[key] = value end
+        clickable.key = "ha-related-" .. row.entity_id
+        local relatedEntityId = row.entity_id
+        clickable.onClick = function() openDetails(relatedEntityId) end
+        relatedCard[#relatedCard + 1] = ui.row(clickable, {
+          entityIcon({ entity_id = row.entity_id, name = row.name, state = live and live.state }, 18),
+          ui.column({ gap = 0, flexGrow = 1 }, {
+            ui.label({ text = row.name or row.entity_id, fontSize = 12, maxLines = 1 }),
+            ui.label({ text = live and shared.statusText(live) or shared.domainLabel(domain), fontSize = 10, color = "on_surface_variant", maxLines = 1 }),
+          }),
+          ui.glyph({ name = "chevron-right", size = 13, color = "on_surface_variant" }),
+        })
+      end
+      if #relatedRows > 16 then
+        relatedCard[#relatedCard + 1] = ui.label({ text = "Showing 16 of " .. tostring(#relatedRows) .. " related entities.", color = "on_surface_variant", fontSize = 10 })
+      end
+    end
+    content[#content + 1] = ui.column(CARD_STYLE, relatedCard)
+  end
   return ui.scroll({ flexGrow = 1, gap = 8 }, content)
 end
 
