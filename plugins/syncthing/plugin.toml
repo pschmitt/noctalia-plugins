@@ -7,7 +7,7 @@
 
 id = "pschmitt/syncthing"
 name = "Syncthing"
-version = "2.6.2"
+version = "2.6.3"
 plugin_api = 15 # noctalia.openSettings(), for the panel's settings button
 author = "pschmitt (fork of Marco Ziliani's rylos/syncthing)"
 license = "MIT"

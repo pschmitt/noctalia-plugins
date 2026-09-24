@@ -114,10 +114,9 @@ local function statusSummary()
     return tr("summary.idle-no-devices")
   end
   if state == "syncing" then
-    if snapshot.totals.needItems > 0 then
-      return tr("summary.syncing-items", { count = snapshot.totals.needItems })
-    end
-    return tr("summary.syncing-folders", { count = math.max(snapshot.totals.syncingFolders, 1) })
+    local count = math.max(snapshot.totals.syncingFolders, 1)
+    local key = count == 1 and "summary.syncing-folder" or "summary.syncing-folders"
+    return tr(key, { count = count })
   end
   return tr(`summary.{state}`)
 end
@@ -249,6 +248,7 @@ local function header()
   local title = folder and folder.label or device and device.name or tr("panel.title")
   local subtitle = folder and folderStateText(folder)
     or device and (device.isSelf and tr("device.this-device") or deviceStateText(device))
+    or (state == "syncing" and statusSummary())
     or tr(`state.{state}`)
   local leading = selected and ui.button({
     glyph = "chevron-left",
@@ -910,9 +910,10 @@ render = function()
       fontSize = 12,
       color = "on_surface/0.8",
       -- Pure repetition while idle: the header already names the state and the
-      -- tiles already show the device count. Every other state says something
-      -- the rest of the panel does not.
-      visible = not snapshot or snapshot.state ~= "idle",
+      -- tiles already show the device count. While syncing, the header carries
+      -- the folder count. Every other state says something the rest of the
+      -- panel does not.
+      visible = not snapshot or (snapshot.state ~= "idle" and snapshot.state ~= "syncing"),
     }))
     table.insert(children, tabs())
     table.insert(children, folderList())

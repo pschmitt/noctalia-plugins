@@ -6,7 +6,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-syncthing";
-  version = "2.6.2";
+  version = "2.6.3";
 
   src = lib.fileset.toSource {
     root = ../../plugins/syncthing;

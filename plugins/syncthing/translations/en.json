@@ -142,7 +142,7 @@
   "summary.offline": "The Syncthing GUI cannot be reached.",
   "summary.paused": "All monitored folders are paused.",
   "summary.syncing-folders": "Syncing {count} folders.",
-  "summary.syncing-items": "Syncing, {count} items pending.",
+  "summary.syncing-folder": "Syncing {count} folder.",
   "summary.unauthorized": "Syncthing rejected the API key.",
   "summary.unconfigured": "Connection is not configured.",
   "toast.title": "Syncthing",
