@@ -562,6 +562,26 @@ local function infoStat(value, label)
   })
 end
 
+-- Match the OBS panel's recovery prompt: when the local Syncthing GUI cannot
+-- be reached, none of the normal panel controls are useful. Keep the header
+-- for status/settings and replace the rest of the panel with one clear action.
+local function offlinePrompt()
+  return ui.column({ key = "st-offline-prompt", gap = 10, align = "center", justify = "center", flexGrow = 1 }, {
+    ui.glyph({ name = "cloud-off", size = 32, color = "on_surface_variant" }),
+    ui.button({
+      key = "st-start-button",
+      text = tr("panel.start_syncthing"),
+      glyph = "player-play",
+      variant = "primary",
+      width = 240,
+      height = 56,
+      onClick = function()
+        sendCmd("start")
+      end,
+    }),
+  })
+end
+
 -- Empty-state hints ("No folder errors.", "No shared folders.", ...) lean on
 -- an italic face to read as an aside rather than a data row. Noctalia's
 -- ui.label has no italic style of its own, so italic_font_family (a
@@ -877,7 +897,10 @@ render = function()
   -- instead of growing past the panel background; keep PANEL_HEIGHT and the
   -- manifest's height = … in sync, the root wins over the manifest value.
   local children = { header() }
-  if view == "folder" then
+  local offline = snapshot and snapshot.state == "offline"
+  if offline then
+    table.insert(children, offlinePrompt())
+  elseif view == "folder" then
     table.insert(children, folderDetailsView())
   elseif view == "device" then
     table.insert(children, deviceDetailsView())
@@ -894,7 +917,9 @@ render = function()
     table.insert(children, tabs())
     table.insert(children, folderList())
   end
-  table.insert(children, ratesLabel())
+  if not offline then
+    table.insert(children, ratesLabel())
+  end
   panel.render(ui.column({ gap = 10, padding = PANEL_PADDING, height = PANEL_HEIGHT - PANEL_PADDING * 2 }, children))
 end
 

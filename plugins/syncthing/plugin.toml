@@ -7,7 +7,7 @@
 
 id = "pschmitt/syncthing"
 name = "Syncthing"
-version = "2.6.1"
+version = "2.6.2"
 plugin_api = 15 # noctalia.openSettings(), for the panel's settings button
 author = "pschmitt (fork of Marco Ziliani's rylos/syncthing)"
 license = "MIT"
@@ -48,6 +48,13 @@ description_key = "settings.poll_interval.description"
 default = 10
 min = 2
 max = 300
+
+[[setting]]
+key = "start_command"
+type = "string"
+label_key = "settings.start_command.label"
+description_key = "settings.start_command.description"
+default = "systemctl --user start syncthing"
 
 [[setting]]
 key = "folders"

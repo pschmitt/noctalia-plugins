@@ -983,7 +983,25 @@ noctalia.state.watch("st.cmd", function(raw)
   local folderId = trim(cmd.folder)
   local folder = noctalia.string.urlEncode(folderId)
 
-  if cmd.action == "refresh" then
+  if cmd.action == "start" then
+    local command = trim(noctalia.getConfig("start_command") or "")
+    local argv = {}
+    for token in command:gmatch("%S+") do
+      table.insert(argv, token)
+    end
+    if #argv == 0 then
+      noctalia.notifyError(noctalia.tr("toast.title"), noctalia.tr("notify.start_missing_command"))
+      return
+    end
+    noctalia.log("[syncthing] starting with " .. table.concat(argv, " "))
+    noctalia.setUpdateInterval(2000)
+    noctalia.runAsync(argv, function(result)
+      if result.exitCode ~= 0 then
+        noctalia.notifyError(noctalia.tr("toast.title"), trim(result.stderr))
+      end
+      poll(true)
+    end, 30000)
+  elseif cmd.action == "refresh" then
     poll(true)
   elseif cmd.action == "pause_all" or cmd.action == "pause_all_devices" then
     actionThenRefresh("/rest/system/pause", { method = "POST" })

@@ -24,6 +24,11 @@ Install and run Syncthing for the same user as Noctalia, enable
 needed. The plugin can also read a Syncthing configuration file to discover
 connection details.
 
+If the Syncthing GUI is unreachable, the panel replaces its folder and device
+controls with a start button. Configure its command with the `start_command`
+plugin setting; commands are split on whitespace and run without a shell. The
+default starts the user service with `systemctl --user start syncthing`.
+
 The manifest declares the runtime commands it uses: `syncthing`, `gio`, and
 `xdg-open`. The Nix package supplies the plugin itself; install those commands
 through your normal desktop configuration.
