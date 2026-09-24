@@ -39,8 +39,7 @@
     "tdp": "TDP limit",
     "tdp_unavailable": "TDP control unavailable",
     "time_remaining": "Time remaining",
-    "time_to_full": "Time to full",
-    "title": "Power control"
+    "time_to_full": "Time to full"
   },
   "settings": {
     "action": {

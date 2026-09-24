@@ -88,41 +88,39 @@ local function batteryLevelGlyph(percent)
 end
 
 local function header()
-  local subtitle = ""
-  local subtitleGlyph = nil
-  local subtitleGlyphColor = "on_surface_variant"
+  local status = ""
+  local statusGlyph = nil
+  local statusGlyphColor = "on_surface_variant"
 
   local lowThreshold = tonumber(noctalia.getConfig("low_threshold")) or 20
   local isLow = (tonumber(details.percent) or 0) <= lowThreshold
 
   if details.charging then
-    subtitle = noctalia.tr("panel.charging")
-    subtitleGlyph = "bolt"
-    subtitleGlyphColor = "primary"
+    status = noctalia.tr("panel.charging")
+    statusGlyph = "bolt"
+    statusGlyphColor = "primary"
   elseif details.plugged then
-    subtitle = noctalia.tr("panel.plugged")
-    subtitleGlyph = "plug"
-    subtitleGlyphColor = "on_surface_variant"
+    status = noctalia.tr("panel.plugged")
+    statusGlyph = "plug"
+    statusGlyphColor = "on_surface_variant"
   elseif details.status == "Discharging" or (details.percent and not details.plugged) then
-    subtitle = noctalia.tr("panel.discharging")
-    subtitleGlyph = batteryLevelGlyph(details.percent)
-    subtitleGlyphColor = isLow and "error" or "on_surface_variant"
+    status = noctalia.tr("panel.discharging")
+    statusGlyph = batteryLevelGlyph(details.percent)
+    statusGlyphColor = isLow and "error" or "on_surface_variant"
   end
 
-  local titleChildren = { ui.label({ text = noctalia.tr("panel.title"), fontSize = 16, fontWeight = "bold" }) }
-  if subtitle ~= "" then
-    local subChildren = {}
-    if subtitleGlyph then
-      table.insert(subChildren, ui.glyph({ name = subtitleGlyph, size = 11, color = subtitleGlyphColor }))
+  local titleChildren = {}
+  if status ~= "" then
+    if statusGlyph then
+      table.insert(titleChildren, ui.glyph({ name = statusGlyph, size = 16, color = statusGlyphColor }))
     end
-    table.insert(subChildren, ui.label({ text = subtitle, fontSize = 10, color = "on_surface_variant" }))
-    table.insert(titleChildren, ui.row({ gap = 4, align = "center" }, subChildren))
+    table.insert(titleChildren, ui.label({ text = status, fontSize = 16, fontWeight = "bold" }))
   end
   local children = {
     batteryIcon.path
         and ui.image({ path = batteryIcon.path, width = 44, height = 24, fit = "contain" })
       or ui.glyph({ name = "battery-2", size = 28, color = "on_surface" }),
-    ui.column({ gap = 2, flexGrow = 1 }, titleChildren),
+    ui.row({ gap = 6, align = "center", flexGrow = 1 }, titleChildren),
   }
   for _, spec in PROFILES do
     table.insert(children, profileButton(spec))
