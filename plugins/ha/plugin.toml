@@ -1,7 +1,7 @@
 id = "pschmitt/ha"
 name = "Home Assistant"
-version = "0.13.70"
-plugin_api = 24
+version = "0.13.71"
+plugin_api = 27
 author = "pschmitt"
 license = "GPL-3.0-only"
 icon = "smart-home"

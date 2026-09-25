@@ -269,12 +269,12 @@ local function filteredBrowseRows()
   return out
 end
 
-local function searchDomain(query)
-  local parsed = shared.prepareSearch(query)
-  return parsed and parsed.domain or nil
+local function splitSearchDomain(query)
+  local domain, remainder = shared.trim(query):match("^([%w_]+)%.(.*)$")
+  return domain and domain:lower() or nil, remainder
 end
 
-local function searchDomainToken(domain)
+local function searchDomainToken(domain, onClick)
   if not domain then return nil end
   return ui.row({
     align = "center",
@@ -282,9 +282,49 @@ local function searchDomainToken(domain)
     radius = 6,
     paddingH = 6,
     paddingV = 2,
+    onClick = onClick,
   }, {
     ui.label({ text = domain, color = "primary", fontSize = 10, fontWeight = "semibold" }),
   })
+end
+
+local function searchBox(query, focusRevision, focus, onChange, onDomainClick, onSubmit)
+  local domain, remainder = splitSearchDomain(query)
+  local children = {}
+  if domain then
+    children[#children + 1] = searchDomainToken(domain .. ".", onDomainClick)
+  end
+  children[#children + 1] = ui.input({
+    key = "ha_search_" .. tostring(focusRevision) .. ":" .. (domain or ""),
+    placeholder = "Search entities…",
+    value = domain and remainder or query,
+    flexGrow = 1,
+    focus = focus,
+    frameVisible = false,
+    onChange = onChange,
+    onSubmit = onSubmit,
+  })
+  return ui.row({
+    align = "center",
+    gap = 6,
+    fill = "surface_variant/0.35",
+    border = "outline/0.45",
+    borderWidth = 1,
+    radius = 8,
+    paddingH = 8,
+    paddingV = 3,
+  }, children)
+end
+
+local function updateSearchQuery(currentQuery, inputValue)
+  local activeDomain = splitSearchDomain(currentQuery)
+  local pastedDomain = splitSearchDomain(inputValue)
+  if activeDomain then
+    if inputValue == "" then return "", true end
+    if pastedDomain then return inputValue, true end
+    return activeDomain .. "." .. inputValue, false
+  end
+  return inputValue, pastedDomain ~= nil
 end
 
 -- ── "My entities" view ───────────────────────────────────────────────────────
@@ -1580,20 +1620,14 @@ local function listView()
   local showSearch = noctalia.getConfig("panel_show_search") == true
   local searchAtBottom = noctalia.getConfig("panel_search_position") ~= "top"
   local function entitySearch()
-    local domainToken = searchDomainToken(searchDomain(listSearchText))
-    local children = {
-      ui.input({
-        key = "ha_entity_search_" .. tostring(listSearchFocusRevision),
-        placeholder = "Search entities…",
-        value = listSearchText,
-        flexGrow = 1,
-        focus = focusListSearch,
-        onChange = "onEntitySearchChange",
-        onSubmit = "onEntitySearchSubmit",
-      }),
-    }
-    if domainToken then children[#children + 1] = domainToken end
-    return ui.row({ align = "center", gap = 6 }, children)
+    return searchBox(
+      listSearchText,
+      listSearchFocusRevision,
+      focusListSearch,
+      "onEntitySearchChange",
+      "onEntitySearchDomainClick",
+      "onEntitySearchSubmit"
+    )
   end
   if showSearch and not searchAtBottom then content[#content + 1] = entitySearch() end
   if #entities == 0 and #configuredEntities == 0 and #sections == 0 and not searchActive then
@@ -1966,20 +2000,14 @@ local function browseRow(row)
 end
 
 local function browseView()
-  local domainToken = searchDomainToken(searchDomain(searchText))
-  local searchRow = {
-    ui.input({
-      key = "ha_search_" .. tostring(browseSearchFocusRevision),
-      placeholder = "Search entities…",
-      value = searchText,
-      flexGrow = 1,
-      focus = focusBrowseSearch,
-      onChange = "onSearchChange",
-    }),
-  }
-  if domainToken then searchRow[#searchRow + 1] = domainToken end
   local content = {
-    ui.row({ align = "center", gap = 6 }, searchRow),
+    searchBox(
+      searchText,
+      browseSearchFocusRevision,
+      focusBrowseSearch,
+      "onSearchChange",
+      "onSearchDomainClick"
+    ),
     ui.row({ align = "center", gap = 8 }, {
       ui.label({ text = "Domain", width = 52, fontSize = 11, fontWeight = "semibold", color = "on_surface_variant" }),
       domainSelect(),
@@ -2559,20 +2587,43 @@ function onBackToList()
 end
 
 function onSearchChange(value)
-  searchText = value or ""
-  focusBrowseSearch = false
+  local query, rekey = updateSearchQuery(searchText, value or "")
+  searchText = query
+  if rekey then browseSearchFocusRevision += 1 end
+  focusBrowseSearch = rekey
   requestRender()
 end
 
 function onEntitySearchChange(value)
-  listSearchText = value or ""
+  local query, rekey = updateSearchQuery(listSearchText, value or "")
+  listSearchText = query
+  if rekey then listSearchFocusRevision += 1 end
   liveSearchEntities = {}
   liveSearchResults = nil
   selectedItemIndex = nil
   -- The focus request is only for the initial panel open. Once the user has
   -- started typing, subsequent renders must not steal focus from other
   -- controls in the panel.
-  focusListSearch = false
+  focusListSearch = rekey
+  sendCommand({ action = "search", query = listSearchText })
+  requestRender()
+end
+
+function onSearchDomainClick()
+  local _, remainder = splitSearchDomain(searchText)
+  searchText = remainder or ""
+  browseSearchFocusRevision += 1
+  focusBrowseSearch = true
+  requestRender()
+end
+
+function onEntitySearchDomainClick()
+  local _, remainder = splitSearchDomain(listSearchText)
+  listSearchText = remainder or ""
+  listSearchFocusRevision += 1
+  focusListSearch = true
+  liveSearchEntities = {}
+  liveSearchResults = nil
   sendCommand({ action = "search", query = listSearchText })
   requestRender()
 end
