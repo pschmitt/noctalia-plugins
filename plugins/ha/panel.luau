@@ -271,9 +271,15 @@ end
 
 local function splitSearchDomain(query)
   local domain, remainder = shared.trim(query):match("^([%w_]+)%.(.*)$")
-  if remainder == "" then return nil, nil end
-  return domain and domain:lower() or nil, remainder
+  local normalizedDomain = domain and domain:lower() or nil
+  if not shared.isKnownDomain(normalizedDomain) then return nil, nil end
+  return normalizedDomain, remainder
 end
+
+-- Keep an editable, zero-width character in an empty suffix. This lets the
+-- native input report Backspace when the user has typed only `domain.`; the
+-- callback then turns the filter back into plain `domain` text.
+local EMPTY_SEARCH_SUFFIX = "\226\128\139"
 
 local function searchDomainToken(domain, onClick)
   if not domain then return nil end
@@ -298,7 +304,7 @@ local function searchBox(query, focusRevision, focus, onChange, onDomainClick, o
   children[#children + 1] = ui.input({
     key = "ha_search_" .. tostring(focusRevision) .. ":" .. (domain or ""),
     placeholder = "Search entities…",
-    value = domain and remainder or query,
+    value = domain and (remainder ~= "" and remainder or EMPTY_SEARCH_SUFFIX) or query,
     flexGrow = 1,
     focus = focus,
     frameVisible = false,
@@ -325,6 +331,10 @@ local function updateSearchQuery(currentQuery, inputValue)
   end
   local pastedDomain = splitSearchDomain(inputValue)
   return inputValue, pastedDomain ~= nil
+end
+
+local function normalizeSearchInput(value)
+  return (value or ""):gsub(EMPTY_SEARCH_SUFFIX, "")
 end
 
 -- ── "My entities" view ───────────────────────────────────────────────────────
@@ -2587,7 +2597,7 @@ function onBackToList()
 end
 
 function onSearchChange(value)
-  local query, rekey = updateSearchQuery(searchText, value or "")
+  local query, rekey = updateSearchQuery(searchText, normalizeSearchInput(value))
   searchText = query
   if rekey then browseSearchFocusRevision += 1 end
   focusBrowseSearch = rekey
@@ -2595,7 +2605,7 @@ function onSearchChange(value)
 end
 
 function onEntitySearchChange(value)
-  local query, rekey = updateSearchQuery(listSearchText, value or "")
+  local query, rekey = updateSearchQuery(listSearchText, normalizeSearchInput(value))
   listSearchText = query
   if rekey then listSearchFocusRevision += 1 end
   liveSearchEntities = {}
