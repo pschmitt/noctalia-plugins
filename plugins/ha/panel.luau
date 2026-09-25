@@ -292,12 +292,12 @@ local function searchBox(query, focusRevision, focus, onChange, onDomainClick, o
   local domain, remainder = splitSearchDomain(query)
   local children = {}
   if domain then
-    children[#children + 1] = searchDomainToken(domain .. ".", onDomainClick)
+    children[#children + 1] = searchDomainToken(domain, onDomainClick)
   end
   children[#children + 1] = ui.input({
     key = "ha_search_" .. tostring(focusRevision) .. ":" .. (domain or ""),
     placeholder = "Search entities…",
-    value = domain and remainder or query,
+    value = domain and ("." .. remainder) or query,
     flexGrow = 1,
     focus = focus,
     frameVisible = false,
@@ -322,7 +322,10 @@ local function updateSearchQuery(currentQuery, inputValue)
   if activeDomain then
     if inputValue == "" then return "", true end
     if pastedDomain then return inputValue, true end
-    return activeDomain .. "." .. inputValue, false
+    if inputValue:sub(1, 1) == "." then
+      return activeDomain .. inputValue, false
+    end
+    return inputValue, true
   end
   return inputValue, pastedDomain ~= nil
 end
