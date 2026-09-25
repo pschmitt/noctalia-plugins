@@ -84,6 +84,13 @@ local OTHER_RESULT_LIMIT = 25
 -- body below (they only ever run after the whole script has loaded once, so
 -- this only needs to resolve as an upvalue, not have a body yet).
 local render
+local renderPending = false
+
+local function requestRender()
+  if not panelOpen or renderPending then return end
+  renderPending = true
+  panel.setNeedsFrameTick(true)
+end
 
 local function rememberCachedRows(rows, target, seen)
   local maxRows = 500
@@ -170,7 +177,7 @@ local function openDetails(entityId, navigation)
   historyLoading = true
   historyErrorMessage = ""
   historyHover = nil
-  render()
+  requestRender()
   sendCommand({ action = "details", entity_id = entityId })
 end
 
@@ -182,7 +189,7 @@ local function handleSelectOrOpen()
       local isCollapsed = collapsedSections[selected.key]
       if isCollapsed == nil then isCollapsed = selected.section.collapsed == true end
       collapsedSections[selected.key] = not isCollapsed
-      render()
+      requestRender()
       return
     elseif selected.type == "entity" then
       openDetails(selected.entityId)
@@ -200,7 +207,7 @@ local function handleSelectOrOpen()
     local isCollapsed = collapsedSections[first.key]
     if isCollapsed == nil then isCollapsed = first.section.collapsed == true end
     collapsedSections[first.key] = not isCollapsed
-    render()
+    requestRender()
     return
   end
 end
@@ -228,7 +235,7 @@ local function fetchBrowsePage(reset)
     browseMore = false
   end
   browseLoading = true
-  render()
+  requestRender()
   sendCommand({ action = "browse", domain = domainFilter, area = areaFilter, offset = browseOffset })
 end
 
@@ -348,7 +355,7 @@ local function previewSlider(entity, value01to100, commit, previewName)
     controlSize = "sm",
     onChange = function(nextValue)
       sliderPreviews[previewKey] = tonumber(nextValue) or value
-      render()
+      requestRender()
     end,
     onDragEnd = function(nextValue)
       local target = sliderPreviews[previewKey] or tonumber(nextValue) or value
@@ -741,19 +748,19 @@ local function toggleEditMode()
   editingEntityId = nil
   editingSectionIndex = nil
   addingSection = false
-  render()
+  requestRender()
 end
 
 local function startRename(entity)
   editingEntityId = entity.entity_id
   editingLabelDraft = entity.name or entity.entity_id
   editingSectionIndex = nil
-  render()
+  requestRender()
 end
 
 local function cancelRename()
   editingEntityId = nil
-  render()
+  requestRender()
 end
 
 local function saveRename()
@@ -761,7 +768,7 @@ local function saveRename()
     sendCommand({ action = "rename", entity_id = editingEntityId, label = editingLabelDraft })
   end
   editingEntityId = nil
-  render()
+  requestRender()
 end
 
 local function sectionIndexOf(entityId)
@@ -842,12 +849,12 @@ local function startRenameSection(index)
   editingSectionIndex = index
   editingSectionDraft = sections[index].name or ""
   editingEntityId = nil
-  render()
+  requestRender()
 end
 
 local function cancelRenameSection()
   editingSectionIndex = nil
-  render()
+  requestRender()
 end
 
 local function startAddSection()
@@ -856,13 +863,13 @@ local function startAddSection()
   editingSectionIndex = nil
   addingSection = true
   addingSectionDraft = ""
-  render()
+  requestRender()
 end
 
 local function cancelAddSection()
   addingSection = false
   addingSectionDraft = ""
-  render()
+  requestRender()
 end
 
 local function saveAddSection()
@@ -871,7 +878,7 @@ local function saveAddSection()
   addingSection = false
   addingSectionDraft = ""
   sendCommand({ action = "add_section", name = name })
-  render()
+  requestRender()
 end
 
 local function detailValue(value)
@@ -1071,7 +1078,7 @@ local function activityCard(entity)
           controlSize = "sm",
           onClick = function()
             logbookExpanded = not logbookExpanded
-            render()
+            requestRender()
           end,
         }),
       })
@@ -1101,13 +1108,13 @@ local function handleGraphPointerMove(normX, normY)
     time = timeStr,
     x = x,
   }
-  render()
+  requestRender()
 end
 
 local function handleGraphPointerLeave()
   if historyHover ~= nil then
     historyHover = nil
-    render()
+    requestRender()
   end
 end
 
@@ -1372,7 +1379,7 @@ local function saveRenameSection()
     sendCommand({ action = "rename_section", section_index = editingSectionIndex, name = editingSectionDraft })
   end
   editingSectionIndex = nil
-  render()
+  requestRender()
 end
 
 local function renameRow(entity, domain)
@@ -1718,7 +1725,7 @@ local function listView()
             onClick = function()
               if not editMode then selectedItemIndex = sectionItemIndex end
               collapsedSections[key] = not collapsed
-              render()
+              requestRender()
             end,
           }),
         }
@@ -1821,78 +1828,26 @@ local function listView()
     if searchActive and not editMode then
       local configured = configuredSet()
       if liveSearchResults ~= nil then
+        local scoredRows = {}
         for _, row in ipairs(liveSearchResults) do
           if not configured[row.entity_id] then
             otherMatchCount += 1
-            if #otherRows < OTHER_RESULT_LIMIT then
-              otherRows[#otherRows + 1] = row
+            if #scoredRows < OTHER_RESULT_LIMIT then
+              scoredRows[#scoredRows + 1] = {
+                row = row,
+                rank = shared.actionabilityRank(row.entity_id),
+                score = shared.matchScore(row.entity_id, row.name, nil, row.state, pq) or 0,
+              }
             end
           end
         end
-        table.sort(otherRows, function(a, b)
-          local rankA = shared.actionabilityRank(a.entity_id)
-          local rankB = shared.actionabilityRank(b.entity_id)
-          if rankA ~= rankB then return rankA < rankB end
-          local scoreA = shared.matchScore(a.entity_id, a.name, nil, a.state, pq) or 0
-          local scoreB = shared.matchScore(b.entity_id, b.name, nil, b.state, pq) or 0
-          if scoreA ~= scoreB then return scoreA > scoreB end
-          return a.entity_id < b.entity_id
+        table.sort(scoredRows, function(a, b)
+          if a.rank ~= b.rank then return a.rank < b.rank end
+          if a.score ~= b.score then return a.score > b.score end
+          return a.row.entity_id < b.row.entity_id
         end)
-      else
-        local heap = {}
-        local heapSize = 0
-        local maxScan = math.min(#entityCache, 300)
-        for idx = 1, maxScan do
-          local row = entityCache[idx]
-          local eid = row.entity_id
-          if not configured[eid] then
-            local live = liveSearchEntities[eid]
-            local name = live and (live.name or live.entity_id) or row._name_lower or row.name or eid
-            local state = live and live.state or nil
-            local matchScore = shared.matchScore(row._eid_lower or eid, name, nil, state, pq)
-            if matchScore then
-              local score = 100000 - (shared.actionabilityRank(eid) * 50000) + matchScore
-              otherMatchCount += 1
-              if heapSize < OTHER_RESULT_LIMIT then
-                heapSize += 1
-                heap[heapSize] = { row = row, score = score }
-                local i = heapSize
-                while i > 1 do
-                  local p = math.floor(i / 2)
-                  if heap[i].score < heap[p].score then
-                    heap[i], heap[p] = heap[p], heap[i]
-                    i = p
-                  else
-                    break
-                  end
-                end
-              elseif score > heap[1].score then
-                heap[1] = { row = row, score = score }
-                local i = 1
-                while true do
-                  local left = i * 2
-                  local right = left + 1
-                  local smallest = i
-                  if left <= heapSize and heap[left].score < heap[smallest].score then
-                    smallest = left
-                  end
-                  if right <= heapSize and heap[right].score < heap[smallest].score then
-                    smallest = right
-                  end
-                  if smallest ~= i then
-                    heap[i], heap[smallest] = heap[smallest], heap[i]
-                    i = smallest
-                  else
-                    break
-                  end
-                end
-              end
-            end
-          end
-        end
-        table.sort(heap, function(a, b) return a.score > b.score end)
-        for i = 1, heapSize do
-          otherRows[i] = heap[i].row
+        for i = 1, math.min(#scoredRows, OTHER_RESULT_LIMIT) do
+          otherRows[i] = scoredRows[i].row
         end
       end
       if #otherRows > 0 then
@@ -2208,33 +2163,33 @@ end
 
 noctalia.state.watch("ha.configured", function(value)
   configuredEntities = type(value) == "table" and value or {}
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.sections", function(value)
   sections = type(value) == "table" and value or {}
   collapsedSections = {}
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.entity_remotes", function(value)
   entityRemotes = type(value) == "table" and value or {}
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.panel_controls", function(value)
   panelControls = type(value) == "table" and value or {}
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.domain_controls", function(value)
   domainControls = type(value) == "table" and value or {}
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.favorite_positions", function(value)
   favoritePositions = type(value) == "table" and value or {}
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.entity_cache", function(value)
@@ -2242,7 +2197,7 @@ noctalia.state.watch("ha.entity_cache", function(value)
   entityCache = {}
   entityCacheIds = {}
   rememberCachedRows(rows, entityCache, entityCacheIds)
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.entity_cache_scan", function(value)
@@ -2275,17 +2230,17 @@ noctalia.state.watch("ha.entity_cache_page", function(value)
       rememberCachedRows(value.rows, entityCacheScanRows, entityCacheScanIds)
     end
   end
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.entity_cache_loading", function(value)
   entityCacheLoading = value == true
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.entity_cache_error", function(value)
   entityCacheError = type(value) == "string" and value or ""
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.entity_search_result", function(value)
@@ -2303,89 +2258,89 @@ noctalia.state.watch("ha.entity_search_result", function(value)
   if entityCacheScanGeneration ~= nil then
     rememberCachedRows(value.rows, entityCacheScanRows, entityCacheScanIds)
   end
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.entity_search_loading", function(value)
   entitySearchLoading = value == true
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.entity_search_error", function(value)
   entitySearchError = type(value) == "string" and value or ""
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.entities", function(value)
   entities = type(value) == "table" and value or {}
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.hidden", function(value)
   hidden = type(value) == "table" and value or {}
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.section_visibility", function(value)
   sectionVisibility = type(value) == "table" and value or {}
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.error", function(value)
   errorMessage = type(value) == "string" and value or ""
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.refreshed_at", function(value)
   lastRefreshedAt = value
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.details", function(value)
   details = type(value) == "table" and value or {}
   detailsLoading = false
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.related_entities", function(value)
   relatedEntityData = type(value) == "table" and value or { rows = {} }
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.details_error", function(value)
   detailsErrorMessage = type(value) == "string" and value or ""
   if detailsErrorMessage ~= "" then detailsLoading = false end
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.logbook", function(value)
   logbook = type(value) == "table" and value or {}
   logbookLoading = false
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.logbook_error", function(value)
   logbookErrorMessage = type(value) == "string" and value or ""
   if logbookErrorMessage ~= "" then logbookLoading = false end
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.history", function(value)
   history = type(value) == "table" and value or {}
   historyLoading = false
   historyHover = nil
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.history_error", function(value)
   historyErrorMessage = type(value) == "string" and value or ""
   if historyErrorMessage ~= "" then historyLoading = false end
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.history_loading", function(value)
   historyLoading = value == true
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.browse_error", function(value)
@@ -2393,7 +2348,7 @@ noctalia.state.watch("ha.browse_error", function(value)
   -- A failed browse request never produces a ha.browse_result, so this
   -- is the only place that can clear the loading flag it set.
   if browseErrorMessage ~= "" then browseLoading = false end
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.browse_result", function(result)
@@ -2408,12 +2363,12 @@ noctalia.state.watch("ha.browse_result", function(result)
   end
   browseOffset = (result.offset or 0) + (result.limit or 0)
   browseMore = result.more == true
-  render()
+  requestRender()
 end)
 
 noctalia.state.watch("ha.areas", function(value)
   areas = type(value) == "table" and value or {}
-  render()
+  requestRender()
 end)
 
 -- ── Entry points ─────────────────────────────────────────────────────────────
@@ -2424,7 +2379,7 @@ function onConfigChanged()
     addingSection = false
     addingSectionDraft = ""
   end
-  render()
+  requestRender()
 end
 
 function onOpen()
@@ -2493,11 +2448,12 @@ function onOpen()
   if restoredDetailsEntityId then
     sendCommand({ action = "details", entity_id = restoredDetailsEntityId })
   end
-  render()
+  requestRender()
 end
 
 function onClose()
   panelOpen = false
+  renderPending = false
   focusListSearch = false
   focusBrowseSearch = false
   selectedItemIndex = nil
@@ -2506,6 +2462,11 @@ function onClose()
 end
 
 function onFrameTick(deltaMs)
+  if renderPending then
+    renderPending = false
+    render()
+    if not panelAnimationActive() then return end
+  end
   if not panelAnimationActive() then
     panel.setNeedsFrameTick(false)
     return
@@ -2514,7 +2475,7 @@ function onFrameTick(deltaMs)
   if animationElapsedMs < ANIMATION_FRAME_INTERVAL_MS then return end
   animationElapsedMs = animationElapsedMs % ANIMATION_FRAME_INTERVAL_MS
   animationFrame = (animationFrame + 1) % ANIMATION_FRAME_COUNT
-  render()
+  requestRender()
 end
 
 function onOpenDashboard()
@@ -2588,13 +2549,13 @@ function onBackToList()
       focusListSearch = false
     end
   end
-  render()
+  requestRender()
 end
 
 function onSearchChange(value)
   searchText = value or ""
   focusBrowseSearch = false
-  render()
+  requestRender()
 end
 
 function onEntitySearchChange(value)
@@ -2607,7 +2568,7 @@ function onEntitySearchChange(value)
   -- controls in the panel.
   focusListSearch = false
   sendCommand({ action = "search", query = listSearchText })
-  render()
+  requestRender()
 end
 
 function onEntitySearchSubmit(value)
@@ -2627,7 +2588,7 @@ function onKey(chord, pressed)
     else
       return
     end
-    render()
+    requestRender()
     return
   end
 
@@ -2663,7 +2624,7 @@ function onKey(chord, pressed)
     if selectedItemIndex ~= nil then
       focusListSearch = false
     end
-    render()
+    requestRender()
     return
   end
 
