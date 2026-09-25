@@ -274,6 +274,19 @@ local function searchDomain(query)
   return parsed and parsed.domain or nil
 end
 
+local function searchDomainToken(domain)
+  if not domain then return nil end
+  return ui.row({
+    align = "center",
+    fill = "primary/0.14",
+    radius = 6,
+    paddingH = 6,
+    paddingV = 2,
+  }, {
+    ui.label({ text = domain, color = "primary", fontSize = 10, fontWeight = "semibold" }),
+  })
+end
+
 -- ── "My entities" view ───────────────────────────────────────────────────────
 
 -- entity_id -> previewed 0-100 slider value while a brightness/fan-speed drag
@@ -1567,8 +1580,8 @@ local function listView()
   local showSearch = noctalia.getConfig("panel_show_search") == true
   local searchAtBottom = noctalia.getConfig("panel_search_position") ~= "top"
   local function entitySearch()
-    local domain = searchDomain(listSearchText)
-    return ui.row({ align = "center", gap = 6 }, {
+    local domainToken = searchDomainToken(searchDomain(listSearchText))
+    local children = {
       ui.input({
         key = "ha_entity_search_" .. tostring(listSearchFocusRevision),
         placeholder = "Search entities…",
@@ -1578,13 +1591,9 @@ local function listView()
         onChange = "onEntitySearchChange",
         onSubmit = "onEntitySearchSubmit",
       }),
-      ui.label({
-        text = domain and ("FILTER: " .. string.upper(domain)) or "",
-        color = "primary",
-        fontSize = 10,
-        fontWeight = "semibold",
-      }),
-    })
+    }
+    if domainToken then children[#children + 1] = domainToken end
+    return ui.row({ align = "center", gap = 6 }, children)
   end
   if showSearch and not searchAtBottom then content[#content + 1] = entitySearch() end
   if #entities == 0 and #configuredEntities == 0 and #sections == 0 and not searchActive then
@@ -1957,23 +1966,20 @@ local function browseRow(row)
 end
 
 local function browseView()
-  local content = {
-    ui.row({ align = "center", gap = 6 }, {
-      ui.input({
-        key = "ha_search_" .. tostring(browseSearchFocusRevision),
-        placeholder = "Search entities…",
-        value = searchText,
-        flexGrow = 1,
-        focus = focusBrowseSearch,
-        onChange = "onSearchChange",
-      }),
-      ui.label({
-        text = searchDomain(searchText) and ("FILTER: " .. string.upper(searchDomain(searchText))) or "",
-        color = "primary",
-        fontSize = 10,
-        fontWeight = "semibold",
-      }),
+  local domainToken = searchDomainToken(searchDomain(searchText))
+  local searchRow = {
+    ui.input({
+      key = "ha_search_" .. tostring(browseSearchFocusRevision),
+      placeholder = "Search entities…",
+      value = searchText,
+      flexGrow = 1,
+      focus = focusBrowseSearch,
+      onChange = "onSearchChange",
     }),
+  }
+  if domainToken then searchRow[#searchRow + 1] = domainToken end
+  local content = {
+    ui.row({ align = "center", gap = 6 }, searchRow),
     ui.row({ align = "center", gap = 8 }, {
       ui.label({ text = "Domain", width = 52, fontSize = 11, fontWeight = "semibold", color = "on_surface_variant" }),
       domainSelect(),
