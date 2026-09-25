@@ -271,6 +271,7 @@ end
 
 local function splitSearchDomain(query)
   local domain, remainder = shared.trim(query):match("^([%w_]+)%.(.*)$")
+  if remainder == "" then return nil, nil end
   return domain and domain:lower() or nil, remainder
 end
 
@@ -297,7 +298,7 @@ local function searchBox(query, focusRevision, focus, onChange, onDomainClick, o
   children[#children + 1] = ui.input({
     key = "ha_search_" .. tostring(focusRevision) .. ":" .. (domain or ""),
     placeholder = "Search entities…",
-    value = domain and ("." .. remainder) or query,
+    value = domain and remainder or query,
     flexGrow = 1,
     focus = focus,
     frameVisible = false,
@@ -318,15 +319,11 @@ end
 
 local function updateSearchQuery(currentQuery, inputValue)
   local activeDomain = splitSearchDomain(currentQuery)
-  local pastedDomain = splitSearchDomain(inputValue)
   if activeDomain then
-    if inputValue == "" then return "", true end
-    if pastedDomain then return inputValue, true end
-    if inputValue:sub(1, 1) == "." then
-      return activeDomain .. inputValue, false
-    end
-    return inputValue, true
+    if inputValue == "" then return activeDomain, true end
+    return activeDomain .. "." .. inputValue, false
   end
+  local pastedDomain = splitSearchDomain(inputValue)
   return inputValue, pastedDomain ~= nil
 end
 
