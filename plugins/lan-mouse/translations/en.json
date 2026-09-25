@@ -23,6 +23,10 @@
     "go_back_command": {
       "label": "Go-back command",
       "description": "Path to the script the lockscreen's \"Bring input back\" button runs. Set by lan-mouse.nix's goBackScript; only change this if you know what you're doing."
+    },
+    "stop_command": {
+      "label": "Stop command",
+      "description": "Shell command run by the panel's \"Stop\" button. Leave empty to run `systemctl --user stop lan-mouse.service`."
     }
   }
 }

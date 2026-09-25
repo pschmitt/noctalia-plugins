@@ -15,7 +15,9 @@ local `lan-mouse.service` is stopped, and shows
 
 The panel lists configured peers (from `lan-mouse cli list`) with their
 connection state, and an Enable/Disable button per peer
-(`lan-mouse cli activate`/`deactivate`).
+(`lan-mouse cli activate`/`deactivate`), plus a header "Stop" button that
+stops the local `lan-mouse.service` outright (disabled while the service is
+already stopped). What it runs is overridable via `stop_command`.
 
 A lockscreen widget adds a "Bring input back" button, shown only while the
 local service is active and `incoming_sentinel` says a peer's input is
@@ -53,6 +55,8 @@ visible a little longer than strictly necessary in that case.
 - `go_back_command` — path to the lockscreen button's script. Set by
   `lan-mouse.nix`'s `goBackScript`; only change this if you know what you're
   doing.
+- `stop_command` — shell command run by the panel's "Stop" button. Leave
+  empty to run `systemctl --user stop lan-mouse.service`.
 
 ## Entries
 

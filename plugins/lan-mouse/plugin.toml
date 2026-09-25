@@ -16,7 +16,7 @@
 
 id = "pschmitt/lan-mouse"
 name = "Lan Mouse"
-version = "0.1.1"
+version = "0.2.0"
 plugin_api = 24 # argument-array runAsync() keeps the `lan-mouse cli` call shell-free
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -68,6 +68,13 @@ type = "string"
 label_key = "settings.go_back_command.label"
 description_key = "settings.go_back_command.description"
 default = "~/.config/lan-mouse/go-back"
+
+[[setting]]
+key = "stop_command"
+type = "string"
+label_key = "settings.stop_command.label"
+description_key = "settings.stop_command.description"
+default = ""
 
 [[service]]
 id = "poller"
