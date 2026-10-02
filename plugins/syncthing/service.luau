@@ -62,6 +62,17 @@ local pollAgain = false
 local prevSnapshot = nil
 -- Last connection totals, for transfer-rate computation between polls.
 local lastTotals = nil
+-- Last /rest/db/completion answer per remote device, keyed by device id:
+-- { completion, needItems, inB, outB, at }. That endpoint runs a need-count
+-- over every shared folder and costs Syncthing seconds of CPU per device on
+-- large folders, so it is only re-queried when the cached answer may be stale
+-- (see completionIsStale). Dropped whenever the device disconnects.
+local completionCache = {}
+local COMPLETION_MAX_AGE_MS = 300000
+-- BEP keepalive pings move a handful of bytes per connection every minute or
+-- so; only traffic beyond this (accumulated since the cached answer) counts
+-- as a sign the device's completion may have changed.
+local COMPLETION_TRAFFIC_BYTES = 1024
 
 -- ── Config resolution ────────────────────────────────────────────────────────
 
@@ -482,18 +493,51 @@ local function fetchFolderStatuses(snapshot, monitoredFolders, generation)
   end
 end
 
+-- A cached completion is only trusted while nothing suggests it changed: the
+-- device was fully synced last time, no more than keepalive traffic moved over
+-- its connection since, and the answer is not older than COMPLETION_MAX_AGE_MS
+-- (a safety net for small index updates below the traffic threshold).
+local function completionIsStale(cached, traffic)
+  if not cached then
+    return true
+  end
+  if cached.completion < 100 or cached.needItems > 0 then
+    return true
+  end
+  local moved = math.abs(traffic.inB - cached.inB) + math.abs(traffic.outB - cached.outB)
+  if moved > COMPLETION_TRAFFIC_BYTES then
+    return true
+  end
+  return noctalia.nowMs() - cached.at >= COMPLETION_MAX_AGE_MS
+end
+
 -- Third-and-a-half stage: per-device completion, joined, then on to folder
 -- statuses. /rest/system/connections (already polled) only has connection
 -- stats -- no completion -- so without this a device that's still receiving
 -- data this host already has (folder looks idle locally) reads as "Up to
 -- Date" instead of "Syncing" on the panel's device row. Only connected,
--- unpaused devices are queried; everyone else keeps the completion=100
--- default set when devicesList was built.
-local function fetchDeviceCompletions(snapshot, monitoredFolders, generation)
+-- unpaused devices whose cached answer is stale are queried; the rest reuse
+-- the cache or keep the completion=100 default set when devicesList was built.
+local function fetchDeviceCompletions(snapshot, monitoredFolders, generation, deviceTraffic)
   local candidates = {}
+  local seen = {}
   for _, device in snapshot.devicesList do
-    if device.connected and not device.paused then
-      table.insert(candidates, device)
+    if device.isSelf or not device.connected or device.paused then
+      continue
+    end
+    seen[device.id] = true
+    local traffic = deviceTraffic[device.id] or { inB = 0, outB = 0 }
+    local cached = completionCache[device.id]
+    if completionIsStale(cached, traffic) then
+      table.insert(candidates, { device = device, traffic = traffic })
+    else
+      device.completion = cached.completion
+      device.needItems = cached.needItems
+    end
+  end
+  for id in completionCache do
+    if not seen[id] then
+      completionCache[id] = nil
     end
   end
   if #candidates == 0 then
@@ -501,12 +545,20 @@ local function fetchDeviceCompletions(snapshot, monitoredFolders, generation)
     return
   end
   local remaining = #candidates
-  for _, device in candidates do
+  for _, candidate in candidates do
+    local device = candidate.device
     fetch(`/rest/db/completion?device={noctalia.string.urlEncode(device.id)}`, {}, function(ok, status, body)
       local parsed = ok and status < 400 and noctalia.json.decode(body) or nil
       if parsed then
         device.completion = tonumber(parsed.completion) or 100
         device.needItems = tonumber(parsed.needItems) or 0
+        completionCache[device.id] = {
+          completion = device.completion,
+          needItems = device.needItems,
+          inB = candidate.traffic.inB,
+          outB = candidate.traffic.outB,
+          at = noctalia.nowMs(),
+        }
       end
       remaining -= 1
       if remaining == 0 then
@@ -563,6 +615,7 @@ local function fetchCore(generation)
     -- the panel's Devices tab.
     local myID = trim(results.system.myID)
     local connMap = (results.connections or {}).connections or {}
+    local deviceTraffic = {}
     local selfName = ""
     for _, device in (results.config.devices or {}) do
       local id = trim(device.deviceID)
@@ -577,6 +630,10 @@ local function fetchCore(generation)
         elseif info.connected then
           snapshot.devices.connected += 1
         end
+        deviceTraffic[id] = {
+          inB = tonumber(info.inBytesTotal) or 0,
+          outB = tonumber(info.outBytesTotal) or 0,
+        }
         table.insert(snapshot.devicesList, {
           name = trim(device.name) ~= "" and trim(device.name) or id:sub(1, 7),
           id = id,
@@ -677,7 +734,7 @@ local function fetchCore(generation)
       return a.label:lower() < b.label:lower()
     end)
 
-    fetchDeviceCompletions(snapshot, monitoredFolders, generation)
+    fetchDeviceCompletions(snapshot, monitoredFolders, generation, deviceTraffic)
   end
 
   for key, path in endpoints do
