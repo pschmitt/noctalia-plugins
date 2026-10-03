@@ -194,10 +194,10 @@ local function card(card, compact, allMetrics, columns)
     ui.label({ text = card.label, fontSize = compact and 13 or 15, fontWeight = "bold", flexGrow = 1 }),
   }
   local bankedText = shared.bankedResetsText(card.bankedAvailable, card.bankedExpiry)
-  if bankedText ~= nil and not compact then
+  if bankedText ~= nil then
     titleRow[#titleRow + 1] = ui.row({ align = "center", gap = 4 }, {
-      ui.glyph({ name = "ticket", size = 11, color = "on_surface_variant" }),
-      ui.label({ text = bankedText, fontSize = 10, color = "on_surface_variant", maxLines = 1 }),
+      ui.glyph({ name = "ticket", size = compact and 10 or 11, color = "on_surface_variant" }),
+      ui.label({ text = bankedText, fontSize = compact and 9 or 10, color = "on_surface_variant", maxLines = 1 }),
     })
   end
   local sections = {

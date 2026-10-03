@@ -22,7 +22,7 @@ Settings are prefixed by what they affect -- **Connection:** (server/token/refre
 
 The panel header's link icon opens `server_file`'s URL plus **Panel: Home Assistant link path** (default `/`) in the desktop's default browser — point it at a dashboard, e.g. `/mi-casa/data#ai-quotas`.
 
-Enable **Panel: Compact mode** to fit more providers in the same panel height: smaller rings, tighter card padding/spacing/fonts -- pace, the relative reset countdown, and the absolute reset time all stay. Disable **Panel: Show all metrics** to drop each card down to just its headline session/weekly windows (or its promoted primary quota for a category-only provider like Copilot), hiding Copilot's Chat/Completions rows and Antigravity's 3P model rows.
+Enable **Panel: Compact mode** to fit more providers in the same panel height: smaller rings, tighter card padding/spacing/fonts -- pace, the relative reset countdown, and the absolute reset time all stay. Codex's banked reset count and next expiry remain beside its name. Disable **Panel: Show all metrics** to drop each card down to just its headline session/weekly windows (or its promoted primary quota for a category-only provider like Copilot), hiding Copilot's Chat/Completions rows and Antigravity's 3P model rows.
 
 **Panel: Metric columns** controls whether metrics stay on separate wide rows (`1`, the default) or use two balanced widgets per row (`2`) in both compact and regular modes. A final unmatched metric in two-column mode remains narrow instead of stretching across the card.
 
