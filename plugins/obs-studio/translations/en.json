@@ -51,6 +51,10 @@
       "label": "Show stream indicator",
       "description": "Show a broadcast glyph in the bar while streaming."
     },
+    "bar_show_disconnected_badge": {
+      "label": "Show disconnected badge",
+      "description": "Show a red badge on the OBS Studio logo when OBS isn't running."
+    },
     "animations_enabled": {
       "label": "Enable animations",
       "description": "Blink the REC indicator while recording."

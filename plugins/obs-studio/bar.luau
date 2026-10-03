@@ -78,13 +78,15 @@ local function render_()
     -- trick pschmitt/ha's bar_icon plays with its "smart-home" default.
     -- Change it to any other glyph name to get a plain Tabler icon instead.
     if iconName == "" or iconName == "video" then
+      local showBadge = not snap.connected and noctalia.getConfig("bar_show_disconnected_badge") ~= false
+      local iconPath = showBadge and "assets/obs-studio-icon-disconnected.png" or "assets/obs-studio-icon.png"
       -- Wrapped in a row pinned to the label's own line-height (rather than
       -- relying on align="center" against the label directly): a label's
       -- box is taller than its cap-height (room for descenders), so an
       -- image centered against that whole box alone still reads as sitting
       -- a little high next to the text's visual glyph center.
       table.insert(children, ui.row({ height = 18, align = "center" }, {
-        ui.image({ path = "assets/obs-studio-icon.png", width = iconSize, height = iconSize, fit = "contain" }),
+        ui.image({ path = iconPath, width = iconSize, height = iconSize, fit = "contain" }),
       }))
     else
       table.insert(children, ui.glyph({ name = iconName, size = iconSize, color = statusColor() }))

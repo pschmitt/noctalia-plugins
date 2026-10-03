@@ -1,6 +1,6 @@
 id = "pschmitt/obs-studio"
 name = "OBS Studio"
-version = "0.8.7"
+version = "0.8.8"
 plugin_api = 24
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -116,6 +116,13 @@ key = "bar_show_stream_indicator"
 type = "bool"
 label_key = "settings.bar_show_stream_indicator.label"
 description_key = "settings.bar_show_stream_indicator.description"
+default = true
+
+[[setting]]
+key = "bar_show_disconnected_badge"
+type = "bool"
+label_key = "settings.bar_show_disconnected_badge.label"
+description_key = "settings.bar_show_disconnected_badge.description"
 default = true
 
 [[setting]]

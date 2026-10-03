@@ -5,7 +5,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-obs-studio";
-  version = "0.8.7";
+  version = "0.8.8";
 
   src = lib.fileset.toSource {
     root = ../../plugins/obs-studio;
