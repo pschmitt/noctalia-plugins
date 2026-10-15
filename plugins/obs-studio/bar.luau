@@ -68,7 +68,8 @@ local function render_()
   local children = {}
   local iconSize = tonumber(noctalia.getConfig("bar_icon_size")) or 16
 
-  local showIcon = mode ~= "scene_only"
+  local hideIcon = snap.connected and noctalia.getConfig("bar_hide_icon_when_running") == true
+  local showIcon = mode ~= "scene_only" and not hideIcon
   local showText = mode ~= "icon_only" and snap.connected
 
   if showIcon then
@@ -114,7 +115,7 @@ local function render_()
     }))
   end
 
-  if #children == 0 then
+  if #children == 0 and not hideIcon then
     table.insert(children, ui.glyph({ name = noctalia.getConfig("bar_icon"), size = 14, color = statusColor() }))
   end
 

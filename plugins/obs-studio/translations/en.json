@@ -55,6 +55,10 @@
       "label": "Show disconnected badge",
       "description": "Show a red badge on the OBS Studio logo when OBS isn't running."
     },
+    "bar_hide_icon_when_running": {
+      "label": "Hide icon while OBS is running",
+      "description": "Hide the OBS Studio icon in the bar while OBS is running (it still shows, with the disconnected badge, when OBS isn't)."
+    },
     "animations_enabled": {
       "label": "Enable animations",
       "description": "Blink the REC indicator while recording."
