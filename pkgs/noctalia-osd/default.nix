@@ -2,7 +2,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-osd";
-  version = "1.7.0";
+  version = (lib.importTOML ../../plugins/osd/plugin.toml).version;
 
   src = lib.fileset.toSource {
     root = ../../plugins/osd;

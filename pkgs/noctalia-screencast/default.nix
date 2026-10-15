@@ -6,7 +6,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-screencast";
-  version = "0.4.0";
+  version = (lib.importTOML ../../plugins/screencast/plugin.toml).version;
 
   src = lib.fileset.toSource {
     root = ../../plugins/screencast;

@@ -2,7 +2,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-feierabend";
-  version = "0.2.0";
+  version = (lib.importTOML ../../plugins/feierabend/plugin.toml).version;
 
   src = lib.fileset.toSource {
     root = ../../plugins/feierabend;
