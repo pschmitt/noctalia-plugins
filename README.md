@@ -1,6 +1,6 @@
 # Noctalia plugins
 
-![The plugins as they actually appear in a Noctalia bar.](./assets/noctalia-plugins-hero.png)
+![Noctalia bar with custom plugin widgets and the Fan Control panel open.](./assets/noctalia-plugins-hero.png)
 
 Personal [Noctalia](https://github.com/noctalia-dev/noctalia) plugins by
 [@pschmitt](https://github.com/pschmitt), packaged as a Nix flake.
