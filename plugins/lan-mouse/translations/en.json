@@ -27,6 +27,18 @@
     "stop_command": {
       "label": "Stop command",
       "description": "Shell command run by the panel's \"Stop\" button. Leave empty to run `systemctl --user stop lan-mouse.service`."
+    },
+    "start_command": {
+      "label": "Start command",
+      "description": "Shell command run by the panel's \"Start\" button. Leave empty to run `systemctl --user start lan-mouse.service`."
+    },
+    "gui_command": {
+      "label": "GUI command",
+      "description": "Shell command run by the panel's \"Open Lan Mouse\" button. Leave empty to run `lan-mouse` and open its GTK frontend."
+    },
+    "ssh_command": {
+      "label": "SSH command",
+      "description": "SSH executable used to query peer service status. Leave empty to use `ssh` from PATH."
     }
   }
 }

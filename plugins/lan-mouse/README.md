@@ -11,15 +11,18 @@ right now" — `lan-mouse cli list` only reports per-client connection state
 focus. This plugin instead polls a sentinel file that nixos-config's
 `home-manager/gui/lan-mouse.nix` `enter_hook` maintains: it holds the peer's
 name while control is away from this host, and is removed once control
-returns. The bar icon is hidden while control is on this host or while the
-local `lan-mouse.service` is stopped, and shows
-"→ \<peer\>" while it's away.
+returns. The bar icon is always visible. Its dot is green when
+`lan-mouse.service` is running and muted when it is stopped; when input is
+away, the peer name can be shown beside it.
 
 The panel lists configured peers (from `lan-mouse cli list`) with their
 connection state, and an Enable/Disable button per peer
-(`lan-mouse cli activate`/`deactivate`), plus a header "Stop" button that
-stops the local `lan-mouse.service` outright (disabled while the service is
-already stopped). What it runs is overridable via `stop_command`.
+(`lan-mouse cli activate`/`deactivate`), plus a header button that starts or
+stops the local `lan-mouse.service`. Commands are overridable via
+`start_command` and `stop_command`.
+While the local service is running, it checks each peer's
+`lan-mouse.service` state over SSH every ten seconds. This uses the configured
+SSH host aliases and batch authentication; unreachable peers show as such.
 
 A lockscreen widget adds a "Bring input back" button, shown only while the
 local service is active and `incoming_sentinel` says a peer's input is
@@ -52,13 +55,19 @@ visible a little longer than strictly necessary in that case.
   counterpart on the receiving side). Same expansion rules.
 - `poll_interval` — how often to re-check the sentinels and re-run
   `lan-mouse cli list`, in seconds.
-- `icon_color` — a Noctalia color role (e.g. `error`) or a hex color.
-- `show_label` — show the peer name next to the icon in the bar.
+- `icon_color` — a Noctalia color role (e.g. `primary`) or a hex color, used while running.
+- `show_label` — show the peer name next to the icon in the bar while control is away.
 - `go_back_command` — path to the lockscreen button's script. Set by
   `lan-mouse.nix`'s `goBackScript`; only change this if you know what you're
   doing.
 - `stop_command` — shell command run by the panel's "Stop" button. Leave
   empty to run `systemctl --user stop lan-mouse.service`.
+- `start_command` — shell command run by the panel's "Start" button. Leave
+  empty to run `systemctl --user start lan-mouse.service`.
+- `gui_command` — shell command run by the panel's "Open Lan Mouse" button.
+  Leave empty to run `lan-mouse` and open its GTK frontend.
+- `ssh_command` — SSH executable used to query peer service status. Leave
+  empty to use `ssh` from PATH.
 
 ## Entries
 

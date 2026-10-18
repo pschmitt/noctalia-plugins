@@ -68,11 +68,14 @@ local away = false
 local peerName = nil
 local incoming = false
 local incomingFrom = nil
+local remoteServiceStates = {}
+local remotePolling = {}
+local lastRemotePollAt = 0
 
 local function publish(peers)
   local parts = {}
   for _, peer in ipairs(peers) do
-    table.insert(parts, peer.hostname .. ":" .. tostring(peer.active))
+    table.insert(parts, peer.hostname .. ":" .. tostring(peer.active) .. ":" .. (peer.remoteServiceState or "checking"))
   end
   local key = tostring(serviceActive)
     .. "|"
@@ -103,6 +106,63 @@ local lastPeers = {}
 local servicePolling = false
 local peerPolling = false
 
+local function pollRemoteServices(peers)
+  local now = os.time()
+  if lastRemotePollAt > 0 and now - lastRemotePollAt < 10 then
+    return
+  end
+  lastRemotePollAt = now
+
+  for _, peer in ipairs(peers) do
+    local hostname = peer.hostname
+    if not remotePolling[hostname] then
+      remotePolling[hostname] = true
+      local sshCommand = noctalia.string.trim(noctalia.getConfig("ssh_command") or "")
+      if sshCommand == "" then
+        sshCommand = "ssh"
+      end
+      noctalia.runAsync({
+        sshCommand,
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=2",
+        hostname,
+        "systemctl",
+        "--user",
+        "is-active",
+        "lan-mouse.service",
+      }, function(result)
+        remotePolling[hostname] = nil
+        local serviceState = noctalia.string.trim(result.stdout or "")
+        if serviceState == "active" then
+          remoteServiceStates[hostname] = "running"
+        elseif serviceState == "inactive" then
+          remoteServiceStates[hostname] = "stopped"
+        elseif serviceState == "failed" then
+          remoteServiceStates[hostname] = "failed"
+        elseif serviceState == "activating" then
+          remoteServiceStates[hostname] = "starting"
+        elseif serviceState == "deactivating" then
+          remoteServiceStates[hostname] = "stopping"
+        elseif serviceState == "unknown" then
+          remoteServiceStates[hostname] = "missing"
+        else
+          remoteServiceStates[hostname] = "unreachable"
+        end
+
+        for _, currentPeer in ipairs(lastPeers) do
+          if currentPeer.hostname == hostname then
+            currentPeer.remoteServiceState = remoteServiceStates[hostname]
+            break
+          end
+        end
+        publish(lastPeers)
+      end, 3500)
+    end
+  end
+end
+
 local function readSentinels()
   local path = sentinelPath()
   away = noctalia.fileExists(path)
@@ -128,6 +188,10 @@ local function pollPeers()
     peerPolling = false
     if result.exitCode == 0 then
       lastPeers = parsePeers(result.stdout or "")
+      for _, peer in ipairs(lastPeers) do
+        peer.remoteServiceState = remoteServiceStates[peer.hostname] or "checking"
+      end
+      pollRemoteServices(lastPeers)
     end
     publish(lastPeers)
   end, POLL_TIMEOUT_MS)

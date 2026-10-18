@@ -1,9 +1,7 @@
 --!nonstrict
 -- Lan Mouse bar widget — the [[widget]] entry.
 --
--- Hidden while control is on this host (the common case), or while the local
--- lan-mouse.service is stopped; shows a mouse glyph + the peer's name
--- whenever service.luau's away_sentinel poll finds control has moved away.
+-- Always visible: the official Lan Mouse logo with a service-status badge.
 -- Clicking opens the peer/status panel defined in plugin.toml.
 
 local state = noctalia.state.get("lan_mouse_status") or { serviceActive = false, away = false, peerName = nil, peers = {} }
@@ -11,31 +9,30 @@ local state = noctalia.state.get("lan_mouse_status") or { serviceActive = false,
 local IDLE_TICK_MS = 5000
 
 local function render()
-  local visible = state.serviceActive == true and state.away == true
-  barWidget.setVisible(visible)
-  if not visible then
-    return
-  end
-
-  local color = noctalia.getConfig("icon_color") or "error"
+  barWidget.setVisible(true)
+  local active = state.serviceActive == true
+  local iconPath = active and "assets/lan-mouse-running.svg" or "assets/lan-mouse-stopped.svg"
   local showLabel = noctalia.getConfig("show_label") ~= false
 
   local children = {
-    ui.glyph({ name = "mouse", size = 14, color = color }),
+    ui.image({ path = iconPath, width = 18, height = 18, fit = "contain" }),
   }
-  if showLabel then
+  if showLabel and state.away == true then
     children[#children + 1] = ui.label({
       text = state.peerName or "away",
       fontWeight = "bold",
-      color = color,
+      color = "primary",
     })
   end
 
   local container = barWidget.isVertical() and ui.column or ui.row
   barWidget.render(container({ gap = 5, align = "center" }, children))
-  barWidget.setTooltip("Mouse/keyboard control is on " .. (state.peerName or "a peer"))
+  local tooltip = active and "Lan Mouse is running" or "Lan Mouse is stopped"
+  if active and state.away == true then
+    tooltip = tooltip .. "; control is on " .. (state.peerName or "a peer")
+  end
+  barWidget.setTooltip(tooltip)
 end
-
 noctalia.state.watch("lan_mouse_status", function(val)
   if type(val) == "table" then
     state = val

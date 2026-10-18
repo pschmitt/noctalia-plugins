@@ -6,8 +6,8 @@
 # holds the peer's name while control is away, and is absent while control is
 # on this host. The panel's peer list (hostname, position, connection state)
 # comes straight from `lan-mouse cli list`.
-# The bar and lockscreen widget also disappear while lan-mouse.service is not
-# active, even if a stale sentinel remains from the previous session.
+# The bar stays visible while the service is stopped so it can show status
+# and provide a way to start it. The lockscreen widget still hides while off.
 #
 # Also ships a lockscreen widget (lockscreen.luau): a "bring input back"
 # button for when a peer's session is locked and can no longer release
@@ -22,7 +22,7 @@ author = "pschmitt"
 license = "GPL-3.0-only"
 tags = ["bar", "indicator", "utility"]
 icon = "mouse"
-description = "Shows an icon while mouse/keyboard control is on a lan-mouse peer, with a panel listing peers and connection state."
+description = "Shows Lan Mouse service status with a panel for starting, stopping, and managing peers."
 dependencies = ["lan-mouse"]
 
 [[setting]]
@@ -53,14 +53,14 @@ key = "icon_color"
 type = "color"
 label_key = "settings.icon_color.label"
 description_key = "settings.icon_color.description"
-default = "error"
+default = "primary"
 
 [[setting]]
 key = "show_label"
 type = "bool"
 label_key = "settings.show_label.label"
 description_key = "settings.show_label.description"
-default = true
+default = false
 
 [[setting]]
 key = "go_back_command"
@@ -74,6 +74,27 @@ key = "stop_command"
 type = "string"
 label_key = "settings.stop_command.label"
 description_key = "settings.stop_command.description"
+default = ""
+
+[[setting]]
+key = "start_command"
+type = "string"
+label_key = "settings.start_command.label"
+description_key = "settings.start_command.description"
+default = ""
+
+[[setting]]
+key = "gui_command"
+type = "string"
+label_key = "settings.gui_command.label"
+description_key = "settings.gui_command.description"
+default = ""
+
+[[setting]]
+key = "ssh_command"
+type = "string"
+label_key = "settings.ssh_command.label"
+description_key = "settings.ssh_command.description"
 default = ""
 
 [[service]]

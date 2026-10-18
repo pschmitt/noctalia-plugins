@@ -17,6 +17,7 @@ stdenvNoCC.mkDerivation {
       ../../plugins/lan-mouse/panel.luau
       ../../plugins/lan-mouse/lockscreen.luau
       ../../plugins/lan-mouse/README.md
+      ../../plugins/lan-mouse/assets
       ../../plugins/lan-mouse/translations
     ];
   };
@@ -33,13 +34,14 @@ stdenvNoCC.mkDerivation {
     cp plugin.toml bar.luau panel.luau lockscreen.luau README.md "$dest"/
     substitute service.luau "$dest"/service.luau \
       --replace-fail "@systemctl@" "${lib.getExe' systemd "systemctl"}"
+    cp -r assets "$dest"/
     cp -r translations "$dest"/
 
     runHook postInstall
   '';
 
   meta = {
-    description = "Bar icon + panel for lan-mouse showing which host currently owns mouse/keyboard control";
+    description = "Lan Mouse bar indicator and control panel";
     license = lib.licenses.gpl3Only;
     maintainers = [ lib.maintainers.pschmitt ];
     platforms = lib.platforms.linux;
