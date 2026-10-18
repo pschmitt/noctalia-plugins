@@ -8,7 +8,7 @@ plug/unplug sounds, and opens a compact power-control panel when clicked.
 
 | Bar | Panel |
 | --- | --- |
-| ![Green battery pill showing 87% with a charging bolt.](./screenshots/bar.png) | ![Power control panel with battery health, charge rate, charging threshold, connected peripheral battery levels, temperature, load average, and a caffeine toggle.](./screenshots/panel.png) |
+| ![Green battery pill showing 80% with a charging bolt.](./screenshots/bar.png) | ![Power control panel with battery health, charge rate, charging threshold, connected peripheral battery levels, temperature, load average, and a caffeine toggle.](./screenshots/panel.png) |
 
 ## Requirements
 

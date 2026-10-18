@@ -3,6 +3,8 @@
 Bar icon + panel for [lan-mouse](https://github.com/feschber/lan-mouse), a
 software KVM switch for sharing a mouse/keyboard on the LAN.
 
+![Lan Mouse bar icon showing the local service as active.](./screenshots/bar.png)
+
 lan-mouse has no IPC/CLI query for "which side currently owns the cursor
 right now" — `lan-mouse cli list` only reports per-client connection state
 (hostname, position, whether that client connection is active), not input

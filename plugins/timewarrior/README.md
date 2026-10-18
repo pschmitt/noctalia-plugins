@@ -7,7 +7,7 @@ a per-day breakdown of the last two weeks.
 
 | Bar | Panel |
 | --- | --- |
-| ![Hourglass icon and running interval duration in the bar.](./screenshots/bar.png) | ![Timewarrior panel: Stop button, week/month/year totals, and a per-day breakdown of the last 14 days, colored by whether working hours were met.](./screenshots/panel.png) |
+| ![Hourglass icon and running interval duration in the bar.](./screenshots/bar.png) | ![Timewarrior panel with a Start button and no tracked time today or in the last 14 days.](./screenshots/panel.png) |
 
 ## Requirement
 

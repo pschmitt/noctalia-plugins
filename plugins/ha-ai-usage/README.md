@@ -4,7 +4,7 @@ Home Assistant-backed AI plan usage for the Noctalia bar and an attached detail 
 
 | Bar | Panel |
 | --- | --- |
-| ![Bar widget showing two accounts, each with a stacked session/weekly progress bar.](./screenshots/bar.png) | ![Detail panel with per-account cards: reset-countdown rings, session/weekly bars, pace, and Codex's banked resets.](./screenshots/panel.png) |
+| ![Bar widget showing two accounts, each with a stacked session/weekly progress bar.](./screenshots/bar.png) | ![Detail panel showing a Claude Pro account card with session and weekly usage bars.](./screenshots/panel.png) |
 
 ## Discovery
 

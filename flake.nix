@@ -1,10 +1,19 @@
 {
   description = "Noctalia plugins maintained by pschmitt";
 
-  inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    noctalia.url = "github:noctalia-dev/noctalia";
+    noctalia.inputs.nixpkgs.follows = "nixpkgs";
+  };
 
   outputs =
-    { nixpkgs, ... }:
+    {
+      self,
+      nixpkgs,
+      noctalia,
+      ...
+    }:
     let
       systems = [
         "aarch64-linux"
@@ -46,6 +55,44 @@
               (pkgs.callPackage ./pkgs/noctalia-timewarrior { })
             ];
           };
+        }
+      );
+
+      checks = forAllSystems (
+        system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+        in
+        {
+          plugins =
+            pkgs.runCommand "noctalia-plugins-check"
+              {
+                nativeBuildInputs = [
+                  noctalia.packages.${system}.default
+                  pkgs.imagemagick
+                  pkgs.jq
+                  pkgs.taplo
+                ];
+                buildInputs = [ self.packages.${system}.default ];
+                src = ./.;
+              }
+              ''
+                cd "$src"
+                for plugin in plugins/*; do
+                  test -f "$plugin/plugin.toml" || continue
+                  noctalia plugins lint "$plugin"
+                  taplo check "$plugin/plugin.toml"
+                  for translation in "$plugin"/translations/*.json; do
+                    test -f "$translation" || continue
+                    jq -e . "$translation" >/dev/null
+                  done
+                done
+                for image in assets/*.png plugins/*/screenshots/*.png plugins/*/assets/*.png; do
+                  test -f "$image" || continue
+                  magick identify "$image" >/dev/null
+                done
+                touch "$out"
+              '';
         }
       );
 

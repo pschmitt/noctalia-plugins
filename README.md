@@ -11,8 +11,10 @@ Personal [Noctalia](https://github.com/noctalia-dev/noctalia) plugins by
 | --- | --- |
 | [`pschmitt/battery-icon`](./plugins/battery-icon) | Android-inspired battery indicator with percentage, charging state, optional sounds, and configurable power controls. |
 | [`pschmitt/fan-control`](./plugins/fan-control) | Fan RPM indicator with manual speed control and a load-average panel. |
+| [`pschmitt/feierabend`](./plugins/feierabend) | End-of-workday reminder and status widget. |
 | [`pschmitt/ha-ai-usage`](./plugins/ha-ai-usage) | Dynamically discovered AI plan quotas (Claude, Codex, Copilot, Gemini) sourced from Home Assistant. |
 | [`pschmitt/ha`](./plugins/ha) | Status and toggle for a chosen handful of Home Assistant entities, scoped and paginated so it works on large instances. |
+| [`pschmitt/lan-mouse`](./plugins/lan-mouse) | Lan Mouse peer controls, service status, and a lockscreen input recovery action. |
 | [`pschmitt/obs-studio`](./plugins/obs-studio) | Current scene, recording/streaming/virtual-camera status, a scene switcher panel, and configurable quick actions for OBS Studio (via obs-cli and host-configured commands). |
 | [`pschmitt/osd`](./plugins/osd) | Scriptable, ad-hoc OSD/toast panels. |
 | [`pschmitt/screencast`](./plugins/screencast) | Red `REC` indicator while a portal screencast is active. |
@@ -22,6 +24,13 @@ Personal [Noctalia](https://github.com/noctalia-dev/noctalia) plugins by
 The detail panels, as actually rendered:
 
 ![Grid of plugin detail panels.](./assets/plugins-at-a-glance.png)
+
+## Development
+
+Run `nix flake check` to validate every plugin. It checks Noctalia's plugin
+settings lint, TOML manifests, translation JSON, screenshot image integrity,
+and the packaged plugin set. GitHub Actions runs it on pushes and pull
+requests.
 
 ## Nix usage
 

@@ -6,7 +6,7 @@ client(s) attached to the portal stream.
 
 | Bar (while sharing) | Panel |
 | --- | --- |
-| ![Red pulsing REC dot and label in the bar.](./screenshots/bar.png) | ![Screencast panel showing "Screen sharing is active", the sharing client (firefox), and a Stop sharing button.](./screenshots/panel.png) |
+| ![Red pulsing REC dot and label in the bar.](./screenshots/bar.png) | ![Current Screencast panel showing no active screen share, no PipeWire clients, and a Stop sharing button.](./screenshots/panel.png) |
 
 The bar widget renders nothing at all (`barWidget.setVisible(false)`) when no
 portal capture is active -- there's no idle icon to screenshot.
