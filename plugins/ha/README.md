@@ -154,6 +154,9 @@ single-icon mode; when a badge is configured, its HA logo remains the badge
 anchor, and the custom icon is used while the badge is inactive. Bar entities
 and condition entities are included in the bounded status request
 automatically.
+In Single icon mode, `bar_dynamic_widgets_first` puts configured dynamic
+status widgets before the main icon; it defaults to `false` to keep the icon
+first.
 
 Panel controls can be customized for an entire domain, or overridden for one
 entity. Entity-level `panel_controls` always wins over the matching

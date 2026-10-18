@@ -238,20 +238,27 @@ local function render()
   local singleMode = shared.config("bar_display_mode", "entities") == "single"
   local badgeActive = badge and badgeIsActive(badge)
   if singleMode then
+    local mainIcon
     if badgeActive or (badge and not barIcon) then
-      children[#children + 1] = badgeNode(badge)
+      mainIcon = badgeNode(badge)
     else
       local iconName = shared.trim(barIcon or shared.config("bar_icon", "smart-home"))
       if iconName == "" or iconName == "smart-home" then
-        children[#children + 1] = ui.image({ path = "assets/home-assistant-icon.png", width = iconSize(), height = iconSize(), fit = "contain" })
+        mainIcon = ui.image({ path = "assets/home-assistant-icon.png", width = iconSize(), height = iconSize(), fit = "contain" })
       else
-        children[#children + 1] = ui.glyph({ name = shared.glyphFor("sensor", iconName), size = iconSize(), color = "on_surface_variant" })
+        mainIcon = ui.glyph({ name = shared.glyphFor("sensor", iconName), size = iconSize(), color = "on_surface_variant" })
       end
     end
-    -- Keep the stable single-icon slot while allowing declarative widgets
-    -- (such as a washer timer) to appear beside it.
+    local dynamicWidgets = {}
     for _, item in ipairs(barItems) do
-      if item.visible and item.widget ~= "badge" then children[#children + 1] = customBarItem(item) end
+      if item.visible and item.widget ~= "badge" then dynamicWidgets[#dynamicWidgets + 1] = customBarItem(item) end
+    end
+    if shared.config("bar_dynamic_widgets_first", false) == true then
+      for _, widget in ipairs(dynamicWidgets) do children[#children + 1] = widget end
+      children[#children + 1] = mainIcon
+    else
+      children[#children + 1] = mainIcon
+      for _, widget in ipairs(dynamicWidgets) do children[#children + 1] = widget end
     end
   else
     if badge then children[#children + 1] = badgeNode(badge) end

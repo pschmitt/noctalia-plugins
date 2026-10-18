@@ -1,6 +1,6 @@
 id = "pschmitt/ha"
 name = "Home Assistant"
-version = "0.13.74"
+version = "0.13.75"
 plugin_api = 27
 author = "pschmitt"
 license = "GPL-3.0-only"
@@ -97,6 +97,13 @@ type = "glyph"
 label_key = "settings.bar_icon.label"
 description_key = "settings.bar_icon.description"
 default = "smart-home"
+
+[[setting]]
+key = "bar_dynamic_widgets_first"
+type = "bool"
+label_key = "settings.bar_dynamic_widgets_first.label"
+description_key = "settings.bar_dynamic_widgets_first.description"
+default = false
 
 # Same runAction()/ACTIONS convention pschmitt/battery-icon uses for its own
 # five interaction settings, right down to the shared settings.action.*
