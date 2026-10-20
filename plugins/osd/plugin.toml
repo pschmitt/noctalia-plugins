@@ -14,7 +14,7 @@
 
 id = "pschmitt/osd"
 name = "Custom OSD"
-version = "1.7.0"
+version = "1.7.1"
 plugin_api = 14
 author = "pschmitt"
 license = "MIT"
@@ -258,18 +258,16 @@ advanced = true
 # for the longest displayed line — see pkgs/local/osd/osd.sh. All entries run
 # this same script and share the plugin-level settings above.
 #
-# The heights are host-padding-bound, not text-bound: the panel host insets
-# the script tree by Style::panelPadding (14px per side, not overridable from
-# a plugin), so a 20px icon already needs 48px of panel to fit. A native OSD
-# gets a 46px card out of the same glyph because its own cardPadding is
-# spaceMd (12px) — hence 48 rather than 46 for the single-line entry.
+# Allow room for actual font line metrics, which can exceed the nominal font
+# size. With 14px host padding, compact has 28px and toast has 48px of content
+# height. A 20px box overflowed with taller fonts and appeared bottom-heavy
+# because the host clamps negative centering offsets.
 [[panel]]
 id = "compact"
 entry = "panel.luau"
-# 48px is the smallest height that clears the icon inside the host padding.
-# Content box: 224x20.
+# Content box: 224x28.
 width = 252
-height = 48
+height = 56
 placement = "floating"
 position = "top_center"
 open_near_click = false
@@ -283,10 +281,9 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "toast"
 entry = "panel.luau"
-# One line taller than "compact" for the body line. Content box: 224x34,
-# which fits summary (14px) + line_gap + body (12px) + two_line_balance.
+# Content box: 224x48, including both font line boxes and their gap.
 width = 252
-height = 62
+height = 76
 placement = "floating"
 position = "top_center"
 open_near_click = false
@@ -296,9 +293,9 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "compact-medium"
 entry = "panel.luau"
-# Content box: 292x20.
+# Content box: 292x28.
 width = 320
-height = 48
+height = 56
 placement = "floating"
 position = "top_center"
 open_near_click = false
@@ -308,9 +305,9 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "toast-medium"
 entry = "panel.luau"
-# Content box: 292x34.
+# Content box: 292x48.
 width = 320
-height = 62
+height = 76
 placement = "floating"
 position = "top_center"
 open_near_click = false
@@ -320,9 +317,9 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "compact-wide"
 entry = "panel.luau"
-# Content box: 372x20.
+# Content box: 372x28.
 width = 400
-height = 48
+height = 56
 placement = "floating"
 position = "top_center"
 open_near_click = false
@@ -332,9 +329,9 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "toast-wide"
 entry = "panel.luau"
-# Content box: 372x34.
+# Content box: 372x48.
 width = 400
-height = 62
+height = 76
 placement = "floating"
 position = "top_center"
 open_near_click = false
@@ -344,9 +341,9 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "compact-xwide"
 entry = "panel.luau"
-# Content box: 492x20.
+# Content box: 492x28.
 width = 520
-height = 48
+height = 56
 placement = "floating"
 position = "top_center"
 open_near_click = false
@@ -356,9 +353,9 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "toast-xwide"
 entry = "panel.luau"
-# Content box: 492x34.
+# Content box: 492x48.
 width = 520
-height = 62
+height = 76
 placement = "floating"
 position = "top_center"
 open_near_click = false

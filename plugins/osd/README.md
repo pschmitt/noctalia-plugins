@@ -97,14 +97,14 @@ declares four width buckets for each of the two line counts:
 
 | Entry | Size | Content box | For |
 | --- | --- | --- | --- |
-| `pschmitt/osd:compact` | 252x48 | 224x20 | no `body`, short |
-| `pschmitt/osd:compact-medium` | 320x48 | 292x20 | no `body`, medium |
-| `pschmitt/osd:compact-wide` | 400x48 | 372x20 | no `body`, wide |
-| `pschmitt/osd:compact-xwide` | 520x48 | 492x20 | no `body`, extra wide |
-| `pschmitt/osd:toast` | 252x62 | 224x34 | with `body`, short |
-| `pschmitt/osd:toast-medium` | 320x62 | 292x34 | with `body`, medium |
-| `pschmitt/osd:toast-wide` | 400x62 | 372x34 | with `body`, wide |
-| `pschmitt/osd:toast-xwide` | 520x62 | 492x34 | with `body`, extra wide |
+| `pschmitt/osd:compact` | 252x56 | 224x28 | no `body`, short |
+| `pschmitt/osd:compact-medium` | 320x56 | 292x28 | no `body`, medium |
+| `pschmitt/osd:compact-wide` | 400x56 | 372x28 | no `body`, wide |
+| `pschmitt/osd:compact-xwide` | 520x56 | 492x28 | no `body`, extra wide |
+| `pschmitt/osd:toast` | 252x76 | 224x48 | with `body`, short |
+| `pschmitt/osd:toast-medium` | 320x76 | 292x48 | with `body`, medium |
+| `pschmitt/osd:toast-wide` | 400x76 | 372x48 | with `body`, wide |
+| `pschmitt/osd:toast-xwide` | 520x76 | 492x48 | with `body`, extra wide |
 
 `pkgs/local/osd/osd.sh` chooses the line count and smallest width bucket from
 the longest displayed line. Direct `noctalia msg panel-open` calls use the
@@ -114,12 +114,29 @@ active-panel slot, so `dismiss`/`hide`/`status` address all ids.
 
 The width buckets keep ordinary messages compact while allowing longer
 messages such as ISO timestamps to expand without an explicit text-width cap.
-The heights are bound by the host padding, not by the text: the panel host
-insets the script's tree by `Style::panelPadding`, a fixed 14px per side a
-plugin cannot turn off, so a 20px icon already needs 48px of panel.
+The panel host insets the script's tree by `Style::panelPadding`, a fixed
+14px per side. The remaining 28px (compact) or 48px (toast) accommodates
+font line boxes as well as the icon. Font size alone does not describe a
+label's height; too little space causes downward overflow and uneven padding.
 
 `content_padding_h`/`content_padding_v` only *add* to that inset.
 `max_text_width` defaults to `0`, which disables the explicit text-width cap;
 set it from 80 to 462 to enable ellipsizing at a chosen width. The `osd`
 wrapper estimates the required panel width and chooses the smallest available
 bucket (252, 320, 400, or 520px) for each message.
+
+## Native OSDs
+
+The `osd` wrapper also exposes Noctalia's actual built-in OSDs:
+
+```sh
+osd native volume                 # current speaker volume and mute state
+osd native mic-volume             # current microphone volume and mute state
+osd native volume 65              # display 65%, without changing volume
+osd native brightness 50
+osd native keyboard-backlight 25
+```
+
+Values are percentages (0–100). Brightness and keyboard backlight require a
+value; volume and microphone volume default to their current state. These
+commands require Noctalia and use its native OSD styling and timeout.
