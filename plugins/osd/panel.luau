@@ -6,7 +6,7 @@
 -- (non-JSON) context string is shown verbatim as the summary, so
 -- `panel-open pschmitt/osd:toast "Hello"` also works for a quick one-liner.
 --
--- Panel geometry is static per entry, so the manifest declares two: ":compact"
+-- Panel height is static per entry, so the manifest declares two: ":compact"
 -- (single line) and ":toast" (with a body line). This script fills whichever
 -- content box it is handed and does not care which one it is running in — the
 -- caller picks by whether the payload has a body. Opening one closes the
@@ -181,6 +181,14 @@ local function render()
 
   local style = currentStyle or resolvedStyle(current)
   local hasBody = current.body ~= nil and current.body ~= ""
+  -- Keep both text lines inside the 520px outer cap, including host padding,
+  -- optional glyph/gap, and per-call content padding. Measure still determines
+  -- the actual width below this limit; long lines ellipsize instead of spilling.
+  local iconWidth = style.show_icon and (style.icon_size + style.icon_text_gap) or 0
+  local textLimit = math.max(1, 520 - 28 - iconWidth - 2 * style.padding_h)
+  if style.max_text_width > 0 then
+    textLimit = math.min(textLimit, style.max_text_width)
+  end
   local textChildren = {
     ui.label({
       text = tostring(current.summary or ""),
@@ -189,7 +197,7 @@ local function render()
       color = style.summary_color,
       textAlign = style.text_align,
       baseline = "inkCentered",
-      maxWidth = style.max_text_width > 0 and style.max_text_width or nil,
+      maxWidth = textLimit,
       maxLines = 1,
     }),
   }
@@ -200,7 +208,7 @@ local function render()
       color = style.body_color,
       textAlign = style.text_align,
       baseline = "inkCentered",
-      maxWidth = style.max_text_width > 0 and style.max_text_width or nil,
+      maxWidth = textLimit,
       maxLines = 1,
     }))
   end

@@ -85,45 +85,25 @@ check the journal when an icon silently fails to appear.
 
 ## Window geometry
 
-The outer `width` and `height` are static `[[panel]]` manifest properties.
-Noctalia 5.0 has no runtime panel-resize API, so settings and profiles cannot
-change the actual window dimensions. Change the manifest geometry and bump the
-package/plugin version when a different outer size is needed. Likewise, the
-outer card background, border, radius, and shadow come from Noctalia's global
-panel theme; this plugin can style only its inset content tree.
+The custom OSD uses `fit_content_width = true` on its floating panels.
+Noctalia measures the actual rendered text, font, glyph, and spacing, then
+resizes and centers the card. Short messages get narrow cards; longer messages
+grow up to 520 logical pixels, including the host's 14px padding on each side.
+This requires the `fit_content_width` host patch shipped in nixos-config.
 
-Because the geometry is static but a toast is one *or* two lines, the manifest
-declares four width buckets for each of the two line counts:
+The wrapper selects `compact` (56px high) for one line or `toast` (76px high)
+for a summary and body. The legacy `-medium`, `-wide`, and `-xwide` entry IDs
+remain available and now fit their content too. Direct IPC calls get the same
+content sizing as the wrapper.
 
-| Entry | Size | Content box | For |
-| --- | --- | --- | --- |
-| `pschmitt/osd:compact` | 252x56 | 224x28 | no `body`, short |
-| `pschmitt/osd:compact-medium` | 320x56 | 292x28 | no `body`, medium |
-| `pschmitt/osd:compact-wide` | 400x56 | 372x28 | no `body`, wide |
-| `pschmitt/osd:compact-xwide` | 520x56 | 492x28 | no `body`, extra wide |
-| `pschmitt/osd:toast` | 252x76 | 224x48 | with `body`, short |
-| `pschmitt/osd:toast-medium` | 320x76 | 292x48 | with `body`, medium |
-| `pschmitt/osd:toast-wide` | 400x76 | 372x48 | with `body`, wide |
-| `pschmitt/osd:toast-xwide` | 520x76 | 492x48 | with `body`, extra wide |
+Font line boxes can exceed the nominal font size, so the height leaves room
+for actual line metrics. `content_padding_h` and `content_padding_v` add to
+the host inset. Per-call styles, glyph visibility, and profile rules participate
+in the measured width. `max_text_width = 0` disables an additional text cap;
+set it to a positive value to ellipsize sooner.
 
-`pkgs/local/osd/osd.sh` chooses the line count and smallest width bucket from
-the longest displayed line. Direct `noctalia msg panel-open` calls use the
-panel entry they name and do not get that wrapper-side width selection.
-Opening any entry closes the other, since all share Noctalia's single
-active-panel slot, so `dismiss`/`hide`/`status` address all ids.
-
-The width buckets keep ordinary messages compact while allowing longer
-messages such as ISO timestamps to expand without an explicit text-width cap.
-The panel host insets the script's tree by `Style::panelPadding`, a fixed
-14px per side. The remaining 28px (compact) or 48px (toast) accommodates
-font line boxes as well as the icon. Font size alone does not describe a
-label's height; too little space causes downward overflow and uneven padding.
-
-`content_padding_h`/`content_padding_v` only *add* to that inset.
-`max_text_width` defaults to `0`, which disables the explicit text-width cap;
-set it from 80 to 462 to enable ellipsizing at a chosen width. The `osd`
-wrapper estimates the required panel width and chooses the smallest available
-bucket (252, 320, 400, or 520px) for each message.
+The outer card background, border, radius, and shadow come from Noctalia's
+panel theme. Content decoration applies inside the host padding.
 
 ## Native OSDs
 

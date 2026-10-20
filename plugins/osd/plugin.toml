@@ -14,7 +14,7 @@
 
 id = "pschmitt/osd"
 name = "Custom OSD"
-version = "1.7.1"
+version = "1.8.0"
 plugin_api = 14
 author = "pschmitt"
 license = "MIT"
@@ -38,9 +38,8 @@ label_key = "settings.show_icon.label"
 description_key = "settings.show_icon.description"
 default = true
 
-# Panel width is host-owned and static, so the wrapper selects the smallest
-# matching width bucket for each message. The panel host insets the script's
-# tree by Style::panelPadding (14px per side, not configurable from a plugin).
+# The host measures content width and adds Style::panelPadding (14px per
+# side, not configurable from a plugin).
 [[setting]]
 key = "icon_size"
 type = "int"
@@ -253,10 +252,9 @@ description_key = "settings.profile_rules.description"
 default = '''[{"match":{"category":"success"},"style":{"icon":"circle-check","icon_color":"#A8D38D"}},{"match":{"category":"warning"},"style":{"icon":"alert-triangle","icon_color":"#F3BD6A"}},{"match":{"category":["error","failure"]},"style":{"icon":"alert-circle","icon_color":"#F1705F"}},{"name":"critical","style":{"icon":"alert-circle","icon_color":"error","summary_color":"error","timeout_ms":0}}]'''
 advanced = true
 
-# Panel geometry is static per entry (there is no runtime resize API), so each
-# line count has four width buckets. The wrapper computes the smallest bucket
-# for the longest displayed line — see pkgs/local/osd/osd.sh. All entries run
-# this same script and share the plugin-level settings above.
+# Floating panels measure the rendered tree and shrink to its content. Width
+# is the maximum, including host padding. Legacy width-bucket IDs remain valid
+# for existing direct IPC callers. Requires the host fit_content_width patch.
 #
 # Allow room for actual font line metrics, which can exceed the nominal font
 # size. With 14px host padding, compact has 28px and toast has 48px of content
@@ -265,8 +263,8 @@ advanced = true
 [[panel]]
 id = "compact"
 entry = "panel.luau"
-# Content box: 224x28.
-width = 252
+width = 520
+fit_content_width = true
 height = 56
 placement = "floating"
 position = "top_center"
@@ -281,8 +279,8 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "toast"
 entry = "panel.luau"
-# Content box: 224x48, including both font line boxes and their gap.
-width = 252
+width = 520
+fit_content_width = true
 height = 76
 placement = "floating"
 position = "top_center"
@@ -293,8 +291,8 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "compact-medium"
 entry = "panel.luau"
-# Content box: 292x28.
-width = 320
+width = 520
+fit_content_width = true
 height = 56
 placement = "floating"
 position = "top_center"
@@ -305,8 +303,8 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "toast-medium"
 entry = "panel.luau"
-# Content box: 292x48.
-width = 320
+width = 520
+fit_content_width = true
 height = 76
 placement = "floating"
 position = "top_center"
@@ -317,8 +315,8 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "compact-wide"
 entry = "panel.luau"
-# Content box: 372x28.
-width = 400
+width = 520
+fit_content_width = true
 height = 56
 placement = "floating"
 position = "top_center"
@@ -329,8 +327,8 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "toast-wide"
 entry = "panel.luau"
-# Content box: 372x48.
-width = 400
+width = 520
+fit_content_width = true
 height = 76
 placement = "floating"
 position = "top_center"
@@ -341,8 +339,8 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "compact-xwide"
 entry = "panel.luau"
-# Content box: 492x28.
 width = 520
+fit_content_width = true
 height = 56
 placement = "floating"
 position = "top_center"
@@ -353,8 +351,8 @@ dismiss_on_outside_click = false
 [[panel]]
 id = "toast-xwide"
 entry = "panel.luau"
-# Content box: 492x48.
 width = 520
+fit_content_width = true
 height = 76
 placement = "floating"
 position = "top_center"
