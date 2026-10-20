@@ -14,9 +14,16 @@ local function render()
   local iconPath = active and "assets/lan-mouse-running.svg" or "assets/lan-mouse-stopped.svg"
   local showLabel = noctalia.getConfig("show_label") ~= false
 
-  local children = {
-    ui.image({ path = iconPath, width = 18, height = 18, fit = "contain" }),
-  }
+  local children = {}
+  if active and state.away == true then
+    children[#children + 1] = ui.glyph({
+      name = "mouse-off",
+      size = 18,
+      color = noctalia.getConfig("icon_color") or "primary",
+    })
+  else
+    children[#children + 1] = ui.image({ path = iconPath, width = 18, height = 18, fit = "contain" })
+  end
   if showLabel and state.away == true then
     children[#children + 1] = ui.label({
       text = state.peerName or "away",
