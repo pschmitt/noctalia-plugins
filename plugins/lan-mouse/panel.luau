@@ -23,6 +23,15 @@ local function statusLabel()
     return "Lan Mouse isn't running", "error"
   end
   if state.away then
+    if state.controlPeerState ~= "running" then
+      local peer = state.peerName or "peer"
+      if state.controlPeerState == "unreachable" then
+        return peer .. " is unreachable; control status unknown", "error"
+      elseif state.controlPeerState == "checking" or state.controlPeerState == nil then
+        return "Checking control on " .. peer .. "…", "on_surface_variant"
+      end
+      return peer .. " Lan Mouse isn't running; control status unknown", "error"
+    end
     return "Control is on " .. (state.peerName or "a peer"), "primary"
   end
   return "Lan Mouse is running", "primary"

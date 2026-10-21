@@ -74,8 +74,12 @@ local lastRemotePollAt = 0
 
 local function publish(peers)
   local parts = {}
+  local controlPeerState = nil
   for _, peer in ipairs(peers) do
     table.insert(parts, peer.hostname .. ":" .. tostring(peer.active) .. ":" .. (peer.remoteServiceState or "checking"))
+    if peer.hostname == peerName then
+      controlPeerState = peer.remoteServiceState or "checking"
+    end
   end
   local key = tostring(serviceActive)
     .. "|"
@@ -87,6 +91,8 @@ local function publish(peers)
     .. "|"
     .. (incomingFrom or "")
     .. "|"
+    .. (controlPeerState or "")
+    .. "|"
     .. table.concat(parts, ",")
   if key == lastKey then
     return
@@ -96,6 +102,10 @@ local function publish(peers)
     serviceActive = serviceActive,
     away = away,
     peerName = peerName,
+    -- The sentinel records the last edge-crossing event, not a live capture
+    -- session. Only present it as current control when that peer's daemon is
+    -- reachable and running; a powered-off peer leaves the sentinel stale.
+    controlPeerState = away and (controlPeerState or "checking") or nil,
     incoming = incoming,
     incomingFrom = incomingFrom,
     peers = peers,

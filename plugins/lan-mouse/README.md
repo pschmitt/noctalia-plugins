@@ -16,6 +16,11 @@ and a mouse-off glyph while it is away. The icon is bright when
 `lan-mouse.service` is running and muted when it is stopped; when input is
 away, the peer name can be shown beside it. Sentinel state is checked once a
 second by default.
+Since a hard shutdown can leave the sentinel file stale, the plugin also
+checks the peer's `lan-mouse.service` over SSH before claiming control is
+currently there. If the peer is unreachable or its service is stopped, the
+status says control is unknown. This remains a best-effort status: a running
+peer service does not expose whether it currently owns input.
 
 The panel lists configured peers (from `lan-mouse cli list`) with their
 connection state, and an Enable/Disable button per peer

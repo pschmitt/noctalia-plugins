@@ -25,10 +25,11 @@ local function render()
     color = iconColor,
   })
   if showLabel and away then
+    local controlKnown = state.controlPeerState == "running"
     children[#children + 1] = ui.label({
-      text = state.peerName or "away",
+      text = (state.peerName or "away") .. (controlKnown and "" or "?"),
       fontWeight = "bold",
-      color = "primary",
+      color = controlKnown and "primary" or "error",
     })
   end
 
@@ -36,7 +37,15 @@ local function render()
   barWidget.render(container({ gap = 5, align = "center" }, children))
   local tooltip = active and "Lan Mouse is running" or "Lan Mouse is stopped"
   if active and away then
-    tooltip = tooltip .. "; control is on " .. (state.peerName or "a peer")
+    if state.controlPeerState == "running" then
+      tooltip = tooltip .. "; control is on " .. (state.peerName or "a peer")
+    elseif state.controlPeerState == "unreachable" then
+      tooltip = tooltip .. "; " .. (state.peerName or "peer") .. " is unreachable; control status unknown"
+    elseif state.controlPeerState == "checking" or state.controlPeerState == nil then
+      tooltip = tooltip .. "; checking control on " .. (state.peerName or "peer")
+    else
+      tooltip = tooltip .. "; " .. (state.peerName or "peer") .. " Lan Mouse isn't running; control status unknown"
+    end
   end
   barWidget.setTooltip(tooltip)
 end
