@@ -16,7 +16,7 @@
 local POLL_TIMEOUT_MS = 3000
 
 local function pollMs()
-  return math.clamp(math.floor(tonumber(noctalia.getConfig("poll_interval")) or 2), 1, 30) * 1000
+  return math.clamp(math.floor(tonumber(noctalia.getConfig("poll_interval")) or 1), 1, 30) * 1000
 end
 
 -- Settings carry the literal "$XDG_RUNTIME_DIR"/"$HOME" text (matching

@@ -11,9 +11,11 @@ right now" — `lan-mouse cli list` only reports per-client connection state
 focus. This plugin instead polls a sentinel file that nixos-config's
 `home-manager/gui/lan-mouse.nix` `enter_hook` maintains: it holds the peer's
 name while control is away from this host, and is removed once control
-returns. The bar icon is always visible. Its dot is green when
+returns. The bar icon is always visible: a mouse glyph when control is here,
+and a mouse-off glyph while it is away. The icon is bright when
 `lan-mouse.service` is running and muted when it is stopped; when input is
-away, the peer name can be shown beside it.
+away, the peer name can be shown beside it. Sentinel state is checked once a
+second by default.
 
 The panel lists configured peers (from `lan-mouse cli list`) with their
 connection state, and an Enable/Disable button per peer
