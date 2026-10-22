@@ -20,12 +20,12 @@ local function render()
 
   local children = {}
   children[#children + 1] = ui.glyph({
-    name = away and "mouse-off" or "mouse",
+    name = active and not state.controlKnown and "question-mark" or (away and "mouse-off" or "mouse"),
     size = 18,
     color = iconColor,
   })
   if showLabel and away then
-    local controlKnown = state.controlPeerState == "running"
+    local controlKnown = state.controlKnown == true
     children[#children + 1] = ui.label({
       text = (state.peerName or "away") .. (controlKnown and "" or "?"),
       fontWeight = "bold",
@@ -36,16 +36,14 @@ local function render()
   local container = barWidget.isVertical() and ui.column or ui.row
   barWidget.render(container({ gap = 5, align = "center" }, children))
   local tooltip = active and "Lan Mouse is running" or "Lan Mouse is stopped"
-  if active and away then
-    if state.controlPeerState == "running" then
-      tooltip = tooltip .. "; control is on " .. (state.peerName or "a peer")
-    elseif state.controlPeerState == "unreachable" then
-      tooltip = tooltip .. "; " .. (state.peerName or "peer") .. " is unreachable; control status unknown"
-    elseif state.controlPeerState == "checking" or state.controlPeerState == nil then
-      tooltip = tooltip .. "; checking control on " .. (state.peerName or "peer")
-    else
-      tooltip = tooltip .. "; " .. (state.peerName or "peer") .. " Lan Mouse isn't running; control status unknown"
-    end
+  if active and not state.controlKnown then
+    tooltip = tooltip .. (state.pendingPeer and ("; waiting for " .. state.pendingPeer .. " to acknowledge") or "; input state unknown")
+  elseif active and away then
+    tooltip = tooltip .. "; sending input to " .. (state.peerName or "a peer")
+  elseif active and state.incoming then
+    tooltip = tooltip .. "; receiving input from " .. (state.incomingFrom or "a peer")
+  elseif active then
+    tooltip = tooltip .. "; input is local"
   end
   barWidget.setTooltip(tooltip)
 end

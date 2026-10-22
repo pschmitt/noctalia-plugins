@@ -1,24 +1,6 @@
 --!nonstrict
--- Lan Mouse lockscreen widget — the [[desktop_widget]] entry.
---
--- A small "bring input back" button, shown only while incoming_sentinel
--- (service.luau) says a peer's input is actually flowing into this host --
--- exactly the one situation where it's needed: this host is locked while a
--- peer holds mouse/keyboard capture, and lan-mouse's normal edge-crossing
--- release can't fire because the session lock grabs input exclusively
--- (confirmed 2026-09-17 -- see releaseBind's own comment in
--- home-manager/gui/lan-mouse.nix). Clicking runs
--- ~/.config/lan-mouse/go-back (home-manager/gui/lan-mouse.nix's
--- goBackScript): it restarts *this host's own* lan-mouse.service (killing
--- the connection is what the peer's own daemon already treats as
--- "releasing capture: not connected", same effect release_bind has, no
--- ssh needed for the release itself) and, in parallel over ssh, also
--- restarts the peer's service and clears its own awaySentinel file --
--- belt-and-suspenders, not required for the release itself. (Earlier
--- versions used `lan-mouse cli deactivate`+`activate` on the peer instead;
--- confirmed live 2026-09-17 that left the peer's daemon silently skipping
--- enter_hook on the *next* real capture into it, even though capture
--- itself kept working.)
+-- Show the return action only for confirmed incoming input in the local
+-- daemon snapshot. The helper restarts this host's daemon to release input.
 
 local state = noctalia.state.get("lan_mouse_status") or { serviceActive = false, incoming = false, incomingFrom = nil }
 local pending = false
@@ -48,7 +30,7 @@ local function render()
   -- -- `ui.row({ visible = false }, {})` is the exact pattern used
   -- elsewhere in this repo (timewarrior/panel.luau) for "hide this row
   -- entirely", always paired with empty children there.
-  local visible = state.serviceActive == true and state.incoming == true
+  local visible = state.serviceActive == true and state.controlKnown == true and state.incoming == true
   renderer.render(ui.row({
     gap = 6,
     align = "center",

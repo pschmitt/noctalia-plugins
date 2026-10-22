@@ -22,19 +22,16 @@ local function statusLabel()
   if not state.serviceActive then
     return "Lan Mouse isn't running", "error"
   end
-  if state.away then
-    if state.controlPeerState ~= "running" then
-      local peer = state.peerName or "peer"
-      if state.controlPeerState == "unreachable" then
-        return peer .. " is unreachable; control status unknown", "error"
-      elseif state.controlPeerState == "checking" or state.controlPeerState == nil then
-        return "Checking control on " .. peer .. "…", "on_surface_variant"
-      end
-      return peer .. " Lan Mouse isn't running; control status unknown", "error"
-    end
-    return "Control is on " .. (state.peerName or "a peer"), "primary"
+  if not state.controlKnown then
+    return state.pendingPeer and ("Waiting for " .. state.pendingPeer .. "…") or "Input state unknown", "on_surface_variant"
   end
-  return "Lan Mouse is running", "primary"
+  if state.away then
+    return "Sending input to " .. (state.peerName or "a peer"), "primary"
+  end
+  if state.incoming then
+    return "Receiving from " .. (state.incomingFrom or "a peer"), "primary"
+  end
+  return "Input is local", "primary"
 end
 
 local function header()
@@ -140,29 +137,8 @@ local function peerList()
     }))
   else
     for _, peer in ipairs(peers) do
-      local remoteState = peer.remoteServiceState or "checking"
-      local remoteLabel = "Checking…"
-      local remoteColor = "on_surface_variant"
-      if remoteState == "running" then
-        remoteLabel = "Running"
-        remoteColor = "primary"
-      elseif remoteState == "stopped" then
-        remoteLabel = "Stopped"
-        remoteColor = "error"
-      elseif remoteState == "failed" then
-        remoteLabel = "Failed"
-        remoteColor = "error"
-      elseif remoteState == "starting" then
-        remoteLabel = "Starting"
-      elseif remoteState == "stopping" then
-        remoteLabel = "Stopping"
-      elseif remoteState == "missing" then
-        remoteLabel = "No service"
-        remoteColor = "error"
-      elseif remoteState == "unreachable" then
-        remoteLabel = "Unreachable"
-      end
-      local peerPending = pending[peer.id] == true
+      local remoteLabel = peer.connected and "Connected" or "Disconnected"
+      local remoteColor = peer.connected and "primary" or "on_surface_variant"
       local peerActive = peer.active == true
       local buttonText = peerPending and "…" or nil
       if not peerPending and not peerActive then
