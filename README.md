@@ -1,5 +1,7 @@
 # Noctalia plugins
 
+[![nixbot](https://nixbot.brkn.lol/repos/github/pschmitt/noctalia-plugins/badge.svg?branch=main)](https://nixbot.brkn.lol/repos/github/pschmitt/noctalia-plugins)
+
 ![A single gk4 screenshot crop showing the Fan Control panel open below the Noctalia bar.](./assets/noctalia-plugins-hero.png)
 
 Personal [Noctalia](https://github.com/noctalia-dev/noctalia) plugins by
