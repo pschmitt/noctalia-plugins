@@ -103,22 +103,20 @@ end
 -- each bar gets), keep every provider in one card and arrange its metrics in
 -- the configured one- or two-column grid. Providers differ in how many
 -- headline windows they have (Copilot one, Antigravity five), so a final
--- unmatched metric keeps the same fixed width rather than stretching.
+-- unmatched metric is balanced with a flex spacer rather than stretching.
 local RING_DISPLAY_SIZE = 34
 local RING_DISPLAY_SIZE_COMPACT = 28
-local PANEL_METRIC_WIDTH = 280
 local PANEL_METRIC_GAP = 14
 
 local function panelColumns()
   return math.max(1, math.min(2, tonumber(noctalia.getConfig("panel_columns")) or 1))
 end
 
-local function metricWidget(metric, compact, columns, fillRow)
+local function metricWidget(metric, compact)
   return ui.row({
     align = "center",
     gap = compact and 8 or 10,
-    flexGrow = (columns == 1 or fillRow) and 1 or nil,
-    width = columns == 2 and not fillRow and PANEL_METRIC_WIDTH or nil,
+    flexGrow = 1,
   }, {
     ringSlot(metric, compact and RING_DISPLAY_SIZE_COMPACT or RING_DISPLAY_SIZE),
     ui.column({ gap = 3, flexGrow = 1 }, ringLines(metric, compact)),
@@ -130,10 +128,12 @@ local function ringCard(metrics, compact, columns)
   local currentRow = {}
 
   local function appendRow(rowMetrics)
-    local fillRow = columns == 1 or #rowMetrics == columns
     local widgets = {}
     for _, metric in ipairs(rowMetrics) do
-      widgets[#widgets + 1] = metricWidget(metric, compact, columns, fillRow)
+      widgets[#widgets + 1] = metricWidget(metric, compact)
+    end
+    if columns == 2 and #rowMetrics == 1 then
+      widgets[#widgets + 1] = ui.box({ flexGrow = 1 })
     end
     rows[#rows + 1] = ui.row({
       gap = PANEL_METRIC_GAP,
@@ -278,8 +278,8 @@ local function render()
       }),
     })
   end
-  children[#children + 1] = ui.scroll({ flexGrow = 1, gap = compact and 6 or 10 }, content)
-  panel.render(ui.column({ flexGrow = 1, padding = compact and 10 or 14, gap = compact and 6 or 10 }, children))
+  children[#children + 1] = ui.scroll({ gap = compact and 6 or 10 }, content)
+  panel.render(ui.column({ padding = compact and 10 or 14, gap = compact and 6 or 10 }, children))
 end
 
 noctalia.state.watch("ha_ai_usage.items", function(value)
