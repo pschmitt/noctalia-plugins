@@ -160,7 +160,7 @@ local function ringCard(metrics, compact, columns)
   return ui.column({
     gap = 0,
     align = "stretch",
-    fill = "surface_variant/0.4",
+    fill = "surface_variant/0.58",
     radius = compact and 10 or 12,
     padding = compact and 7 or 10,
     flexGrow = 1,
