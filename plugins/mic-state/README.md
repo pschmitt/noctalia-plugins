@@ -9,7 +9,8 @@ Click the widget to open the microphone panel. It includes mute and volume
 controls, a live voice level meter, the actual physical PipeWire capture
 devices, and a selector for the RNNoise filter's capture device. Virtual
 sources and monitor sources are filtered out. Device selection leaves the
-meeting mix as the default source and persists across restarts. The plugin
+meeting mix as the default source and persists across restarts. Mute and
+volume controls apply to the selected physical capture device. The plugin
 settings also accept an explicit PipeWire source name or `auto` for the device,
 and set the scroll volume step and refresh interval.
 

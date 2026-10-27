@@ -65,18 +65,16 @@ local function poll()
         filtered[#filtered + 1] = {
           name = name,
           description = source.description or name,
+          muted = source.mute == true,
+          volume = (function()
+            local volume = source.volume or {}
+            local first = volume["front-left"] or volume["mono"] or volume["front-center"]
+            return first and first.value_percent and tonumber(first.value_percent:match("[%d%.]+")) or nil
+          end)(),
         }
       end
 
       if name == "rnnoise_source" then
-        state.muted = source.mute == true
-        if requestedVolumeRevision == volumeRevision then
-          local volume = source.volume or {}
-          local first = volume["front-left"] or volume["mono"] or volume["front-center"]
-          if first and first.value_percent then
-            state.volume = tonumber((first.value_percent):match("[%d%.]+")) or state.volume
-          end
-        end
         state.known = true
       end
     end
@@ -99,6 +97,15 @@ local function poll()
           end
         end
       end
+      for _, source in ipairs(state.sources) do
+        if source.name == state.activeSource then
+          state.muted = source.muted
+          if requestedVolumeRevision == volumeRevision then
+            state.volume = source.volume or state.volume
+          end
+          break
+        end
+      end
       state.error = state.known and "" or "Processed microphone is unavailable"
       publish()
       local preferred = preferredSource()
@@ -115,13 +122,25 @@ local function poll()
 end
 
 local function toggleMute()
+  local sourceName = state.activeSource
+  if sourceName == "" then
+    setError("Could not find the active microphone input")
+    return
+  end
   local muted = not state.muted
+  local previous = state.muted
   state.muted = muted
+  for _, source in ipairs(state.sources) do
+    if source.name == sourceName then source.muted = muted; break end
+  end
   publish()
   local target = muted and "1" or "0"
-  noctalia.runAsync({ "pactl", "set-source-mute", "rnnoise_source", target }, function(result)
+  noctalia.runAsync({ "pactl", "set-source-mute", sourceName, target }, function(result)
     if result.exitCode ~= 0 then
-      state.muted = not muted
+      state.muted = previous
+      for _, source in ipairs(state.sources) do
+        if source.name == sourceName then source.muted = previous; break end
+      end
       setError("Could not change microphone mute")
     else
       noctalia.osd.show(
@@ -135,14 +154,25 @@ local function toggleMute()
 end
 
 local function setVolume(value)
+  local sourceName = state.activeSource
+  if sourceName == "" then
+    setError("Could not find the active microphone input")
+    return
+  end
   local target = math.clamp(math.floor(tonumber(value) or state.volume), 0, 150)
   local previous = state.volume
   volumeRevision += 1
   state.volume = target
+  for _, source in ipairs(state.sources) do
+    if source.name == sourceName then source.volume = target; break end
+  end
   publish()
-  noctalia.runAsync({ "pactl", "set-source-volume", "rnnoise_source", tostring(target) .. "%" }, function(result)
+  noctalia.runAsync({ "pactl", "set-source-volume", sourceName, tostring(target) .. "%" }, function(result)
     if result.exitCode ~= 0 then
       state.volume = previous
+      for _, source in ipairs(state.sources) do
+        if source.name == sourceName then source.volume = previous; break end
+      end
       setError("Could not change microphone volume")
     else
       noctalia.osd.show(
