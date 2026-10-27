@@ -77,7 +77,7 @@ local function discoveryTemplate(monitors)
     {%- set antigravity = monitor.id == 'antigravity' and id.endswith('_usage') and not id.endswith('_usage_pace') -%}
     {%- if id.startswith(monitor.prefix) and (claude or codex or copilot or antigravity) and item.state | float(-1) >= 0 -%}
       {%- set attrs = item.attributes -%}
-      {%- set reset_id = id | replace('_session_usage', '_session_reset_time') | replace('_week_usage', '_weekly_reset_time') -%}
+      {%- set reset_id = id | replace('_session_usage', '_session_reset_time') | replace('_week_usage', '_weekly_reset_time') | replace('_weekly_usage', '_weekly_reset_time') -%}
       {%- set reset = states[reset_id] -%}
       {%- set pace_a = id ~ '_pace' -%}
       {%- set pace_b = (id[:-5] ~ '_usage_pace') if id.endswith('_used') else '' -%}
@@ -92,7 +92,7 @@ local function discoveryTemplate(monitors)
           {%- set banked_ns.expiry = expires_at -%}
         {%- endif -%}
       {%- endfor -%}
-      {%- set ns.items = ns.items + [{"integration": monitor.id, "entity_id": id, "state": item.state, "name": item.name, "icon": (attrs.get('icon') or ''), "reset_time": reset.state if monitor.id == 'claude' and reset is not none else (attrs.get('reset_time') or ''), "resets_at": (attrs.get('resets_at') or ''), "quota_reset_date_utc": (attrs.get('quota_reset_date_utc') or ''), "primary_reset_time": (attrs.get('primary_reset_time') or ''), "secondary_reset_time": (attrs.get('secondary_reset_time') or ''), "pace": pace_val if pace_val not in ['unknown', 'unavailable', none] else '', "reset_credits_available": (attrs.get('reset_credits_available') or ''), "reset_credits_next_expiry": banked_ns.expiry}] -%}
+      {%- set ns.items = ns.items + [{"integration": monitor.id, "entity_id": id, "state": item.state, "name": item.name, "icon": (attrs.get('icon') or ''), "reset_time": reset.state if monitor.id == 'claude' and reset is not none else (attrs.get('reset_time') or (reset.state if reset is not none else '')), "resets_at": (attrs.get('resets_at') or ''), "quota_reset_date_utc": (attrs.get('quota_reset_date_utc') or ''), "primary_reset_time": (attrs.get('primary_reset_time') or ''), "secondary_reset_time": (attrs.get('secondary_reset_time') or ''), "pace": pace_val if pace_val not in ['unknown', 'unavailable', none] else '', "reset_credits_available": (attrs.get('reset_credits_available') or ''), "reset_credits_next_expiry": banked_ns.expiry}] -%}
     {%- endif -%}
   {%- endfor -%}
 {%- endfor -%}

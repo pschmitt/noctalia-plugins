@@ -63,6 +63,24 @@ local function cardDetails(item)
   return integration .. ":" .. label, label, provider.glyph, provider.image, provider.order
 end
 
+local function antigravityBucket(entity, source)
+  if contains(source, "3p models") or entity:find("_3p_models_", 1, true) then
+    return "3P", 1
+  end
+  if contains(source, "argon") or entity:find("_argon_", 1, true) then
+    return "Argon", 2
+  end
+  if contains(source, "gemini") or entity:find("_gemini_", 1, true) then
+    return "Gemini", 0
+  end
+  local custom = source:match("%)%s+(.-)%s+Session Usage$") or source:match("%)%s+(.-)%s+Weekly Usage$")
+  if custom ~= nil and custom ~= "" then
+    custom = custom:gsub("%s+[Mm]odels$", "")
+    return custom, 3
+  end
+  return nil, 0
+end
+
 local function metricDetails(item)
   local entity = M.trim(item.entity_id)
   local source = M.trim(item.name)
@@ -85,18 +103,24 @@ local function metricDetails(item)
   elseif contains(source, "chat") then
     label = "Chat"
   end
-  -- Antigravity's third-party model quotas share the account card with its own
-  -- models; flag them so they sort after (and never become) the card's primary
-  -- metric, which is what the bar renders.
-  local secondary = M.trim(item.integration) == "antigravity" and contains(source, "3p models")
-  if secondary then
-    label = "3P " .. label
+  -- Antigravity exposes multiple model quota buckets on the same account card
+  -- (Gemini, 3P models, Gemini 4 Argon); prefix each bucket's window label and
+  -- rank non-primary buckets after Gemini so the bar widget always renders the
+  -- main Gemini session/weekly quota while pairing Gemini and 3P cleanly in the
+  -- two-column panel before standalone weekly-only buckets (Argon).
+  local tier = 0
+  if M.trim(item.integration) == "antigravity" then
+    local bucket, bucketTier = antigravityBucket(entity, source)
+    tier = bucketTier
+    if bucket ~= nil then
+      label = bucket .. " " .. label
+    end
   end
-  return window, label, secondary
+  return window, label, tier
 end
 
 local function metricOrder(metric)
-  local penalty = metric.secondary and 10 or 0
+  local penalty = (metric.tier or 0) * 10
   if metric.window == "short" then return 1 + penalty end
   if metric.window == "weekly" then return 2 + penalty end
   if metric.label == "Premium" then return 3 + penalty end
@@ -136,7 +160,7 @@ function M.cards(items)
         local bankedExpiry = M.trim(item.reset_credits_next_expiry)
         if M.validState(bankedExpiry) then card.bankedExpiry = bankedExpiry end
       end
-      local window, metricLabel, secondary = metricDetails(item)
+      local window, metricLabel, tier = metricDetails(item)
       local reset = M.metricReset(item)
       -- Category quotas with no fixed session/weekly cadence (Copilot's
       -- chat/completions/premium) still carry their own reset target
@@ -148,7 +172,8 @@ function M.cards(items)
         entity = entity,
         label = metricLabel,
         window = window,
-        secondary = secondary,
+        tier = tier,
+        secondary = tier > 0,
         used = used,
         reset = reset,
         -- Percentage-points/day versus a flat linear pace to the next reset:
@@ -213,12 +238,13 @@ function M.filterCards(cards, filter)
   return filtered
 end
 
--- The metrics worth a dedicated countdown/tooltip line: an account's own
--- session/weekly windows, never Antigravity's 3P side quotas or a provider's
--- per-category counters (Copilot chat/completions/premium), which don't map
--- to a single fixed-length window.
+-- The metrics worth a dedicated countdown/tooltip line: any fixed-length
+-- session/weekly window (including all of Antigravity's model quota buckets:
+-- Gemini, 3P, and Argon), never a provider's non-windowed per-category counters
+-- (Copilot chat/completions/premium), which don't map to a single fixed-length
+-- window.
 function M.isHeadline(metric)
-  return not metric.secondary and (metric.window == "short" or metric.window == "weekly")
+  return metric.window == "short" or metric.window == "weekly"
 end
 
 -- Row count panel.luau's card() would render for this card, used only to

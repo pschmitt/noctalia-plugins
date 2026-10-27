@@ -108,8 +108,9 @@ end
 -- line, each kept short ("Weekly 21%") — the tooltip ellipsizes wide values,
 -- so reset times stay in the panel.
 --
--- Only the headline quotas make it in: an account's own session/weekly windows,
--- never Antigravity's 3P side quotas or Copilot's per-category counters. Providers
+-- Only the headline quotas make it in: each account's fixed-length
+-- session/weekly windows (including Antigravity's Gemini, 3P, and Argon buckets),
+-- never Copilot's non-windowed per-category counters. Providers
 -- that expose no time window at all (Copilot) fall back to their primary quota
 -- so the account still shows a number instead of an empty row.
 local function tooltip(cards)
@@ -187,9 +188,9 @@ for _, height in ipairs({ 1100, 1200, 1400, 1600, 1900 }) do addPanelSize(height
 -- ringCard/ringLines paddings and gaps -- not pixel-exact, just enough to
 -- pick the right bucket.
 local function estimatedPanelHeight(cards, compact, allMetrics, columns)
-  local height = compact and 96 or 120 -- header row + outer panel padding
-  local rowHeight = compact and 80 or 58
-  local cardOverhead = compact and 60 or 60
+  local height = compact and 62 or 120 -- header row + outer panel padding
+  local rowHeight = compact and 46 or 58
+  local cardOverhead = compact and 54 or 60
   for _, item in ipairs(cards) do
     local rows = shared.panelRowCount(item, allMetrics)
     height += cardOverhead + math.ceil(rows / columns) * rowHeight

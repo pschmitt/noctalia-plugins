@@ -102,7 +102,7 @@ end
 -- Instead of one card per window sitting side by side (which halves the width
 -- each bar gets), keep every provider in one card and arrange its metrics in
 -- the configured one- or two-column grid. Providers differ in how many
--- headline windows they have (Copilot one, Antigravity four), so a final
+-- headline windows they have (Copilot one, Antigravity five), so a final
 -- unmatched metric keeps the same fixed width rather than stretching.
 local RING_DISPLAY_SIZE = 34
 local RING_DISPLAY_SIZE_COMPACT = 28
@@ -203,10 +203,10 @@ local function card(card, compact, allMetrics, columns)
   local sections = {
     ui.row({ align = "center", gap = compact and 6 or 8 }, titleRow),
   }
-  -- `rest` is exactly the metrics with no fixed-length window of their own
-  -- (Copilot's Chat/Completions once Premium is promoted above, Antigravity's 3P
-  -- session/weekly): the ones panel_all_metrics=false hides, keeping only
-  -- each card's headline windows (or its promoted primary for Copilot).
+  -- `rest` is the metrics with no fixed-length window of their own
+  -- (Copilot's Chat/Completions once Premium is promoted above): the ones
+  -- panel_all_metrics=false hides, keeping only each card's headline windows
+  -- (or its promoted primary for Copilot).
   if #headline > 0 or (allMetrics and #rest > 0) then
     local ordered = {}
     for _, metric in ipairs(headline) do ordered[#ordered + 1] = metric end
