@@ -1,14 +1,23 @@
--- The mute button and volume control target the processed voice source. The
--- device list contains only real PipeWire sources, never virtual or monitor
--- sources such as meeting_source and rnnoise_source.
+-- The mute button and volume control target the selected physical source that
+-- feeds the processed voice source. The device list excludes virtual sources.
 
 local STATE_KEY = "mic_state"
 local COMMAND_KEY = "mic_state.command"
 local state = { known = false, muted = false, volume = 100, sources = {}, activeSource = "" }
 local polling = false
+local pollAgain = false
 local volumeRevision = 0
 local applyingPreferred = false
 local selectCaptureSource
+local poll
+
+local function finishPoll()
+  polling = false
+  if pollAgain then
+    pollAgain = false
+    poll()
+  end
+end
 
 local function preferredSource()
   local dataDir = noctalia.pluginDataDir()
@@ -33,14 +42,17 @@ local function setError(message)
   publish()
 end
 
-local function poll()
-  if polling then return end
+poll = function()
+  if polling then
+    pollAgain = true
+    return
+  end
   polling = true
   local requestedVolumeRevision = volumeRevision
 
   noctalia.runAsync({ "pactl", "-f", "json", "list", "sources" }, function(result)
     if result.exitCode ~= 0 then
-      polling = false
+      finishPoll()
       state.known = false
       state.sources = {}
       setError("Could not read audio sources")
@@ -49,7 +61,7 @@ local function poll()
 
     local ok, sources = pcall(noctalia.json.decode, result.stdout or "[]")
     if not ok or type(sources) ~= "table" then
-      polling = false
+      finishPoll()
       state.known = false
       setError("Could not parse audio sources")
       return
@@ -82,7 +94,6 @@ local function poll()
     state.sources = filtered
 
     noctalia.runAsync({ "pw-link", "-l" }, function(linkResult)
-      polling = false
       state.activeSource = ""
       if linkResult.exitCode == 0 then
         local inCaptureInputs = false
@@ -117,6 +128,7 @@ local function poll()
         applyingPreferred = true
         selectCaptureSource(preferred, false, function() applyingPreferred = false end)
       end
+      finishPoll()
     end, 1000)
   end, 1500)
 end
@@ -266,6 +278,13 @@ noctalia.state.watch(COMMAND_KEY, function(command)
   elseif command.action == "reset_capture_source" then
     selectCaptureSource(nil, true)
   end
+end)
+
+-- pactl subscribe reports source volume and mute changes made by other apps
+-- (including pavucontrol). Keep the periodic poll as a fallback, and queue a
+-- follow-up if an event arrives while a source snapshot is already in flight.
+noctalia.runStream("pactl subscribe", function(line)
+  if line:match("on source #") then poll() end
 end)
 
 poll()
