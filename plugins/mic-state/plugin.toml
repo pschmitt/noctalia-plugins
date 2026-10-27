@@ -51,6 +51,7 @@ entry = "bar.luau"
 
 [widget.actions]
 left = "panel-toggle pschmitt/mic-state:panel"
+right = "plugin pschmitt/mic-state:status all toggle_mute"
 
 [[panel]]
 id = "panel"

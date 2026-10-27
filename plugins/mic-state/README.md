@@ -5,7 +5,8 @@ colors, but reads and controls the `rnnoise_source` voice branch instead of the
 default `meeting_source`. The meeting mix remains unmuted so soundboard clips
 can still reach calls while the physical microphone is muted.
 
-Click the widget to open the microphone panel. It includes mute and volume
+Left-click the widget to open the microphone panel; right-click toggles mute.
+It includes mute and volume
 controls, a live voice level meter, the actual physical PipeWire capture
 devices, and a selector for the RNNoise filter's capture device. Virtual
 sources and monitor sources are filtered out. Device selection leaves the
