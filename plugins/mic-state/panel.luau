@@ -4,6 +4,8 @@
 
 local state = noctalia.state.get("mic_state") or { known = false, muted = false, volume = 100, sources = {}, activeSource = "" }
 local previewVolume = nil
+local meterLevel = nil
+local meterStarted = false
 local commandSerial = 0
 
 local function command(action, extra)
@@ -21,6 +23,46 @@ local function sourceName(name)
   return "No active hardware input"
 end
 
+local function startMeter()
+  if meterStarted then return end
+  local dataDir = noctalia.pluginDataDir()
+  if not dataDir then return end
+
+  local configPath = dataDir .. "/voice-meter.conf"
+  local config = [[
+[general]
+bars = 1
+framerate = 15
+autosens = 0
+
+[input]
+method = pulse
+source = rnnoise_source
+
+[output]
+method = raw
+raw_target = /dev/stdout
+data_format = ascii
+ascii_max_range = 1000
+bar_delimiter = 59
+frame_delimiter = 10
+channels = mono
+
+[smoothing]
+noise_reduction = 0
+]]
+  if not noctalia.writeFile(configPath, config) then return end
+
+  local commandPath = "cava -p '" .. configPath:gsub("'", "'\\''") .. "'"
+  meterStarted = noctalia.runStream(commandPath, function(line)
+    local value = tonumber(line:match("%d+"))
+    if value then
+      meterLevel = math.clamp(value / 1000, 0, 1)
+      render()
+    end
+  end)
+end
+
 local function header()
   local status = state.known and (state.muted and "Muted" or "Microphone on") or "Microphone unavailable"
   local color = not state.known and "on_surface_variant" or (state.muted and "error" or "primary")
@@ -35,7 +77,7 @@ local function header()
         justify = "center",
       }, {
         ui.glyph({
-          name = state.muted and "microphone-mute" or "microphone",
+          name = state.muted and "mic-off" or "mic",
           size = 20,
           color = color,
         }),
@@ -49,13 +91,6 @@ local function header()
       }),
     }),
     ui.row({ align = "center", gap = 2 }, {
-      ui.button({
-        glyph = "refresh",
-        variant = "ghost",
-        controlSize = "sm",
-        tooltip = "Refresh audio devices",
-        onClick = function() command("refresh") end,
-      }),
       ui.button({
         glyph = "settings",
         variant = "ghost",
@@ -73,13 +108,13 @@ local function voiceCard()
   return ui.column({ fill = "surface_container", radius = 14, padding = 12, gap = 10 }, {
     ui.row({ align = "center", justify = "space_between" }, {
       ui.row({ align = "center", gap = 7 }, {
-        ui.glyph({ name = "equalizer", size = 16, color = state.muted and "error" or "primary" }),
+        ui.glyph({ name = "audio-waveform", size = 16, color = state.muted and "error" or "primary" }),
         ui.label({ text = "Voice input", fontSize = 13, fontWeight = "semibold" }),
       }),
       ui.label({ text = label, fontSize = 11, color = state.muted and "error" or "on_surface_variant" }),
     }),
     ui.row({ align = "center", gap = 8 }, {
-      ui.glyph({ name = "volume-up", size = 15, color = "on_surface_variant" }),
+      ui.glyph({ name = "volume-2", size = 15, color = "on_surface_variant" }),
       ui.slider({
         min = 0,
         max = 150,
@@ -99,10 +134,21 @@ local function voiceCard()
       }),
       ui.label({ text = tostring(volume) .. "%", fontSize = 11, color = "on_surface_variant", minWidth = 34 }),
     }),
+    ui.row({ align = "center", gap = 8 }, {
+      ui.label({ text = "Voice level", fontSize = 10, color = "on_surface_variant", minWidth = 62 }),
+      ui.progress({
+        progress = meterLevel or 0,
+        height = 5,
+        fill = state.muted and "error" or "primary",
+        track = "on_surface/0.14",
+        radius = 5,
+        flexGrow = 1,
+      }),
+    }),
     ui.row({ align = "center", justify = "space_between" }, {
       ui.label({ text = sourceName(state.activeSource), fontSize = 11, color = "on_surface_variant", maxLines = 1, flexGrow = 1 }),
       ui.button({
-        glyph = state.muted and "microphone" or "microphone-mute",
+        glyph = state.muted and "mic" or "mic-off",
         text = state.muted and "Unmute" or "Mute",
         variant = state.muted and "primary" or "outline",
         controlSize = "sm",
@@ -118,7 +164,7 @@ local function deviceCard()
   for _, source in ipairs(state.sources or {}) do
     local selected = source.name == state.activeSource
     rows[#rows + 1] = ui.row({ align = "center", gap = 9, padding = 9, fill = selected and "primary/0.10" or "surface_container", radius = 10 }, {
-      ui.glyph({ name = "microphone", size = 16, color = selected and "primary" or "on_surface_variant" }),
+      ui.glyph({ name = "mic", size = 16, color = selected and "primary" or "on_surface_variant" }),
       ui.column({ gap = 2, flexGrow = 1 }, {
         ui.label({ text = source.description, fontSize = 12, fontWeight = selected and "semibold" or "normal", maxLines = 1 }),
         ui.label({ text = selected and "Feeding RNNoise" or "Hardware input", fontSize = 10, color = "on_surface_variant" }),
@@ -134,7 +180,7 @@ local function deviceCard()
 
   if #rows == 0 then
     rows[1] = ui.row({ align = "center", gap = 8, padding = 12, fill = "surface_container", radius = 10 }, {
-      ui.glyph({ name = "microphone", size = 16, color = "on_surface_variant" }),
+      ui.glyph({ name = "mic", size = 16, color = "on_surface_variant" }),
       ui.label({ text = "No physical capture devices found", fontSize = 12, color = "on_surface_variant" }),
     })
   end
@@ -162,7 +208,6 @@ function render()
     header(),
     voiceCard(),
     deviceCard(),
-    ui.label({ text = "Filtered through RNNoise before reaching meeting apps", fontSize = 10, color = "on_surface_variant" }),
   }))
 end
 
@@ -175,6 +220,7 @@ end)
 
 function onOpen()
   command("refresh")
+  startMeter()
   render()
 end
 

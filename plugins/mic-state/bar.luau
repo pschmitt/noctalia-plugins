@@ -15,7 +15,7 @@ local function changeVolume(direction)
 end
 
 local function render()
-  local name = state.muted and "microphone-mute" or "microphone"
+  local name = state.muted and "mic-off" or "mic"
   local color
   if not state.known then
     color = "on_surface_variant"

@@ -6,6 +6,7 @@ local STATE_KEY = "mic_state"
 local COMMAND_KEY = "mic_state.command"
 local state = { known = false, muted = false, volume = 100, sources = {}, activeSource = "" }
 local polling = false
+local volumeRevision = 0
 local applyingPreferred = false
 local selectCaptureSource
 
@@ -35,6 +36,7 @@ end
 local function poll()
   if polling then return end
   polling = true
+  local requestedVolumeRevision = volumeRevision
 
   noctalia.runAsync({ "pactl", "-f", "json", "list", "sources" }, function(result)
     if result.exitCode ~= 0 then
@@ -68,10 +70,12 @@ local function poll()
 
       if name == "rnnoise_source" then
         state.muted = source.mute == true
-        local volume = source.volume or {}
-        local first = volume["front-left"] or volume["mono"] or volume["front-center"]
-        if first and first.value_percent then
-          state.volume = tonumber((first.value_percent):match("[%d%.]+")) or state.volume
+        if requestedVolumeRevision == volumeRevision then
+          local volume = source.volume or {}
+          local first = volume["front-left"] or volume["mono"] or volume["front-center"]
+          if first and first.value_percent then
+            state.volume = tonumber((first.value_percent):match("[%d%.]+")) or state.volume
+          end
         end
         state.known = true
       end
@@ -121,7 +125,7 @@ local function toggleMute()
       setError("Could not change microphone mute")
     else
       noctalia.osd.show(
-        muted and "microphone-mute" or "microphone",
+        muted and "mic-off" or "mic",
         muted and "Muted" or "Microphone on",
         { inactive = muted }
       )
@@ -132,14 +136,17 @@ end
 
 local function setVolume(value)
   local target = math.clamp(math.floor(tonumber(value) or state.volume), 0, 150)
+  local previous = state.volume
+  volumeRevision += 1
   state.volume = target
   publish()
   noctalia.runAsync({ "pactl", "set-source-volume", "rnnoise_source", tostring(target) .. "%" }, function(result)
     if result.exitCode ~= 0 then
+      state.volume = previous
       setError("Could not change microphone volume")
     else
       noctalia.osd.show(
-        state.muted and "microphone-mute" or "microphone",
+        state.muted and "mic-off" or "mic",
         tostring(target) .. "%",
         { progress = math.clamp(target / 100, 0, 1), inactive = state.muted }
       )
