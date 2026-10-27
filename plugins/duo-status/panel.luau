@@ -4,6 +4,7 @@
 
 local state = noctalia.state.get("duo_status.state") or {}
 local networks = noctalia.state.get("duo_status.networks") or {}
+local iconPath = noctalia.state.get("duo_status.icon_path")
 local showAllNetworks = false
 
 local function sendCommand(cmd)
@@ -127,13 +128,9 @@ local function networkCard()
     typeGlyph = "wifi-2"
   end
 
-  local signalDots = ""
-  if net.type == "wifi" and isConnected then
-    local active = math.ceil((net.signal or 0) / 25)
-    for i = 1, 4 do
-      signalDots = signalDots .. (i <= active and "● " or "○ ")
-    end
-    signalDots = signalDots .. string.format("%d%%", net.signal or 0)
+  local signalText = ""
+  if net.type == "wifi" and isConnected and net.signal then
+    signalText = string.format("%d%%", net.signal)
   end
 
   return ui.column({
@@ -165,9 +162,9 @@ local function networkCard()
       }),
 
       ui.row({ align = "center", gap = 4 }, {
-        signalDots ~= "" and ui.label({
-          text = signalDots,
-          fontSize = 11,
+        signalText ~= "" and ui.label({
+          text = signalText,
+          fontSize = 12,
           fontWeight = "medium",
           color = "on_surface_variant",
         }) or ui.box({}),
@@ -283,9 +280,21 @@ end
 -- ── Header ───────────────────────────────────────────────────────────────────
 
 local function header()
+  local iconWidget
+  if iconPath and noctalia.fileExists(iconPath) then
+    iconWidget = ui.image({
+      path = iconPath,
+      width = 22,
+      height = 22,
+      fit = "contain",
+    })
+  else
+    iconWidget = ui.glyph({ name = "wifi-2", size = 18, color = "primary" })
+  end
+
   return ui.row({ align = "center", justify = "space_between" }, {
     ui.row({ align = "center", gap = 8 }, {
-      ui.glyph({ name = "wifi-2", size = 16, color = "primary" }),
+      iconWidget,
       ui.label({ text = "Duo Status", fontSize = 14, fontWeight = "bold" }),
     }),
     ui.row({ align = "center", gap = 4 }, {
@@ -329,6 +338,11 @@ function render()
     gap = 10,
   }, children))
 end
+
+noctalia.state.watch("duo_status.icon_path", function(p)
+  iconPath = p
+  render()
+end)
 
 noctalia.state.watch("duo_status.state", function(s)
   state = s or {}
