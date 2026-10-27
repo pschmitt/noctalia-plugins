@@ -188,9 +188,9 @@ for _, height in ipairs({ 1100, 1200, 1400, 1600, 1900 }) do addPanelSize(height
 -- ringCard/ringLines paddings and gaps -- not pixel-exact, just enough to
 -- pick the right bucket.
 local function estimatedPanelHeight(cards, compact, allMetrics, columns)
-  local height = compact and 62 or 120 -- header row + outer panel padding
-  local rowHeight = compact and 46 or 58
-  local cardOverhead = compact and 54 or 60
+  local height = compact and 60 or 120 -- header row + outer panel padding
+  local rowHeight = compact and 58 or 58
+  local cardOverhead = compact and 64 or 60
   for _, item in ipairs(cards) do
     local rows = shared.panelRowCount(item, allMetrics)
     height += cardOverhead + math.ceil(rows / columns) * rowHeight

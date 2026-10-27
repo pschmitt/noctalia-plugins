@@ -78,7 +78,7 @@ local function discoveryTemplate(monitors)
     {%- if id.startswith(monitor.prefix) and (claude or codex or copilot or antigravity) and item.state | float(-1) >= 0 -%}
       {%- set attrs = item.attributes -%}
       {%- set reset_id = id | replace('_session_usage', '_session_reset_time') | replace('_week_usage', '_weekly_reset_time') | replace('_weekly_usage', '_weekly_reset_time') -%}
-      {%- set reset = states[reset_id] -%}
+      {%- set reset = states[reset_id] if reset_id != id else none -%}
       {%- set pace_a = id ~ '_pace' -%}
       {%- set pace_b = (id[:-5] ~ '_usage_pace') if id.endswith('_used') else '' -%}
       {%- set pace_val = states(pace_a) -%}
