@@ -4,10 +4,9 @@
 
 local state = noctalia.state.get("mic_state") or { known = false, muted = false, volume = 100, sources = {}, activeSource = "" }
 local previewVolume = nil
-local meterLevel = nil
-local meterStarted = false
-local meterConfigPath = nil
-local meterSource = nil
+local meterLevels = {}
+local metersStarted = {}
+local meterDataDir = nil
 local commandSerial = 0
 local volumeRowHovered = false
 local previousPopupScrollOffset = nil
@@ -28,7 +27,18 @@ local function sourceName(name)
   return "No active hardware input"
 end
 
+local function meterConfigPath(sourceName)
+  if not meterDataDir then
+    meterDataDir = noctalia.pluginDataDir()
+  end
+  if not meterDataDir then return nil end
+  local safeName = sourceName:gsub("[^%w%-_]", "_")
+  return meterDataDir .. "/voice-meter-" .. safeName .. ".conf"
+end
+
 local function writeMeterConfig(sourceName)
+  local configPath = meterConfigPath(sourceName)
+  if not configPath then return nil end
   local config = [[
 [general]
 live-config = 1
@@ -52,30 +62,29 @@ channels = mono
 [smoothing]
 noise_reduction = 0
 ]]
-  if noctalia.writeFile(meterConfigPath, config) then
-    meterSource = sourceName
+  if noctalia.writeFile(configPath, config) then
+    return configPath
   end
+  return nil
 end
 
-local function startMeter()
-  if not meterConfigPath then
-    local dataDir = noctalia.pluginDataDir()
-    if not dataDir then return end
-    meterConfigPath = dataDir .. "/voice-meter.conf"
-  end
-  local sourceName = state.activeSource or ""
-  if sourceName == "" then return end
-  if sourceName ~= meterSource then writeMeterConfig(sourceName) end
-  if meterStarted or not meterSource then return end
-
-  local commandPath = "cava -p '" .. meterConfigPath:gsub("'", "'\\''") .. "'"
-  meterStarted = noctalia.runStream(commandPath, function(line)
-    local value = tonumber(line:match("%d+"))
-    if value then
-      meterLevel = math.clamp(value / 1000, 0, 1)
-      render()
+local function startMeters()
+  for _, source in ipairs(state.sources or {}) do
+    local sourceName = source.name
+    if sourceName ~= "" and not metersStarted[sourceName] then
+      local configPath = writeMeterConfig(sourceName)
+      if configPath then
+        local commandPath = "cava -p '" .. configPath:gsub("'", "'\\''") .. "'"
+        metersStarted[sourceName] = noctalia.runStream(commandPath, function(line)
+          local value = tonumber(line:match("%d+"))
+          if value then
+            meterLevels[sourceName] = math.clamp(value / 1000, 0, 1)
+            render()
+          end
+        end)
+      end
     end
-  end)
+  end
 end
 
 local function header()
@@ -156,7 +165,7 @@ local function voiceCard()
     ui.row({ align = "center", gap = 8 }, {
       ui.label({ text = "Voice level", fontSize = 10, color = "on_surface_variant", minWidth = 62 }),
       ui.progress({
-        progress = meterLevel or 0,
+        progress = meterLevels[state.activeSource] or 0,
         height = 5,
         fill = state.muted and "error" or "primary",
         track = "on_surface/0.14",
@@ -186,7 +195,17 @@ local function deviceCard()
       ui.glyph({ name = "microphone", size = 16, color = selected and "primary" or "on_surface_variant" }),
       ui.column({ gap = 2, flexGrow = 1 }, {
         ui.label({ text = source.description, fontSize = 12, fontWeight = selected and "semibold" or "normal", maxLines = 1 }),
-        ui.label({ text = selected and "Feeding RNNoise" or "Hardware input", fontSize = 10, color = "on_surface_variant" }),
+        ui.row({ align = "center", gap = 6 }, {
+          ui.label({ text = selected and "Feeding RNNoise" or "Hardware input", fontSize = 10, color = "on_surface_variant" }),
+          ui.progress({
+            progress = meterLevels[source.name] or 0,
+            height = 3,
+            fill = source.muted and "error" or "primary",
+            track = "on_surface/0.14",
+            radius = 3,
+            flexGrow = 1,
+          }),
+        }),
       }),
       selected and ui.glyph({ name = "check", size = 16, color = "primary" }) or ui.button({
         text = "Use",
@@ -207,16 +226,7 @@ local function deviceCard()
   return ui.column({ gap = 7 }, {
     ui.row({ align = "center", justify = "space_between" }, {
       ui.label({ text = "Input device", fontSize = 13, fontWeight = "bold" }),
-      ui.row({ align = "center", gap = 6 }, {
-        ui.label({ text = tostring(#(state.sources or {})) .. " available", fontSize = 10, color = "on_surface_variant" }),
-        ui.button({
-          text = "Auto",
-          variant = "ghost",
-          controlSize = "sm",
-          tooltip = "Use the configured physical-input match",
-          onClick = function() command("reset_capture_source") end,
-        }),
-      }),
+      ui.label({ text = tostring(#(state.sources or {})) .. " available", fontSize = 10, color = "on_surface_variant" }),
     }),
     ui.column({ gap = 6 }, rows),
   })
@@ -245,14 +255,14 @@ end
 noctalia.state.watch("mic_state", function(value)
   if type(value) == "table" then
     state = value
-    startMeter()
+    startMeters()
     render()
   end
 end)
 
 function onOpen()
   command("refresh")
-  startMeter()
+  startMeters()
   render()
 end
 

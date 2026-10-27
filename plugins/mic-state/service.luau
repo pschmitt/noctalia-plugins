@@ -286,6 +286,10 @@ noctalia.state.watch(COMMAND_KEY, function(command)
   end
 end)
 
+function onIpc(event)
+  if event == "toggle_mute" then toggleMute() end
+end
+
 -- pactl subscribe reports source volume and mute changes made by other apps
 -- (including pavucontrol). Keep the periodic poll as a fallback, and queue a
 -- follow-up if an event arrives while a source snapshot is already in flight.
