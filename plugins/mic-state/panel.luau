@@ -233,7 +233,7 @@ local function deviceCard()
 end
 
 function render()
-  panel.render(ui.scroll({ padding = 14, gap = 12, flexGrow = 1, onScroll = function(offset)
+  panel.render(ui.scroll({ padding = 14, gap = 12, onScroll = function(offset)
     local currentOffset = tonumber(offset)
     if currentOffset and previousPopupScrollOffset and volumeRowHovered then
       popupScrollRemainder += previousPopupScrollOffset - currentOffset
