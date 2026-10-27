@@ -4,6 +4,7 @@
 
 local state = noctalia.state.get("mic_state") or { known = false, muted = false, volume = 100, sources = {}, activeSource = "" }
 local previewVolume = nil
+local lastObservedVolume = tonumber(state.volume)
 local meterLevels = {}
 local metersStarted = {}
 local meterDataDir = nil
@@ -287,6 +288,11 @@ end
 
 noctalia.state.watch("mic_state", function(value)
   if type(value) == "table" then
+    local observedVolume = tonumber(value.volume)
+    if observedVolume ~= lastObservedVolume then
+      previewVolume = nil
+      lastObservedVolume = observedVolume
+    end
     state = value
     startMeters()
     render()
