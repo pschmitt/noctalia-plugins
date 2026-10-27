@@ -27,6 +27,14 @@ local function render()
 
   local status = not state.known and "State unavailable" or (state.muted and "Muted" or "On")
   local tooltip = { { key = "Microphone", value = status } }
+  local inputName = "No active input"
+  for _, source in ipairs(state.sources or {}) do
+    if source.name == state.activeSource then
+      inputName = source.description or source.name
+      break
+    end
+  end
+  tooltip[#tooltip + 1] = { key = "Input", value = inputName }
   if state.known then
     tooltip[#tooltip + 1] = { key = "Level", value = tostring(math.floor(tonumber(state.volume) or 0)) .. "%" }
   end
