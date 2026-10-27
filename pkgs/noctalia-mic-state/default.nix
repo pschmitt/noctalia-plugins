@@ -2,10 +2,12 @@
   lib,
   stdenvNoCC,
 }:
-
-stdenvNoCC.mkDerivation {
+let
   pname = "noctalia-mic-state";
-  version = (lib.importTOML ../../plugins/mic-state/plugin.toml).version;
+  inherit (lib.importTOML ../../plugins/mic-state/plugin.toml) version;
+in
+stdenvNoCC.mkDerivation {
+  inherit pname version;
 
   src = lib.fileset.toSource {
     root = ../../plugins/mic-state;
@@ -13,7 +15,9 @@ stdenvNoCC.mkDerivation {
       ../../plugins/mic-state/plugin.toml
       ../../plugins/mic-state/service.luau
       ../../plugins/mic-state/bar.luau
+      ../../plugins/mic-state/panel.luau
       ../../plugins/mic-state/README.md
+      ../../plugins/mic-state/translations/en.json
     ];
   };
 
@@ -25,7 +29,9 @@ stdenvNoCC.mkDerivation {
 
     dest=$out/share/noctalia-plugins/mic-state
     mkdir -p "$dest"
-    cp plugin.toml service.luau bar.luau README.md "$dest"/
+    cp plugin.toml service.luau bar.luau panel.luau README.md "$dest"/
+    mkdir -p "$dest/translations"
+    cp translations/en.json "$dest/translations/"
 
     runHook postInstall
   '';

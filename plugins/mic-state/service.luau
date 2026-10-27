@@ -1,39 +1,246 @@
---!nonstrict
--- Poll the voice branch rather than Noctalia's default source. The default
--- meeting_source also carries soundboard audio and intentionally stays open.
+-- The mute button and volume control target the processed voice source. The
+-- device list contains only real PipeWire sources, never virtual or monitor
+-- sources such as meeting_source and rnnoise_source.
 
-local POLL_INTERVAL_MS = 500
+local STATE_KEY = "mic_state"
+local COMMAND_KEY = "mic_state.command"
+local state = { known = false, muted = false, volume = 100, sources = {}, activeSource = "" }
 local polling = false
+local applyingPreferred = false
+local selectCaptureSource
 
-local function publish(known, muted)
-  noctalia.state.set("mic_state", {
-    known = known,
-    muted = muted == true,
-  })
+local function preferredSource()
+  local dataDir = noctalia.pluginDataDir()
+  local raw = dataDir and noctalia.readFile(dataDir .. "/settings.json")
+  if raw then
+    local ok, data = pcall(noctalia.json.decode, raw)
+    if ok and type(data) == "table" and type(data.captureSource) == "string" then
+      return data.captureSource
+    end
+  end
+  local configured = noctalia.string.trim(noctalia.getConfig("capture_source") or "auto")
+  if configured ~= "" and configured ~= "auto" then return configured end
+  return nil
+end
+
+local function publish()
+  noctalia.state.set(STATE_KEY, state)
+end
+
+local function setError(message)
+  state.error = message
+  publish()
 end
 
 local function poll()
-  if polling then
-    return
-  end
+  if polling then return end
   polling = true
 
-  noctalia.runAsync({ "pactl", "get-source-mute", "rnnoise_source" }, function(result)
-    polling = false
+  noctalia.runAsync({ "pactl", "-f", "json", "list", "sources" }, function(result)
     if result.exitCode ~= 0 then
-      publish(false, false)
+      polling = false
+      state.known = false
+      state.sources = {}
+      setError("Could not read audio sources")
       return
     end
 
-    local muted = (result.stdout or ""):match("Mute:%s*yes") ~= nil
-    publish(true, muted)
+    local ok, sources = pcall(noctalia.json.decode, result.stdout or "[]")
+    if not ok or type(sources) ~= "table" then
+      polling = false
+      state.known = false
+      setError("Could not parse audio sources")
+      return
+    end
+
+    local filtered = {}
+    for _, source in ipairs(sources) do
+      local props = source.properties or {}
+      local api = props["device.api"]
+      local mediaClass = props["media.class"] or ""
+      local name = source.name or ""
+      if api and mediaClass == "Audio/Source" and not name:match("%.monitor$") then
+        filtered[#filtered + 1] = {
+          name = name,
+          description = source.description or name,
+        }
+      end
+
+      if name == "rnnoise_source" then
+        state.muted = source.mute == true
+        local volume = source.volume or {}
+        local first = volume["front-left"] or volume["mono"] or volume["front-center"]
+        if first and first.value_percent then
+          state.volume = tonumber((first.value_percent):match("[%d%.]+")) or state.volume
+        end
+        state.known = true
+      end
+    end
+    table.sort(filtered, function(a, b) return a.description < b.description end)
+    state.sources = filtered
+
+    noctalia.runAsync({ "pw-link", "-l" }, function(linkResult)
+      polling = false
+      state.activeSource = ""
+      if linkResult.exitCode == 0 then
+        local inCaptureInputs = false
+        for line in (linkResult.stdout or ""):gmatch("[^\r\n]+") do
+          if line:match("^capture%.rnnoise_source:input_") then
+            inCaptureInputs = true
+          elseif inCaptureInputs and line:match("^%S") then
+            inCaptureInputs = false
+          elseif inCaptureInputs then
+            local name = line:match("|<%- ([^:]+):")
+            if name then state.activeSource = name; break end
+          end
+        end
+      end
+      state.error = state.known and "" or "Processed microphone is unavailable"
+      publish()
+      local preferred = preferredSource()
+      local sourceAvailable = false
+      for _, source in ipairs(state.sources) do
+        if source.name == preferred then sourceAvailable = true; break end
+      end
+      if preferred and sourceAvailable and state.activeSource ~= preferred and not applyingPreferred then
+        applyingPreferred = true
+        selectCaptureSource(preferred, false, function() applyingPreferred = false end)
+      end
+    end, 1000)
+  end, 1500)
+end
+
+local function toggleMute()
+  local muted = not state.muted
+  state.muted = muted
+  publish()
+  local target = muted and "1" or "0"
+  noctalia.runAsync({ "pactl", "set-source-mute", "rnnoise_source", target }, function(result)
+    if result.exitCode ~= 0 then
+      state.muted = not muted
+      setError("Could not change microphone mute")
+    else
+      noctalia.osd.show(
+        muted and "microphone-mute" or "microphone",
+        muted and "Muted" or "Microphone on",
+        { inactive = muted }
+      )
+      poll()
+    end
   end, 1000)
 end
 
-publish(false, false)
+local function setVolume(value)
+  local target = math.clamp(math.floor(tonumber(value) or state.volume), 0, 150)
+  state.volume = target
+  publish()
+  noctalia.runAsync({ "pactl", "set-source-volume", "rnnoise_source", tostring(target) .. "%" }, function(result)
+    if result.exitCode ~= 0 then
+      setError("Could not change microphone volume")
+    else
+      noctalia.osd.show(
+        state.muted and "microphone-mute" or "microphone",
+        tostring(target) .. "%",
+        { progress = math.clamp(target / 100, 0, 1), inactive = state.muted }
+      )
+      poll()
+    end
+  end, 1000)
+end
+
+local function changeVolume(direction)
+  local step = tonumber(noctalia.getConfig("scroll_step")) or 5
+  setVolume((tonumber(state.volume) or 100) + direction * step)
+end
+
+selectCaptureSource = function(name, persist, done)
+  if name then
+    local allowed = false
+    for _, source in ipairs(state.sources) do
+      if source.name == name then allowed = true; break end
+    end
+    if not allowed then return end
+  end
+
+  noctalia.runAsync({ "pw-dump" }, function(result)
+    if result.exitCode ~= 0 then
+      setError("Could not find the RNNoise filter")
+      if done then done() end
+      return
+    end
+    local ok, objects = pcall(noctalia.json.decode, result.stdout or "[]")
+    if not ok or type(objects) ~= "table" then
+      setError("Could not read the PipeWire graph")
+      if done then done() end
+      return
+    end
+
+    local filterId = nil
+    for _, object in ipairs(objects) do
+      local props = object.info and object.info.props or {}
+      if object.type == "PipeWire:Interface:Node" and props["node.name"] == "rnnoise_source" then
+        filterId = object.id
+        break
+      end
+    end
+    if not filterId then
+      setError("Could not find the RNNoise filter")
+      if done then done() end
+      return
+    end
+
+    local target = name and ("{ node.name = " .. name .. " }")
+      or '{ "media.class" = "Audio/Source", "device.api" = "alsa" }'
+    noctalia.runAsync({
+      "pw-metadata", "-n", "filters", tostring(filterId), "filter.smart.target", target, "Spa:String:JSON",
+    }, function(metadataResult)
+      if metadataResult.exitCode ~= 0 then
+        setError("Could not switch the RNNoise input")
+      else
+        if persist then
+          local dataDir = noctalia.pluginDataDir()
+          if dataDir then
+            if name then
+              noctalia.writeFile(dataDir .. "/settings.json", noctalia.json.encode({ captureSource = name }))
+            else
+              noctalia.removeFile(dataDir .. "/settings.json")
+            end
+          end
+        end
+        poll()
+      end
+      if done then done() end
+    end, 1500)
+  end, 1500)
+end
+
+noctalia.state.watch(COMMAND_KEY, function(command)
+  if type(command) ~= "table" then return end
+  if command.action == "refresh" then
+    poll()
+  elseif command.action == "toggle_mute" then
+    toggleMute()
+  elseif command.action == "set_volume" then
+    setVolume(command.value)
+  elseif command.action == "change_volume" then
+    changeVolume(command.direction == "up" and 1 or -1)
+  elseif command.action == "set_capture_source" and type(command.name) == "string" then
+    selectCaptureSource(command.name, true)
+  elseif command.action == "reset_capture_source" then
+    selectCaptureSource(nil, true)
+  end
+end)
+
 poll()
 
 function update()
-  noctalia.setUpdateInterval(POLL_INTERVAL_MS)
+  local interval = tonumber(noctalia.getConfig("poll_interval_ms")) or 500
+  noctalia.setUpdateInterval(interval)
   poll()
 end
+
+function onConfigChanged()
+  poll()
+end
+
+noctalia.setUpdateInterval(tonumber(noctalia.getConfig("poll_interval_ms")) or 500)

@@ -4,10 +4,35 @@ version = "0.1.0"
 plugin_api = 42
 author = "pschmitt"
 license = "GPL-3.0-only"
-tags = ["bar", "audio", "indicator"]
+tags = ["bar", "panel", "audio", "microphone", "indicator"]
 icon = "microphone"
-description = "Native-style microphone indicator for the RNNoise voice source."
-dependencies = ["pactl"]
+description = "Microphone controls and real capture device selection for the RNNoise voice source."
+dependencies = ["pactl", "pw-dump", "pw-link", "pw-metadata"]
+
+[[setting]]
+key = "capture_source"
+type = "string"
+label_key = "settings.capture_source.label"
+description_key = "settings.capture_source.description"
+default = "auto"
+
+[[setting]]
+key = "poll_interval_ms"
+type = "int"
+label_key = "settings.poll_interval_ms.label"
+description_key = "settings.poll_interval_ms.description"
+default = 500
+min = 250
+max = 5000
+
+[[setting]]
+key = "scroll_step"
+type = "int"
+label_key = "settings.scroll_step.label"
+description_key = "settings.scroll_step.description"
+default = 5
+min = 1
+max = 20
 
 [[service]]
 id = "status"
@@ -16,3 +41,17 @@ entry = "service.luau"
 [[widget]]
 id = "bar"
 entry = "bar.luau"
+
+[widget.actions]
+left = "panel-toggle pschmitt/mic-state:panel"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 360
+height = "content"
+max_height = 680
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
