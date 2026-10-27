@@ -35,6 +35,7 @@
         in
         {
           noctalia-battery-icon = pkgs.callPackage ./pkgs/noctalia-battery-icon { };
+          noctalia-duo-status = pkgs.callPackage ./pkgs/noctalia-duo-status { };
           noctalia-fan-control = pkgs.callPackage ./pkgs/noctalia-fan-control { };
           noctalia-feierabend = pkgs.callPackage ./pkgs/noctalia-feierabend { };
           noctalia-ha-ai-usage = pkgs.callPackage ./pkgs/noctalia-ha-ai-usage { };
@@ -49,6 +50,7 @@
             name = "noctalia-plugins";
             paths = [
               (pkgs.callPackage ./pkgs/noctalia-battery-icon { })
+              (pkgs.callPackage ./pkgs/noctalia-duo-status { })
               (pkgs.callPackage ./pkgs/noctalia-fan-control { })
               (pkgs.callPackage ./pkgs/noctalia-feierabend { })
               (pkgs.callPackage ./pkgs/noctalia-ha-ai-usage { })

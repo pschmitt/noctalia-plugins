@@ -1,0 +1,117 @@
+id = "pschmitt/duo-status"
+name = "Duo Status"
+version = "0.1.0"
+plugin_api = 42
+author = "pschmitt"
+license = "GPL-3.0-only"
+icon = "wifi-2"
+description = "iPhone Duo-inspired circular battery and Wi-Fi indicator with a unified power and network panel."
+tags = ["bar", "panel", "system", "hardware", "network", "battery"]
+dependencies = ["nmcli", "find"]
+
+# ── General Settings ─────────────────────────────────────────────────────────
+
+[[setting]]
+key = "battery_device"
+type = "string"
+label_key = "settings.battery_device.label"
+description_key = "settings.battery_device.description"
+default = "BAT0"
+
+[[setting]]
+key = "poll_interval"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = 5
+min = 1
+max = 60
+
+[[setting]]
+key = "low_battery_threshold"
+type = "int"
+label_key = "settings.low_battery_threshold.label"
+description_key = "settings.low_battery_threshold.description"
+default = 20
+min = 1
+max = 99
+
+[[setting]]
+key = "critical_battery_threshold"
+type = "int"
+label_key = "settings.critical_battery_threshold.label"
+description_key = "settings.critical_battery_threshold.description"
+default = 10
+min = 1
+max = 99
+
+# ── Colors ───────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "normal_color"
+type = "color"
+label_key = "settings.normal_color.label"
+description_key = "settings.normal_color.description"
+default = "primary"
+
+[[setting]]
+key = "charging_color"
+type = "color"
+label_key = "settings.charging_color.label"
+description_key = "settings.charging_color.description"
+default = "#34C759"
+
+[[setting]]
+key = "power_saver_color"
+type = "color"
+label_key = "settings.power_saver_color.label"
+description_key = "settings.power_saver_color.description"
+default = "#FFCC00"
+
+[[setting]]
+key = "critical_color"
+type = "color"
+label_key = "settings.critical_color.label"
+description_key = "settings.critical_color.description"
+default = "error"
+
+# ── Bar Widget ───────────────────────────────────────────────────────────────
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "icon_size"
+  type = "int"
+  label_key = "settings.icon_size.label"
+  description_key = "settings.icon_size.description"
+  default = 24
+  min = 16
+  max = 48
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default = false
+
+# ── Status Panel ─────────────────────────────────────────────────────────────
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 380
+height = "content"
+max_height = 700
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+# ── Service ──────────────────────────────────────────────────────────────────
+
+[[service]]
+id = "poller"
+entry = "service.luau"

@@ -1,0 +1,44 @@
+{
+  "settings": {
+    "battery_device": {
+      "label": "Battery Device",
+      "description": "The power supply device name in sysfs (e.g., BAT0 or BAT1)."
+    },
+    "poll_interval": {
+      "label": "Poll Interval",
+      "description": "How often in seconds to poll battery capacity and wireless link quality."
+    },
+    "low_battery_threshold": {
+      "label": "Low Battery Threshold",
+      "description": "Percentage at which the battery indicator changes to warning."
+    },
+    "critical_battery_threshold": {
+      "label": "Critical Battery Threshold",
+      "description": "Percentage at which the battery indicator turns red."
+    },
+    "normal_color": {
+      "label": "Normal Color",
+      "description": "Color of the battery indicator under normal conditions."
+    },
+    "charging_color": {
+      "label": "Charging Color",
+      "description": "Color of the battery indicator and lightning badge while charging."
+    },
+    "power_saver_color": {
+      "label": "Power Saver Color",
+      "description": "Color of the battery arc when Battery Saver / Low Power Mode is active."
+    },
+    "critical_color": {
+      "label": "Critical Color",
+      "description": "Color of the battery arc when battery is critically low."
+    },
+    "icon_size": {
+      "label": "Icon Size",
+      "description": "Size in pixels of the circular duo indicator in the bar."
+    },
+    "show_label": {
+      "label": "Show Percentage Label",
+      "description": "Show the battery percentage text beside the circular indicator."
+    }
+  }
+}
