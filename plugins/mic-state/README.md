@@ -12,7 +12,8 @@ sources and monitor sources are filtered out. Device selection leaves the
 meeting mix as the default source and persists across restarts. Mute and
 volume controls apply to the selected physical capture device. The plugin
 settings also accept an explicit PipeWire source name or `auto` for the device,
-and set the scroll volume step and refresh interval.
+set the scroll volume step and refresh interval, and optionally allow volume
+boost above 100% (up to 150%). Volume boost is disabled by default.
 
 Changing the volume from the bar or panel shows Noctalia's native microphone
 OSD with the new level.

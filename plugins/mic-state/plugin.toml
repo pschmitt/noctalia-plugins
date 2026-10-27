@@ -26,6 +26,13 @@ min = 250
 max = 5000
 
 [[setting]]
+key = "allow_volume_boost"
+type = "bool"
+label_key = "settings.allow_volume_boost.label"
+description_key = "settings.allow_volume_boost.description"
+default = false
+
+[[setting]]
 key = "scroll_step"
 type = "int"
 label_key = "settings.scroll_step.label"

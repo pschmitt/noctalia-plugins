@@ -8,6 +8,10 @@
       "label": "Status Refresh Interval",
       "description": "How often microphone mute, volume, and available capture devices are refreshed, in milliseconds."
     },
+    "allow_volume_boost": {
+      "label": "Allow Volume Boost",
+      "description": "Allow microphone volume above 100%, up to 150%. Disabled by default."
+    },
     "scroll_step": {
       "label": "Scroll Volume Step",
       "description": "Percentage points to change the processed microphone volume for each bar scroll step."

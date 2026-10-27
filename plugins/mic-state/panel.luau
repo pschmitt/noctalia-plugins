@@ -14,6 +14,10 @@ local volumeRowHovered = false
 local previousPopupScrollOffset = nil
 local popupScrollRemainder = 0
 
+local function maxVolume()
+  return noctalia.getConfig("allow_volume_boost") == true and 150 or 100
+end
+
 local function command(action, extra)
   commandSerial += 1
   local payload = extra or {}
@@ -161,7 +165,8 @@ local function header()
 end
 
 local function voiceCard()
-  local volume = math.clamp(math.floor(tonumber(previewVolume or state.volume) or 0), 0, 150)
+  local maximum = maxVolume()
+  local volume = math.clamp(math.floor(tonumber(previewVolume or state.volume) or 0), 0, maximum)
   local label = state.muted and "Muted" or "Live input"
   return ui.column({ fill = "surface_container", radius = 14, padding = 12, gap = 10 }, {
     ui.row({ align = "center", justify = "space_between" }, {
@@ -179,7 +184,7 @@ local function voiceCard()
       ui.glyph({ name = "volume-2", size = 15, color = "on_surface_variant" }),
       ui.slider({
         min = 0,
-        max = 150,
+        max = maximum,
         step = 1,
         value = volume,
         controlSize = "sm",

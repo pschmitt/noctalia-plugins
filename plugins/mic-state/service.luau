@@ -9,7 +9,12 @@ local pollAgain = false
 local volumeRevision = 0
 local applyingPreferred = false
 local selectCaptureSource
+local setVolume
 local poll
+
+local function maxVolume()
+  return noctalia.getConfig("allow_volume_boost") == true and 150 or 100
+end
 
 local function finishPoll()
   polling = false
@@ -112,7 +117,12 @@ poll = function()
         if source.name == state.activeSource then
           state.muted = source.muted
           if requestedVolumeRevision == volumeRevision then
-            state.volume = source.volume or state.volume
+            local maximum = maxVolume()
+            if source.volume and source.volume > maximum then
+              setVolume(maximum)
+            else
+              state.volume = source.volume or state.volume
+            end
           end
           break
         end
@@ -165,13 +175,13 @@ local function toggleMute()
   end, 1000)
 end
 
-local function setVolume(value)
+setVolume = function(value)
   local sourceName = state.activeSource
   if sourceName == "" then
     setError("Could not find the active microphone input")
     return
   end
-  local target = math.clamp(math.floor(tonumber(value) or state.volume), 0, 150)
+  local target = math.clamp(math.floor(tonumber(value) or state.volume), 0, maxVolume())
   local previous = state.volume
   volumeRevision += 1
   state.volume = target
