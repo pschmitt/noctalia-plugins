@@ -7,6 +7,7 @@ local previewVolume = nil
 local meterLevels = {}
 local metersStarted = {}
 local meterDataDir = nil
+local panelOpen = false
 local commandSerial = 0
 local volumeRowHovered = false
 local previousPopupScrollOffset = nil
@@ -34,6 +35,15 @@ local function meterConfigPath(sourceName)
   if not meterDataDir then return nil end
   local safeName = sourceName:gsub("[^%w%-_]", "_")
   return meterDataDir .. "/voice-meter-" .. safeName .. ".conf"
+end
+
+local function meterPidPath(sourceName)
+  local configPath = meterConfigPath(sourceName)
+  return configPath and configPath:gsub("%.conf$", ".pid") or nil
+end
+
+local function shellQuote(value)
+  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
 end
 
 local function writeMeterConfig(sourceName)
@@ -69,12 +79,21 @@ noise_reduction = 0
 end
 
 local function startMeters()
+  if not panelOpen then return end
   for _, source in ipairs(state.sources or {}) do
     local sourceName = source.name
     if sourceName ~= "" and not metersStarted[sourceName] then
       local configPath = writeMeterConfig(sourceName)
-      if configPath then
-        local commandPath = "cava -p '" .. configPath:gsub("'", "'\\''") .. "'"
+      local pidPath = meterPidPath(sourceName)
+      if configPath and pidPath then
+        local commandPath = table.concat({
+          "pid_file=", shellQuote(pidPath), "; ",
+          "config=", shellQuote(configPath), "; ",
+          "child=; cleanup() { if [ -n \"$child\" ]; then kill \"$child\" 2>/dev/null || true; fi; rm -f \"$pid_file\"; }; ",
+          "trap cleanup EXIT; trap 'exit 0' TERM INT; ",
+          "printf '%s\\n' \"$$\" > \"$pid_file\"; ",
+          "cava -p \"$config\" & child=$!; wait \"$child\"",
+        })
         metersStarted[sourceName] = noctalia.runStream(commandPath, function(line)
           local value = tonumber(line:match("%d+"))
           if value then
@@ -85,6 +104,20 @@ local function startMeters()
       end
     end
   end
+end
+
+local function stopMeters()
+  for sourceName in pairs(metersStarted) do
+    local pidPath = meterPidPath(sourceName)
+    local rawPid = pidPath and noctalia.readFile(pidPath)
+    local pid = rawPid and tonumber(rawPid:match("%d+"))
+    if pid then
+      noctalia.runAsync({ "sh", "-c", "kill -TERM " .. tostring(math.floor(pid)) })
+    end
+    if pidPath then noctalia.removeFile(pidPath) end
+  end
+  metersStarted = {}
+  meterLevels = {}
 end
 
 local function header()
@@ -261,8 +294,15 @@ noctalia.state.watch("mic_state", function(value)
 end)
 
 function onOpen()
+  panelOpen = true
   command("refresh")
   startMeters()
+  render()
+end
+
+function onClose()
+  panelOpen = false
+  stopMeters()
   render()
 end
 
