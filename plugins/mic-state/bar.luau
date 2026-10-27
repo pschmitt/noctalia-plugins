@@ -7,11 +7,12 @@ local commandSerial = 0
 
 local function render()
   local name = state.muted and "microphone-off" or "microphone"
+  local volume = tonumber(state.volume) or 0
   local color
   if not state.known then
     color = "on_surface_variant"
   else
-    color = state.muted and "error" or "on_surface"
+    color = state.muted and "error" or (volume > 100 and "tertiary" or "on_surface")
   end
 
   barWidget.render(ui.glyph({ name = name, size = 16, color = color }))
@@ -27,7 +28,8 @@ local function render()
   end
   tooltip[#tooltip + 1] = { key = "Input", value = inputName }
   if state.known then
-    tooltip[#tooltip + 1] = { key = "Level", value = tostring(math.floor(tonumber(state.volume) or 0)) .. "%" }
+    local level = tostring(math.floor(volume)) .. "%"
+    tooltip[#tooltip + 1] = { key = "Level", value = level .. (volume > 100 and " · Boost active" or "") }
   end
   tooltip[#tooltip + 1] = { key = "Scroll", value = "Adjust microphone volume" }
   barWidget.setTooltip(tooltip)

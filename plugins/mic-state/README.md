@@ -14,6 +14,8 @@ volume controls apply to the selected physical capture device. The plugin
 settings also accept an explicit PipeWire source name or `auto` for the device,
 set the scroll volume step and refresh interval, and optionally allow volume
 boost above 100% (up to 150%). Volume boost is disabled by default.
+When boost is active, the popup and bar use an accent color and the volume OSD
+labels the boosted level.
 
 Changing the volume from the bar or panel shows Noctalia's native microphone
 OSD with the new level.

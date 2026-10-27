@@ -167,7 +167,23 @@ end
 local function voiceCard()
   local maximum = maxVolume()
   local volume = math.clamp(math.floor(tonumber(previewVolume or state.volume) or 0), 0, maximum)
+  local boosted = volume > 100
   local label = state.muted and "Muted" or "Live input"
+  local volumeReadout = {}
+  if boosted then
+    volumeReadout[#volumeReadout + 1] = ui.label({
+      text = "BOOST",
+      fontSize = 9,
+      fontWeight = "bold",
+      color = "tertiary",
+    })
+  end
+  volumeReadout[#volumeReadout + 1] = ui.label({
+    text = tostring(volume) .. "%",
+    fontSize = 11,
+    color = boosted and "tertiary" or "on_surface_variant",
+    minWidth = 34,
+  })
   return ui.column({ fill = "surface_container", radius = 14, padding = 12, gap = 10 }, {
     ui.row({ align = "center", justify = "space_between" }, {
       ui.row({ align = "center", gap = 7 }, {
@@ -181,7 +197,7 @@ local function voiceCard()
       previousPopupScrollOffset = nil
       popupScrollRemainder = 0
     end }, {
-      ui.glyph({ name = "volume-2", size = 15, color = "on_surface_variant" }),
+      ui.glyph({ name = "volume-2", size = 15, color = boosted and "tertiary" or "on_surface_variant" }),
       ui.slider({
         min = 0,
         max = maximum,
@@ -199,7 +215,7 @@ local function voiceCard()
           command("set_volume", { value = target })
         end,
       }),
-      ui.label({ text = tostring(volume) .. "%", fontSize = 11, color = "on_surface_variant", minWidth = 34 }),
+      ui.row({ align = "center", gap = 6 }, volumeReadout),
     }),
     ui.row({ align = "center", gap = 8 }, {
       ui.label({ text = "Voice level", fontSize = 10, color = "on_surface_variant", minWidth = 62 }),

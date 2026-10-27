@@ -199,7 +199,7 @@ setVolume = function(value)
     else
       noctalia.osd.show(
         state.muted and "microphone-off" or "microphone",
-        tostring(target) .. "%",
+        (target > 100 and "Boost · " or "") .. tostring(target) .. "%",
         { progress = math.clamp(target / 100, 0, 1), inactive = state.muted }
       )
       poll()
