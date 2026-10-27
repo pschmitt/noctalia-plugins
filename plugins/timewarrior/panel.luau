@@ -49,6 +49,28 @@ local BUSY_STATES = {
   delete = { text = "Deleting…", glyph = "trash", variant = "secondary" },
 }
 
+local syncFrame = 0
+local syncElapsedMs = 0
+local SYNC_FRAME_COUNT = 12
+local SYNC_FRAME_INTERVAL_MS = 60
+
+local function syncBusy()
+  return action ~= nil and action.action == "sync" and action.running == true
+end
+
+local function syncAnimationActive()
+  return syncBusy() and noctalia.getConfig("animations_enabled") ~= false
+end
+
+local function syncSpinner(size)
+  return ui.image({
+    path = string.format("assets/sync-spinner-%02d.png", syncFrame),
+    width = size,
+    height = size,
+    fit = "contain",
+  })
+end
+
 -- The panel's headline control: one big button that starts or stops tracking
 -- depending on the current state, plus the running interval beside it.
 local function toggle()
@@ -63,8 +85,22 @@ local function toggle()
   -- keeps the long form.
   local label = busy and busy.text or (active and "Stop" or "Start")
 
-  return ui.column({ gap = 4 }, {
-    ui.button({
+  local children = {}
+  if busy ~= nil and action.action == "sync" then
+    table.insert(children, ui.row({
+      height = 44,
+      flexGrow = 1,
+      fill = "secondary",
+      radius = 8,
+      gap = 8,
+      align = "center",
+      justify = "center",
+    }, {
+      syncSpinner(18),
+      ui.label({ text = label, fontSize = 13, color = "on_secondary" }),
+    }))
+  else
+    table.insert(children, ui.button({
       text = label,
       glyph = busy and busy.glyph or (active and "player-stop" or "player-play"),
       glyphSize = 18,
@@ -78,16 +114,17 @@ local function toggle()
       flexGrow = 1,
       tooltip = active and "Stop tracking" or "Start tracking",
       onClick = "onToggle",
+    }))
+  end
+  table.insert(children, ui.row({ justify = "center", visible = action ~= nil and (action.message or "") ~= "" }, {
+    ui.label({
+      text = action and action.message or "",
+      fontSize = 11,
+      color = "error",
+      maxLines = 2,
     }),
-    ui.row({ justify = "center", visible = action ~= nil and (action.message or "") ~= "" }, {
-      ui.label({
-        text = action and action.message or "",
-        fontSize = 11,
-        color = "error",
-        maxLines = 2,
-      }),
-    }),
-  })
+  }))
+  return ui.column({ gap = 4 }, children)
 end
 
 local function sendCommand(cmd)
@@ -448,7 +485,12 @@ local function syncButton()
     return ui.row({ visible = false }, {})
   end
 
-  local busy = action ~= nil and action.action == "sync" and action.running == true
+  local busy = syncBusy()
+  if busy then
+    return ui.row({ width = 32, height = 32, align = "center", justify = "center" }, {
+      syncSpinner(16),
+    })
+  end
   return ui.button({
     glyph = "refresh",
     variant = "ghost",
@@ -494,6 +536,7 @@ local function header()
 end
 
 function render()
+  panel.setNeedsFrameTick(syncAnimationActive())
   local fmt = currentFormat()
   local content = {
     header(),
@@ -560,6 +603,24 @@ function onOpen(context)
   if type(context) == "string" and context:match("^%d%d%d%d%-%d%d%-%d%d$") then
     selectedDate = context
   end
+  render()
+end
+
+function onClose()
+  panel.setNeedsFrameTick(false)
+end
+
+function onFrameTick(deltaMs)
+  if not syncAnimationActive() then
+    panel.setNeedsFrameTick(false)
+    return
+  end
+  syncElapsedMs += tonumber(deltaMs) or SYNC_FRAME_INTERVAL_MS
+  if syncElapsedMs < SYNC_FRAME_INTERVAL_MS then
+    return
+  end
+  syncElapsedMs = syncElapsedMs % SYNC_FRAME_INTERVAL_MS
+  syncFrame = (syncFrame + 1) % SYNC_FRAME_COUNT
   render()
 end
 

@@ -1,6 +1,6 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.37.0"
+version = "0.37.2"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
 plugin_api = 42
@@ -300,16 +300,25 @@ options = [
 
 # ── Sync ──
 # Off by default: syncing is a Timewarrior deployment choice, not something
-# every user of this widget has. Enabled, it puts a sync button next to the
-# panel's settings gear; the command is whatever moves your data — `timewsync`
-# for the timew-sync-server client, or a wrapper that syncs Taskwarrior in the
-# same breath. Run through /bin/sh -c with TIMEWARRIORDB exported, like the
-# start/stop hooks, and bounded by the same command_timeout.
+# every user of this widget has. `sync_enabled` puts a sync button next to the
+# panel's settings gear; `sync_after_changes` runs the command after a
+# successful start, stop, interval edit, or delete. The command is whatever
+# moves your data —
+# `timewsync` for the timew-sync-server client, or a wrapper that syncs
+# Taskwarrior in the same breath. Run through /bin/sh -c with TIMEWARRIORDB
+# exported, like the start/stop hooks, and bounded by the same command_timeout.
 [[setting]]
 key = "sync_enabled"
 type = "bool"
 label_key = "settings.sync_enabled.label"
 description_key = "settings.sync_enabled.description"
+default = false
+
+[[setting]]
+key = "sync_after_changes"
+type = "bool"
+label_key = "settings.sync_after_changes.label"
+description_key = "settings.sync_after_changes.description"
 default = false
 
 [[setting]]

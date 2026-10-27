@@ -16,9 +16,13 @@
       "label": "Show sync button",
       "description": "Adds a sync button beside the panel's settings button, running the sync command below."
     },
+    "sync_after_changes": {
+      "label": "Sync after Timewarrior changes",
+      "description": "Run the sync command after each successful start, stop, interval edit, or delete. Off by default."
+    },
     "sync_command": {
       "label": "Sync command",
-      "description": "Shell command the sync button runs, e.g. `timewsync`. Runs with TIMEWARRIORDB set and is bounded by the command timeout."
+      "description": "Shell command used for manual and automatic sync, e.g. `timewsync`. Runs with TIMEWARRIORDB set and is bounded by the command timeout."
     },
     "start_command": {
       "label": "Start command",

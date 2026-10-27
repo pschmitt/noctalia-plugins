@@ -56,6 +56,7 @@ local summary = { week = "0:00", month = "0:00", year = "0:00", days = {} }
 local tracking = false
 local pending = nil
 local syncing = false
+local runSync
 
 local function runTimew(args, callback, timeoutMs)
   local argv = { "env", "TIMEWARRIORDB=" .. databasePath(), "timew" }
@@ -332,6 +333,12 @@ local function finishCommand(action, result)
     pending = nil
   end
   if result.exitCode == 0 then
+    if (action == "start" or action == "stop" or action == "modify" or action == "delete")
+      and noctalia.getConfig("sync_after_changes") == true
+      and runSync(true)
+    then
+      return
+    end
     publishAction(action, false, true, "")
   else
     local message = lastLine(result.stderr or "")
@@ -377,9 +384,9 @@ local function syncEnabled()
   return noctalia.getConfig("sync_enabled") == true
 end
 
-local function runSync()
-  if syncing or not syncEnabled() then
-    return
+runSync = function(automatic)
+  if syncing or (not automatic and not syncEnabled()) then
+    return false
   end
   syncing = true
   publishAction("sync", true, nil, "")
@@ -393,6 +400,7 @@ local function runSync()
     syncing = false
     finishCommand("sync", result)
   end, commandTimeoutMs())
+  return true
 end
 
 -- ── Editing today's boundaries ────────────────────────────────────────────

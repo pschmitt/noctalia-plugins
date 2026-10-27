@@ -262,6 +262,12 @@ plugin_settings."pschmitt/timewarrior" = {
 };
 ```
 
+`sync_after_changes` (also off by default) runs that same command after every
+successful start, stop, interval edit, or delete. It works independently of
+`sync_enabled`, so automatic sync can be enabled while keeping the panel's
+manual sync button hidden. While a sync runs, both panel sync indicators
+rotate; animation follows Noctalia's global animations setting.
+
 Like the start/stop hooks it runs through `/bin/sh -c` with `TIMEWARRIORDB`
 exported and is bounded by `command_timeout`; the button disables itself while
 it runs, failures surface as a toast and an error line, and a poll follows,
