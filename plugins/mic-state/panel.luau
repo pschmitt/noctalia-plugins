@@ -130,19 +130,13 @@ local function header()
   local color = not state.known and "on_surface_variant" or (state.muted and "error" or "primary")
   return ui.row({ align = "center", justify = "space_between" }, {
     ui.row({ align = "center", gap = 10 }, {
-      ui.column({
-        width = 38,
-        height = 38,
-        radius = 12,
-        fill = state.muted and "error/0.14" or "primary/0.14",
-        align = "center",
-        justify = "center",
-      }, {
-        ui.glyph({
-          name = state.muted and "microphone-off" or "microphone",
-          size = 20,
-          color = color,
-        }),
+      ui.button({
+        glyph = state.muted and "microphone-off" or "microphone",
+        variant = "ghost",
+        controlSize = "md",
+        tooltip = state.muted and "Unmute microphone" or "Mute microphone",
+        enabled = state.known,
+        onClick = function() command("toggle_mute") end,
       }),
       ui.column({ gap = 2 }, {
         ui.label({ text = "Microphone", fontSize = 16, fontWeight = "bold" }),
@@ -228,17 +222,7 @@ local function voiceCard()
         flexGrow = 1,
       }),
     }),
-    ui.row({ align = "center", justify = "space_between" }, {
-      ui.label({ text = sourceName(state.activeSource), fontSize = 11, color = "on_surface_variant", maxLines = 1, flexGrow = 1 }),
-      ui.button({
-        glyph = state.muted and "microphone" or "microphone-off",
-        text = state.muted and "Unmute" or "Mute",
-        variant = state.muted and "primary" or "outline",
-        controlSize = "sm",
-        enabled = state.known,
-        onClick = function() command("toggle_mute") end,
-      }),
-    }),
+    ui.label({ text = sourceName(state.activeSource), fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
   })
 end
 

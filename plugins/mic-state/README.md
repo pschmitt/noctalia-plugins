@@ -6,9 +6,9 @@ default `meeting_source`. The meeting mix remains unmuted so soundboard clips
 can still reach calls while the physical microphone is muted.
 
 Left-click the widget to open the microphone panel; right-click toggles mute.
-It includes mute and volume
-controls, a live voice level meter, the actual physical PipeWire capture
-devices, and a selector for the RNNoise filter's capture device. Virtual
+Click the microphone icon in the panel header to toggle mute. The panel
+includes volume controls, a live voice level meter, the actual physical
+PipeWire capture devices, and a selector for the RNNoise filter's capture device. Virtual
 sources and monitor sources are filtered out. Device selection leaves the
 meeting mix as the default source and persists across restarts. Mute and
 volume controls apply to the selected physical capture device. The plugin
