@@ -233,40 +233,57 @@ local function pollNetwork()
   end)
 end
 
+local function shellQuote(s)
+  return "'" .. string.gsub(tostring(s or ""), "'", "'\\''") .. "'"
+end
+
 local function scanNetworks()
-  noctalia.runAsync("nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY,CHAN,FREQ dev wifi 2>/dev/null", function(res)
-    if res.exitCode ~= 0 or not res.stdout then return end
-    local list = {}
-    local seen = {}
-
-    for line in res.stdout:gmatch("[^\r\n]+") do
-      local parts = string.split(line, ":")
-      local inUse = (parts[1] == "*")
-      local ssid = parts[2] or ""
-      local signal = tonumber(parts[3]) or 0
-      local security = parts[4] or ""
-      local chan = parts[5] or ""
-      local freq = parts[6] or ""
-
-      if ssid ~= "" and not seen[ssid] then
-        seen[ssid] = true
-        list[#list + 1] = {
-          inUse = inUse,
-          ssid = ssid,
-          signal = signal,
-          security = security,
-          channel = chan,
-          frequency = freq,
-        }
+  noctalia.runAsync("nmcli -t -f NAME connection show 2>/dev/null", function(savedRes)
+    local saved = {}
+    if savedRes and savedRes.exitCode == 0 and savedRes.stdout then
+      for line in savedRes.stdout:gmatch("[^\r\n]+") do
+        local name = string.gsub(line, "\\:", ":")
+        saved[name] = true
       end
     end
 
-    table.sort(list, function(a, b)
-      if a.inUse ~= b.inUse then return a.inUse end
-      return a.signal > b.signal
-    end)
+    noctalia.runAsync("nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY,CHAN,FREQ dev wifi 2>/dev/null", function(res)
+      if res.exitCode ~= 0 or not res.stdout then return end
+      local list = {}
+      local seen = {}
 
-    noctalia.state.set(NETWORKS_KEY, list)
+      for line in res.stdout:gmatch("[^\r\n]+") do
+        local parts = string.split(line, ":")
+        local inUse = (parts[1] == "*")
+        local ssid = parts[2] or ""
+        local signal = tonumber(parts[3]) or 0
+        local security = parts[4] or ""
+        local chan = parts[5] or ""
+        local freq = parts[6] or ""
+
+        if ssid ~= "" and not seen[ssid] then
+          seen[ssid] = true
+          local isSecured = (security ~= "" and security ~= "--")
+          list[#list + 1] = {
+            inUse = inUse,
+            ssid = ssid,
+            signal = signal,
+            security = security,
+            secured = isSecured,
+            saved = (saved[ssid] == true),
+            channel = chan,
+            frequency = freq,
+          }
+        end
+      end
+
+      table.sort(list, function(a, b)
+        if a.inUse ~= b.inUse then return a.inUse end
+        return a.signal > b.signal
+      end)
+
+      noctalia.state.set(NETWORKS_KEY, list)
+    end)
   end)
 end
 
@@ -277,7 +294,7 @@ noctalia.state.watch(COMMAND_KEY, function(cmd)
   local action = cmd.action
 
   if action == "set_profile" and cmd.profile then
-    noctalia.runAsync("powerprofilesctl set " .. cmd.profile, function()
+    noctalia.runAsync("powerprofilesctl set " .. shellQuote(cmd.profile), function()
       pollBattery()
     end)
   elseif action == "wifi_toggle" then
@@ -290,11 +307,20 @@ noctalia.state.watch(COMMAND_KEY, function(cmd)
       scanNetworks()
     end)
   elseif action == "connect" and cmd.ssid then
-    local c = "nmcli dev wifi connect " .. noctalia.string.shellQuote(cmd.ssid)
+    local c = "nmcli dev wifi connect " .. shellQuote(cmd.ssid)
     if cmd.password and cmd.password ~= "" then
-      c = c .. " password " .. noctalia.string.shellQuote(cmd.password)
+      c = c .. " password " .. shellQuote(cmd.password)
     end
-    noctalia.runAsync(c, function()
+    noctalia.runAsync(c, function(res)
+      if res and res.exitCode ~= 0 then
+        noctalia.state.set("duo_status.connect_error", {
+          ssid = cmd.ssid,
+          message = res.stderr or res.stdout or "Failed to connect",
+          time = os.time(),
+        })
+      else
+        noctalia.state.set("duo_status.connect_error", nil)
+      end
       pollNetwork()
       scanNetworks()
     end)

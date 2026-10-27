@@ -6,6 +6,9 @@ local state = noctalia.state.get("duo_status.state") or {}
 local networks = noctalia.state.get("duo_status.networks") or {}
 local iconPath = noctalia.state.get("duo_status.icon_path")
 local showAllNetworks = false
+local activePasswordSSID = nil
+local passwordDraft = ""
+local connectError = noctalia.state.get("duo_status.connect_error")
 
 local function sendCommand(cmd)
   noctalia.state.set("duo_status.command", cmd)
@@ -219,6 +222,7 @@ local function networkRows()
   for _, ap in ipairs(networks) do
     local isCurrent = ap.inUse
     local secGlyph = (ap.security and ap.security ~= "" and ap.security ~= "--") and "lock" or nil
+    local requiresPassword = (ap.secured or secGlyph ~= nil) and not ap.saved
 
     local subDetails = {}
     if secGlyph then
@@ -240,16 +244,30 @@ local function networkRows()
       })
     end
 
-    rows[#rows + 1] = ui.row({
+    local function handleConnectClick()
+      if isCurrent then return end
+      if requiresPassword then
+        if activePasswordSSID == ap.ssid then
+          activePasswordSSID = nil
+          passwordDraft = ""
+        else
+          activePasswordSSID = ap.ssid
+          passwordDraft = ""
+        end
+        render()
+      else
+        sendCommand({ action = "connect", ssid = ap.ssid })
+      end
+    end
+
+    local rowItem = ui.row({
       align = "center",
       justify = "space_between",
       paddingV = 6,
       paddingH = 8,
       radius = 8,
       fill = isCurrent and "primary/0.10" or nil,
-      onClick = not isCurrent and function()
-        sendCommand({ action = "connect", ssid = ap.ssid })
-      end or nil,
+      onClick = not isCurrent and handleConnectClick or nil,
     }, {
       ui.row({ align = "center", gap = 10, flexGrow = 1 }, {
         ui.glyph({
@@ -270,15 +288,88 @@ local function networkRows()
       }),
 
       not isCurrent and ui.button({
-        glyph = "arrow-right",
+        glyph = (activePasswordSSID == ap.ssid and "chevron-up" or "arrow-right"),
         variant = "ghost",
         controlSize = "sm",
-        tooltip = "Connect to " .. (ap.ssid or "network"),
-        onClick = function()
-          sendCommand({ action = "connect", ssid = ap.ssid })
-        end,
+        tooltip = requiresPassword and "Enter password" or ("Connect to " .. (ap.ssid or "network")),
+        onClick = handleConnectClick,
       }) or ui.box({}),
     })
+
+    if activePasswordSSID == ap.ssid then
+      local pwdItems = {
+        ui.row({ align = "center", gap = 6, paddingH = 6, paddingV = 4 }, {
+          ui.input({
+            key = "wifi-pwd-" .. (ap.ssid or ""),
+            placeholder = "Password for " .. (ap.ssid or "network"),
+            password = true,
+            value = passwordDraft,
+            flexGrow = 1,
+            fontSize = 12,
+            focus = true,
+            submitOnEnter = true,
+            onChange = function(val) passwordDraft = val or "" end,
+            onSubmit = function(val)
+              local p = val or passwordDraft
+              if p and p ~= "" then
+                sendCommand({ action = "connect", ssid = ap.ssid, password = p })
+                activePasswordSSID = nil
+                passwordDraft = ""
+                render()
+              end
+            end,
+          }),
+          ui.button({
+            glyph = "check",
+            variant = "primary",
+            controlSize = "sm",
+            tooltip = "Connect",
+            onClick = function()
+              if passwordDraft and passwordDraft ~= "" then
+                sendCommand({ action = "connect", ssid = ap.ssid, password = passwordDraft })
+                activePasswordSSID = nil
+                passwordDraft = ""
+                render()
+              end
+            end,
+          }),
+          ui.button({
+            glyph = "x",
+            variant = "ghost",
+            controlSize = "sm",
+            tooltip = "Cancel",
+            onClick = function()
+              activePasswordSSID = nil
+              passwordDraft = ""
+              render()
+            end,
+          }),
+        }),
+      }
+
+      if connectError and connectError.ssid == ap.ssid then
+        table.insert(pwdItems, ui.row({ paddingH = 8, paddingV = 2 }, {
+          ui.label({
+            text = connectError.message or "Connection failed",
+            fontSize = 11,
+            color = "error",
+            maxLines = 1,
+          }),
+        }))
+      end
+
+      rows[#rows + 1] = ui.column({
+        gap = 2,
+        radius = 8,
+        fill = "surface_container_highest/0.4",
+        padding = 4,
+      }, {
+        rowItem,
+        ui.column({ gap = 2 }, pwdItems),
+      })
+    else
+      rows[#rows + 1] = rowItem
+    end
   end
 
   return ui.column({
@@ -365,6 +456,11 @@ end)
 
 noctalia.state.watch("duo_status.networks", function(n)
   networks = n or {}
+  render()
+end)
+
+noctalia.state.watch("duo_status.connect_error", function(err)
+  connectError = err
   render()
 end)
 
