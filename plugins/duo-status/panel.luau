@@ -128,10 +128,14 @@ local function networkCard()
     typeGlyph = "wifi-2"
   end
 
-  local signalText = ""
-  if net.type == "wifi" and isConnected and net.signal then
-    signalText = string.format("%d%%", net.signal)
+  local subParts = {}
+  if net.ip and net.ip ~= "" then
+    subParts[#subParts + 1] = net.ip .. (net.device ~= "" and (" (" .. net.device .. ")") or "")
   end
+  if net.type == "wifi" and isConnected and net.signal then
+    subParts[#subParts + 1] = string.format("%d%%", net.signal)
+  end
+  local subText = #subParts > 0 and table.concat(subParts, " • ") or (isConnected and "Active" or "")
 
   return ui.column({
     fill = "surface_container",
@@ -153,30 +157,22 @@ local function networkCard()
             fontWeight = "semibold",
             maxLines = 1,
           }),
-          net.ip ~= "" and ui.label({
-            text = net.ip .. (net.device ~= "" and " (" .. net.device .. ")" or ""),
+          subText ~= "" and ui.label({
+            text = subText,
             fontSize = 11,
             color = "on_surface_variant",
           }) or ui.box({}),
         }),
       }),
 
-      ui.row({ align = "center", gap = 4 }, {
-        signalText ~= "" and ui.label({
-          text = signalText,
-          fontSize = 12,
-          fontWeight = "medium",
-          color = "on_surface_variant",
-        }) or ui.box({}),
-        ui.button({
-          glyph = "refresh",
-          variant = "ghost",
-          controlSize = "sm",
-          tooltip = "Rescan Wi-Fi",
-          onClick = function()
-            sendCommand({ action = "rescan" })
-          end,
-        }),
+      ui.button({
+        glyph = "refresh",
+        variant = "ghost",
+        controlSize = "sm",
+        tooltip = "Rescan Wi-Fi",
+        onClick = function()
+          sendCommand({ action = "rescan" })
+        end,
       }),
     }),
 
@@ -196,10 +192,10 @@ local function networkCard()
       }),
 
       ui.button({
-        text = "Network settings",
+        glyph = "external-link",
         variant = "ghost",
         controlSize = "sm",
-        glyph = "external-link",
+        tooltip = "Network settings",
         onClick = function()
           panel.close()
           if type(noctalia.openPanel) == "function" then
@@ -224,6 +220,26 @@ local function networkRows()
     local isCurrent = ap.inUse
     local secGlyph = (ap.security and ap.security ~= "" and ap.security ~= "--") and "lock" or nil
 
+    local subDetails = {}
+    if secGlyph then
+      subDetails[#subDetails + 1] = ui.glyph({ name = secGlyph, size = 10, color = "on_surface_variant" })
+    end
+    if ap.signal then
+      subDetails[#subDetails + 1] = ui.label({
+        text = string.format("%d%%", ap.signal),
+        fontSize = 10,
+        color = "on_surface_variant",
+      })
+    end
+    if isCurrent then
+      subDetails[#subDetails + 1] = ui.label({
+        text = "• Connected",
+        fontSize = 10,
+        fontWeight = "medium",
+        color = "primary",
+      })
+    end
+
     rows[#rows + 1] = ui.row({
       align = "center",
       justify = "space_between",
@@ -231,39 +247,37 @@ local function networkRows()
       paddingH = 8,
       radius = 8,
       fill = isCurrent and "primary/0.10" or nil,
+      onClick = not isCurrent and function()
+        sendCommand({ action = "connect", ssid = ap.ssid })
+      end or nil,
     }, {
-      ui.row({ align = "center", gap = 8, flexGrow = 1 }, {
+      ui.row({ align = "center", gap = 10, flexGrow = 1 }, {
         ui.glyph({
           name = isCurrent and "check" or "wifi",
-          size = 14,
+          size = 16,
           color = isCurrent and "primary" or "on_surface_variant",
         }),
-        ui.label({
-          text = ap.ssid or "Hidden Network",
-          fontSize = 12,
-          fontWeight = isCurrent and "bold" or "normal",
-          color = isCurrent and "primary" or "on_surface",
-          maxLines = 1,
-          flexGrow = 1,
+        ui.column({ gap = 1, flexGrow = 1 }, {
+          ui.label({
+            text = ap.ssid or "Hidden Network",
+            fontSize = 12,
+            fontWeight = isCurrent and "bold" or "medium",
+            color = isCurrent and "primary" or "on_surface",
+            maxLines = 1,
+          }),
+          #subDetails > 0 and ui.row({ align = "center", gap = 4 }, subDetails) or ui.box({}),
         }),
-        secGlyph and ui.glyph({ name = secGlyph, size = 11, color = "on_surface_variant" }) or ui.box({}),
       }),
 
-      ui.row({ align = "center", gap = 6 }, {
-        ui.label({
-          text = string.format("%d%%", ap.signal or 0),
-          fontSize = 11,
-          color = "on_surface_variant",
-        }),
-        not isCurrent and ui.button({
-          text = "Connect",
-          variant = "ghost",
-          controlSize = "sm",
-          onClick = function()
-            sendCommand({ action = "connect", ssid = ap.ssid })
-          end,
-        }) or ui.box({}),
-      }),
+      not isCurrent and ui.button({
+        glyph = "arrow-right",
+        variant = "ghost",
+        controlSize = "sm",
+        tooltip = "Connect to " .. (ap.ssid or "network"),
+        onClick = function()
+          sendCommand({ action = "connect", ssid = ap.ssid })
+        end,
+      }) or ui.box({}),
     })
   end
 
