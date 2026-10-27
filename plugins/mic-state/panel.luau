@@ -6,6 +6,8 @@ local state = noctalia.state.get("mic_state") or { known = false, muted = false,
 local previewVolume = nil
 local meterLevel = nil
 local meterStarted = false
+local meterConfigPath = nil
+local meterSource = nil
 local commandSerial = 0
 
 local function command(action, extra)
@@ -23,21 +25,17 @@ local function sourceName(name)
   return "No active hardware input"
 end
 
-local function startMeter()
-  if meterStarted then return end
-  local dataDir = noctalia.pluginDataDir()
-  if not dataDir then return end
-
-  local configPath = dataDir .. "/voice-meter.conf"
+local function writeMeterConfig(sourceName)
   local config = [[
 [general]
+live-config = 1
 bars = 1
 framerate = 15
-autosens = 0
+autosens = 2
 
 [input]
 method = pulse
-source = rnnoise_source
+source = ]] .. sourceName .. [[
 
 [output]
 method = raw
@@ -51,9 +49,23 @@ channels = mono
 [smoothing]
 noise_reduction = 0
 ]]
-  if not noctalia.writeFile(configPath, config) then return end
+  if noctalia.writeFile(meterConfigPath, config) then
+    meterSource = sourceName
+  end
+end
 
-  local commandPath = "cava -p '" .. configPath:gsub("'", "'\\''") .. "'"
+local function startMeter()
+  if not meterConfigPath then
+    local dataDir = noctalia.pluginDataDir()
+    if not dataDir then return end
+    meterConfigPath = dataDir .. "/voice-meter.conf"
+  end
+  local sourceName = state.activeSource or ""
+  if sourceName == "" then return end
+  if sourceName ~= meterSource then writeMeterConfig(sourceName) end
+  if meterStarted or not meterSource then return end
+
+  local commandPath = "cava -p '" .. meterConfigPath:gsub("'", "'\\''") .. "'"
   meterStarted = noctalia.runStream(commandPath, function(line)
     local value = tonumber(line:match("%d+"))
     if value then
@@ -214,6 +226,7 @@ end
 noctalia.state.watch("mic_state", function(value)
   if type(value) == "table" then
     state = value
+    startMeter()
     render()
   end
 end)
