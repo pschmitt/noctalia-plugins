@@ -17,6 +17,7 @@ Personal [Noctalia](https://github.com/noctalia-dev/noctalia) plugins by
 | [`pschmitt/ha-ai-usage`](./plugins/ha-ai-usage) | Dynamically discovered AI plan quotas (Claude, Codex, Copilot, Gemini) sourced from Home Assistant. |
 | [`pschmitt/ha`](./plugins/ha) | Status and toggle for a chosen handful of Home Assistant entities, scoped and paginated so it works on large instances. |
 | [`pschmitt/lan-mouse`](./plugins/lan-mouse) | Lan Mouse peer controls, service status, and a lockscreen input recovery action. |
+| [`pschmitt/mic-state`](./plugins/mic-state) | Native-style microphone indicator that tracks the RNNoise voice source separately from the meeting mix. |
 | [`pschmitt/obs-studio`](./plugins/obs-studio) | Current scene, recording/streaming/virtual-camera status, a scene switcher panel, and configurable quick actions for OBS Studio (via obs-cli and host-configured commands). |
 | [`pschmitt/screencast`](./plugins/screencast) | Red `REC` indicator while a portal screencast is active. |
 | [`pschmitt/syncthing`](./plugins/syncthing) | Syncthing status, controls, launcher provider, shortcut, and desktop widget. |
