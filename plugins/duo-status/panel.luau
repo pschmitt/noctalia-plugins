@@ -199,13 +199,16 @@ local function networkCard()
       }),
 
       ui.button({
-        text = "Settings",
+        text = "Network settings",
         variant = "ghost",
         controlSize = "sm",
         glyph = "external-link",
         onClick = function()
           panel.close()
-          noctalia.toggleControlCenter("network")
+          if type(noctalia.openPanel) == "function" then
+            pcall(function() noctalia.openPanel("control-center", "network") end)
+          end
+          noctalia.runAsync("noctalia msg panel-open control-center network 2>/dev/null", function() end)
         end,
       }),
     }),
@@ -272,7 +275,9 @@ local function networkRows()
     radius = 12,
     padding = 8,
     gap = 2,
-  }, rows)
+  }, {
+    ui.scroll({ maxHeight = 280, gap = 2 }, rows),
+  })
 end
 
 -- ── Header ───────────────────────────────────────────────────────────────────
@@ -309,16 +314,15 @@ end
 -- ── Main Render ──────────────────────────────────────────────────────────────
 
 function render()
-  local content = {
-    batteryCard(),
-    networkCard(),
-    networkRows(),
-  }
-
   local children = {
     header(),
-    ui.scroll({ gap = 10 }, content),
+    batteryCard(),
+    networkCard(),
   }
+
+  if showAllNetworks and #networks > 0 then
+    children[#children + 1] = networkRows()
+  end
 
   panel.render(ui.column({
     padding = 12,

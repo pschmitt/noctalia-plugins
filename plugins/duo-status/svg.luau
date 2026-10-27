@@ -7,12 +7,12 @@ local M = {}
 
 local CACHE_KEY = "@cacheKey@"
 if CACHE_KEY:find("@") then
-  CACHE_KEY = "v2"
+  CACHE_KEY = "v3"
 end
 local SIZE = 64
 local CENTER = SIZE / 2
 local RADIUS = 24
-local STROKE_W = 4.2
+local STROKE_W = 5.6
 local CIRCUMFERENCE = 2 * math.pi * RADIUS
 local ARC_SPAN_DEG = 255
 local GAP_DEG = 360 - ARC_SPAN_DEG
@@ -21,7 +21,7 @@ local START_ANGLE = 90 + GAP_DEG / 2.0
 
 -- 4 signal dots spaced across the bottom gap (centered around 90 deg)
 local DOT_ANGLES = { 126, 102, 78, 54 }
-local DOT_RADIUS = 2.4
+local DOT_RADIUS = 3.0
 
 local function sanitizeColor(hex)
   if type(hex) ~= "string" or hex == "" then return "currentColor" end
@@ -77,11 +77,11 @@ local function generateSvg(batteryPct, signalPct, charging, powerSaver, netType,
   end
 
   -- Center connectivity glyph
-  local rInner = 7.0
-  local rOuter = 13.2
-  local swInner = 2.6
-  local swOuter = 2.8
-  local wedgeR = 2.5
+  local rInner = 6.8
+  local rOuter = 13.0
+  local swInner = 3.2
+  local swOuter = 3.4
+  local wedgeR = 2.8
   -- Focal point so that vertical midpoint of the glyph is optically and
   -- geometrically centered at CENTER (32.0).
   local fy = CENTER + (rOuter + swOuter / 2.0 - 1.2) / 2.0
