@@ -197,9 +197,9 @@ local function setVolume(value)
   end, 1000)
 end
 
-local function changeVolume(direction)
+local function changeVolume(detents)
   local step = tonumber(noctalia.getConfig("scroll_step")) or 5
-  setVolume((tonumber(state.volume) or 100) + direction * step)
+  setVolume((tonumber(state.volume) or 100) + detents * step)
 end
 
 selectCaptureSource = function(name, persist, done)
@@ -238,7 +238,8 @@ selectCaptureSource = function(name, persist, done)
       return
     end
 
-    local target = name and ("{ node.name = " .. name .. " }")
+    local encodedName = name and noctalia.json.encode(name)
+    local target = encodedName and ('{ "node.name" = ' .. encodedName .. ' }')
       or '{ "media.class" = "Audio/Source", "device.api" = "alsa" }'
     noctalia.runAsync({
       "pw-metadata", "-n", "filters", tostring(filterId), "filter.smart.target", target, "Spa:String:JSON",
@@ -272,7 +273,12 @@ noctalia.state.watch(COMMAND_KEY, function(command)
   elseif command.action == "set_volume" then
     setVolume(command.value)
   elseif command.action == "change_volume" then
-    changeVolume(command.direction == "up" and 1 or -1)
+    local detents = tonumber(command.delta)
+    if detents then
+      changeVolume(detents)
+    else
+      changeVolume(command.direction == "up" and 1 or -1)
+    end
   elseif command.action == "set_capture_source" and type(command.name) == "string" then
     selectCaptureSource(command.name, true)
   elseif command.action == "reset_capture_source" then

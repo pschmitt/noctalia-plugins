@@ -5,15 +5,6 @@
 local state = noctalia.state.get("mic_state") or { known = false, muted = false }
 local commandSerial = 0
 
-local function changeVolume(direction)
-  commandSerial += 1
-  noctalia.state.set("mic_state.command", {
-    action = "change_volume",
-    direction = direction,
-    requestId = tostring(noctalia.nowMs()) .. "-" .. tostring(commandSerial),
-  })
-end
-
 local function render()
   local name = state.muted and "microphone-off" or "microphone"
   local color
@@ -51,6 +42,12 @@ end)
 
 render()
 
-function onScroll(_axis, steps, _startsGesture)
-  changeVolume(steps > 0 and "down" or "up")
+function onScroll(axis, steps, _startsGesture)
+  if axis ~= "vertical" then return end
+  commandSerial += 1
+  noctalia.state.set("mic_state.command", {
+    action = "change_volume",
+    delta = -steps,
+    requestId = tostring(noctalia.nowMs()) .. "-" .. tostring(commandSerial),
+  })
 end

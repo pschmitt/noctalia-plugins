@@ -9,6 +9,9 @@ local meterStarted = false
 local meterConfigPath = nil
 local meterSource = nil
 local commandSerial = 0
+local volumeRowHovered = false
+local previousPopupScrollOffset = nil
+local popupScrollRemainder = 0
 
 local function command(action, extra)
   commandSerial += 1
@@ -125,7 +128,11 @@ local function voiceCard()
       }),
       ui.label({ text = label, fontSize = 11, color = state.muted and "error" or "on_surface_variant" }),
     }),
-    ui.row({ align = "center", gap = 8 }, {
+    ui.row({ align = "center", gap = 8, onHover = function(hovered)
+      volumeRowHovered = hovered == "true"
+      previousPopupScrollOffset = nil
+      popupScrollRemainder = 0
+    end }, {
       ui.glyph({ name = "volume-2", size = 15, color = "on_surface_variant" }),
       ui.slider({
         min = 0,
@@ -216,7 +223,19 @@ local function deviceCard()
 end
 
 function render()
-  panel.render(ui.column({ padding = 14, gap = 12, flexGrow = 1 }, {
+  panel.render(ui.scroll({ padding = 14, gap = 12, flexGrow = 1, onScroll = function(offset)
+    local currentOffset = tonumber(offset)
+    if currentOffset and previousPopupScrollOffset and volumeRowHovered then
+      popupScrollRemainder += previousPopupScrollOffset - currentOffset
+      local detents = math.floor(math.abs(popupScrollRemainder) / 30)
+      if detents > 0 then
+        detents *= popupScrollRemainder > 0 and 1 or -1
+        command("change_volume", { delta = detents })
+        popupScrollRemainder -= detents * 30
+      end
+    end
+    previousPopupScrollOffset = currentOffset
+  end }, {
     header(),
     voiceCard(),
     deviceCard(),
