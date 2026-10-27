@@ -298,18 +298,18 @@ local function header()
   if iconPath and noctalia.fileExists(iconPath) then
     iconWidget = ui.image({
       path = iconPath,
-      width = 22,
-      height = 22,
+      width = 36,
+      height = 36,
       fit = "contain",
     })
   else
-    iconWidget = ui.glyph({ name = "wifi-2", size = 18, color = "primary" })
+    iconWidget = ui.glyph({ name = "wifi-2", size = 28, color = "primary" })
   end
 
   return ui.row({ align = "center", justify = "space_between" }, {
-    ui.row({ align = "center", gap = 8 }, {
+    ui.row({ align = "center", gap = 10 }, {
       iconWidget,
-      ui.label({ text = "Duo Status", fontSize = 14, fontWeight = "bold" }),
+      ui.label({ text = "Duo Status", fontSize = 16, fontWeight = "bold" }),
     }),
     ui.row({ align = "center", gap = 4 }, {
       ui.button({
