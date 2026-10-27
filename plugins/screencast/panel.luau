@@ -5,7 +5,6 @@
 -- sends a small command through shared state, keeping the UI reusable and the
 -- privileged-ish graph operation in one place.
 
-local PANEL_HEIGHT = 280
 local PANEL_PADDING = 14
 
 local state = noctalia.state.get("screencast_status") or { active = false, apps = {} }
@@ -158,7 +157,7 @@ local function render()
   panel.render(ui.column({
     gap = 10,
     padding = PANEL_PADDING,
-    height = PANEL_HEIGHT - PANEL_PADDING * 2,
+    flexGrow = 1,
   }, {
     header(),
     ui.separator({}),
@@ -179,7 +178,7 @@ local function render()
       -- leaving the background/border neutral.
       variant = "destructive",
       enabled = state.active and not stopping,
-      flexGrow = 1,
+      height = 44,
       onClick = "onStop",
     }),
   }))

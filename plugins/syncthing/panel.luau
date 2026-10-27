@@ -14,11 +14,6 @@ local statusIcon = require("./lib/status_icon.luau")
 local stateColors = require("./lib/state_colors.luau")
 local rowIcons = require("./lib/row_icons.luau")
 
--- Must match height = … in the [[panel]] entry of plugin.toml. The root
--- column's height is what actually sizes the content, and it is measured
--- inside the padding, so the padding has to come off it or the last row is
--- clipped by the panel edge.
-local PANEL_HEIGHT = 500
 local PANEL_PADDING = 14
 
 local snapshot = nil
@@ -566,7 +561,7 @@ end
 -- be reached, none of the normal panel controls are useful. Keep the header
 -- for status/settings and replace the rest of the panel with one clear action.
 local function offlinePrompt()
-  return ui.column({ key = "st-offline-prompt", gap = 10, align = "center", justify = "center", flexGrow = 1 }, {
+  return ui.column({ key = "st-offline-prompt", gap = 10, paddingV = 12, align = "center", justify = "center" }, {
     ui.glyph({ name = "cloud-off", size = 32, color = "on_surface_variant" }),
     ui.button({
       key = "st-start-button",
@@ -893,9 +888,6 @@ render = function()
   if not isOpen then
     return
   end
-  -- height pins the root to the [[panel]] size so the folder list scrolls
-  -- instead of growing past the panel background; keep PANEL_HEIGHT and the
-  -- manifest's height = … in sync, the root wins over the manifest value.
   local children = { header() }
   local offline = snapshot and snapshot.state == "offline"
   if offline then
@@ -921,7 +913,7 @@ render = function()
   if not offline then
     table.insert(children, ratesLabel())
   end
-  panel.render(ui.column({ gap = 10, padding = PANEL_PADDING, height = PANEL_HEIGHT - PANEL_PADDING * 2 }, children))
+  panel.render(ui.column({ gap = 10, padding = PANEL_PADDING, flexGrow = 1 }, children))
 end
 
 -- ── Lifecycle & callbacks ────────────────────────────────────────────────────

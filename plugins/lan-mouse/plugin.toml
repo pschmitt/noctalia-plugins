@@ -2,8 +2,8 @@
 
 id = "pschmitt/lan-mouse"
 name = "Lan Mouse"
-version = "0.3.0"
-plugin_api = 24 # argument-array runAsync() keeps the `lan-mouse cli` call shell-free
+version = "0.4.0"
+plugin_api = 42
 author = "pschmitt"
 license = "GPL-3.0-only"
 tags = ["bar", "indicator", "utility"]
@@ -77,7 +77,8 @@ left = "panel-toggle pschmitt/lan-mouse:panel"
 id = "panel"
 entry = "panel.luau"
 width = 320
-height = 280
+height = "content"
+max_height = 480
 placement = "attached"
 position = "auto"
 open_near_click = true

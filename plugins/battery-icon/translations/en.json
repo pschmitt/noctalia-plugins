@@ -156,16 +156,6 @@
         "level": "Charge level"
       }
     },
-    "panel_size": {
-      "label": "Power panel size",
-      "description": "Choose a fixed panel height, or select one automatically from the available controls and devices.",
-      "options": {
-        "auto": "Automatic",
-        "compact": "Compact",
-        "standard": "Standard",
-        "tall": "Tall"
-      }
-    },
     "temperature_threshold": {
       "label": "Temperature alert threshold (°C)",
       "description": "Color the temperature icon and value with the error color at or above this temperature."

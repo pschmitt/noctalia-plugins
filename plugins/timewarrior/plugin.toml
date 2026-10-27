@@ -1,9 +1,9 @@
 id = "pschmitt/timewarrior"
 name = "Timewarrior"
-version = "0.36.4"
+version = "0.37.0"
 # Uses Noctalia's argument-array subprocess API to run the declared `timew`
 # dependency without a shell or a Nix-provided helper binary.
-plugin_api = 24
+plugin_api = 42
 author = "pschmitt"
 license = "GPL-3.0-only"
 # `timew` is the Timewarrior CLI. JSON is decoded with noctalia.json, so jq is
@@ -474,11 +474,8 @@ entry = "bar.luau"
 id = "panel"
 entry = "panel.luau"
 width = 460
-# Taller than the original 560: the editable interval rows sit between the
-# week/month/year boxes and the day breakdown. Keep PANEL_HEIGHT in panel.luau
-# in sync — it needs this number to give the breakdown's scroll area a bounded
-# box to scroll inside.
-height = 680
+height = "content"
+max_height = 680
 placement = "attached"
 position = "auto"
 open_near_click = true

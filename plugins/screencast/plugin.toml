@@ -4,8 +4,8 @@
 
 id = "pschmitt/screencast"
 name = "Screencast Indicator"
-version = "0.6.4"
-plugin_api = 24 # argument-array runAsync() keeps the pw-cli calls shell-free
+version = "0.7.0"
+plugin_api = 42
 author = "pschmitt"
 license = "GPL-3.0-only"
 tags = ["bar", "indicator", "utility"]
@@ -99,7 +99,8 @@ left = "panel-toggle pschmitt/screencast:panel"
 id = "panel"
 entry = "panel.luau"
 width = 360
-height = 280
+height = "content"
+max_height = 480
 placement = "attached"
 position = "auto"
 open_near_click = true

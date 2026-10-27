@@ -7,7 +7,6 @@
 -- command overrides) -- the service owns polling, the panel just renders its
 -- state and dispatches commands.
 
-local PANEL_HEIGHT = 340
 local PANEL_PADDING = 14
 
 local state = noctalia.state.get("lan_mouse_status") or { away = false, peerName = nil, peers = {} }
@@ -174,7 +173,7 @@ local function peerList()
 end
 
 local function stoppedContent()
-  return ui.column({ flexGrow = 1, gap = 14, align = "center", justify = "center" }, {
+  return ui.column({ gap = 14, paddingV = 8, align = "center", justify = "center" }, {
     ui.image({ path = "assets/lan-mouse.svg", width = 48, height = 48, fit = "contain", opacity = 0.65 }),
     ui.button({
       text = starting and "Starting…" or "Start Lan Mouse",
@@ -205,7 +204,7 @@ function render()
   panel.render(ui.column({
     gap = 10,
     padding = PANEL_PADDING,
-    height = PANEL_HEIGHT - PANEL_PADDING * 2,
+    flexGrow = 1,
   }, {
     header(),
     ui.separator({}),

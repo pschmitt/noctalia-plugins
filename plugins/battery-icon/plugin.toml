@@ -1,7 +1,7 @@
 id = "pschmitt/battery-icon"
 name = "Battery Icon"
-version = "0.6.13"
-plugin_api = 26 # noctalia.getSetting() and noctalia.openSettings()
+version = "0.7.0"
+plugin_api = 42
 author = "pschmitt"
 license = "GPL-3.0-only"
 tags = ["bar", "system", "hardware"]
@@ -198,19 +198,6 @@ min = 1
 max = 1000
 
 [[setting]]
-key = "panel_size"
-type = "select"
-label_key = "settings.panel_size.label"
-description_key = "settings.panel_size.description"
-default = "auto"
-options = [
-  { value = "auto", label_key = "settings.panel_size.options.auto" },
-  { value = "compact", label_key = "settings.panel_size.options.compact" },
-  { value = "standard", label_key = "settings.panel_size.options.standard" },
-  { value = "tall", label_key = "settings.panel_size.options.tall" },
-]
-
-[[setting]]
 key = "other_device_icon_mode"
 type = "select"
 label_key = "settings.other_device_icon_mode.label"
@@ -333,28 +320,11 @@ entry = "bar.luau"
   max = 48
 
 [[panel]]
-id = "power-compact"
-entry = "panel.luau"
-width = 390
-height = 430
-placement = "attached"
-position = "auto"
-open_near_click = true
-
-[[panel]]
 id = "power"
 entry = "panel.luau"
 width = 390
-height = 420
-placement = "attached"
-position = "auto"
-open_near_click = true
-
-[[panel]]
-id = "power-tall"
-entry = "panel.luau"
-width = 390
-height = 520
+height = "content"
+max_height = 600
 placement = "attached"
 position = "auto"
 open_near_click = true

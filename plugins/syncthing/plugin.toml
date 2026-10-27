@@ -7,8 +7,8 @@
 
 id = "pschmitt/syncthing"
 name = "Syncthing"
-version = "2.6.4"
-plugin_api = 15 # noctalia.openSettings(), for the panel's settings button
+version = "2.7.0"
+plugin_api = 42
 author = "pschmitt (fork of Marco Ziliani's rylos/syncthing)"
 license = "MIT"
 dependencies = ["syncthing", "gio", "xdg-open", "qrencode"]
@@ -212,7 +212,8 @@ entry = "bar.luau"
 id = "panel"
 entry = "panel.luau"
 width = 400
-height = 500
+height = "content"
+max_height = 600
 placement = "attached"
 position = "auto"
 open_near_click = true
