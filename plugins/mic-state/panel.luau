@@ -130,13 +130,23 @@ local function header()
   local color = not state.known and "on_surface_variant" or (state.muted and "error" or "primary")
   return ui.row({ align = "center", justify = "space_between" }, {
     ui.row({ align = "center", gap = 10 }, {
-      ui.button({
-        glyph = state.muted and "microphone-off" or "microphone",
-        variant = "ghost",
-        controlSize = "md",
+      ui.column({
+        width = 38,
+        height = 38,
+        radius = 12,
+        fill = state.muted and "error/0.14" or "primary/0.14",
+        align = "center",
+        justify = "center",
         tooltip = state.muted and "Unmute microphone" or "Mute microphone",
-        enabled = state.known,
-        onClick = function() command("toggle_mute") end,
+        onClick = function()
+          if state.known then command("toggle_mute") end
+        end,
+      }, {
+        ui.glyph({
+          name = state.muted and "microphone-off" or "microphone",
+          size = 20,
+          color = color,
+        }),
       }),
       ui.column({ gap = 2 }, {
         ui.label({ text = "Microphone", fontSize = 16, fontWeight = "bold" }),
