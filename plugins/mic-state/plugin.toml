@@ -5,7 +5,7 @@ plugin_api = 42
 author = "pschmitt"
 license = "GPL-3.0-only"
 tags = ["bar", "panel", "audio", "microphone", "indicator"]
-icon = "mic"
+icon = "microphone"
 description = "Microphone controls and real capture device selection for the RNNoise voice source."
 dependencies = ["cava", "pactl", "pw-dump", "pw-link", "pw-metadata"]
 

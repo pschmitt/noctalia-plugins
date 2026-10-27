@@ -144,7 +144,7 @@ local function toggleMute()
       setError("Could not change microphone mute")
     else
       noctalia.osd.show(
-        muted and "mic-off" or "mic",
+        muted and "microphone-off" or "microphone",
         muted and "Muted" or "Microphone on",
         { inactive = muted }
       )
@@ -176,7 +176,7 @@ local function setVolume(value)
       setError("Could not change microphone volume")
     else
       noctalia.osd.show(
-        state.muted and "mic-off" or "mic",
+        state.muted and "microphone-off" or "microphone",
         tostring(target) .. "%",
         { progress = math.clamp(target / 100, 0, 1), inactive = state.muted }
       )

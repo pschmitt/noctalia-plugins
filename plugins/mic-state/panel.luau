@@ -77,7 +77,7 @@ local function header()
         justify = "center",
       }, {
         ui.glyph({
-          name = state.muted and "mic-off" or "mic",
+          name = state.muted and "microphone-off" or "microphone",
           size = 20,
           color = color,
         }),
@@ -108,7 +108,7 @@ local function voiceCard()
   return ui.column({ fill = "surface_container", radius = 14, padding = 12, gap = 10 }, {
     ui.row({ align = "center", justify = "space_between" }, {
       ui.row({ align = "center", gap = 7 }, {
-        ui.glyph({ name = "audio-waveform", size = 16, color = state.muted and "error" or "primary" }),
+        ui.glyph({ name = "activity", size = 16, color = state.muted and "error" or "primary" }),
         ui.label({ text = "Voice input", fontSize = 13, fontWeight = "semibold" }),
       }),
       ui.label({ text = label, fontSize = 11, color = state.muted and "error" or "on_surface_variant" }),
@@ -148,7 +148,7 @@ local function voiceCard()
     ui.row({ align = "center", justify = "space_between" }, {
       ui.label({ text = sourceName(state.activeSource), fontSize = 11, color = "on_surface_variant", maxLines = 1, flexGrow = 1 }),
       ui.button({
-        glyph = state.muted and "mic" or "mic-off",
+        glyph = state.muted and "microphone" or "microphone-off",
         text = state.muted and "Unmute" or "Mute",
         variant = state.muted and "primary" or "outline",
         controlSize = "sm",
@@ -164,7 +164,7 @@ local function deviceCard()
   for _, source in ipairs(state.sources or {}) do
     local selected = source.name == state.activeSource
     rows[#rows + 1] = ui.row({ align = "center", gap = 9, padding = 9, fill = selected and "primary/0.10" or "surface_container", radius = 10 }, {
-      ui.glyph({ name = "mic", size = 16, color = selected and "primary" or "on_surface_variant" }),
+      ui.glyph({ name = "microphone", size = 16, color = selected and "primary" or "on_surface_variant" }),
       ui.column({ gap = 2, flexGrow = 1 }, {
         ui.label({ text = source.description, fontSize = 12, fontWeight = selected and "semibold" or "normal", maxLines = 1 }),
         ui.label({ text = selected and "Feeding RNNoise" or "Hardware input", fontSize = 10, color = "on_surface_variant" }),
@@ -180,7 +180,7 @@ local function deviceCard()
 
   if #rows == 0 then
     rows[1] = ui.row({ align = "center", gap = 8, padding = 12, fill = "surface_container", radius = 10 }, {
-      ui.glyph({ name = "mic", size = 16, color = "on_surface_variant" }),
+      ui.glyph({ name = "microphone", size = 16, color = "on_surface_variant" }),
       ui.label({ text = "No physical capture devices found", fontSize = 12, color = "on_surface_variant" }),
     })
   end
