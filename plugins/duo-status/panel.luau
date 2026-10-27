@@ -31,16 +31,20 @@ local function batteryCard()
 
   local color = batteryColor(bat)
   local statusText = bat.status or "Discharging"
-  if bat.charging and bat.watts and bat.watts > 0 then
-    statusText = string.format("Charging (+%.1f W)", bat.watts)
-  elseif bat.watts and bat.watts > 0 then
-    statusText = string.format("Discharging (-%.1f W)", bat.watts)
+  if bat.charging then
+    statusText = "Charging"
+  elseif bat.percent == 100 then
+    statusText = "Full"
   end
 
-  local timeText = ""
+  local rightParts = {}
   if bat.timeRemaining and bat.timeRemaining ~= "" then
-    timeText = bat.timeRemaining .. (bat.charging and " until full" or " remaining")
+    rightParts[#rightParts + 1] = bat.timeRemaining .. (bat.charging and " to full" or " left")
   end
+  if bat.watts and bat.watts > 0 then
+    rightParts[#rightParts + 1] = string.format("(%s%.1f W)", bat.charging and "+" or "-", bat.watts)
+  end
+  local rightText = table.concat(rightParts, " ")
 
   local function profileBtn(id, label, icon)
     local active = (bat.profile == id)
@@ -80,8 +84,8 @@ local function batteryCard()
           color = "on_surface_variant",
         }),
       }),
-      timeText ~= "" and ui.label({
-        text = timeText,
+      rightText ~= "" and ui.label({
+        text = rightText,
         fontSize = 11,
         color = "on_surface_variant",
       }) or ui.box({}),
@@ -181,7 +185,7 @@ local function networkCard()
 
     ui.row({ align = "center", justify = "space_between" }, {
       ui.button({
-        text = showAllNetworks and "Hide available networks" or "Show nearby networks",
+        text = showAllNetworks and "Hide networks" or "Nearby networks",
         variant = "ghost",
         controlSize = "sm",
         glyph = showAllNetworks and "chevron-up" or "chevron-down",
@@ -195,7 +199,7 @@ local function networkCard()
       }),
 
       ui.button({
-        text = "Network settings",
+        text = "Settings",
         variant = "ghost",
         controlSize = "sm",
         glyph = "external-link",

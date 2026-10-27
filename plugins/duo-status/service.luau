@@ -141,7 +141,8 @@ local function pollBattery()
   noctalia.runAsync("busctl --system get-property org.freedesktop.UPower " .. upowerDevice .. " org.freedesktop.UPower.Device " .. (state.battery.charging and "TimeToFull" or "TimeToEmpty") .. " 2>/dev/null", function(res)
     if res.exitCode == 0 and res.stdout ~= "" then
       local sec = tonumber(res.stdout:match("(%d+)"))
-      if sec and sec > 60 then
+      -- Filter out bogus/infinite estimates (cap at 48 hours = 172800 seconds)
+      if sec and sec > 60 and sec < 172800 then
         local hours = math.floor(sec / 3600)
         local mins = math.floor((sec % 3600) / 60)
         if hours > 0 then
