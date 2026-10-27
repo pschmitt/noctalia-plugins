@@ -18,7 +18,6 @@ Personal [Noctalia](https://github.com/noctalia-dev/noctalia) plugins by
 | [`pschmitt/ha`](./plugins/ha) | Status and toggle for a chosen handful of Home Assistant entities, scoped and paginated so it works on large instances. |
 | [`pschmitt/lan-mouse`](./plugins/lan-mouse) | Lan Mouse peer controls, service status, and a lockscreen input recovery action. |
 | [`pschmitt/obs-studio`](./plugins/obs-studio) | Current scene, recording/streaming/virtual-camera status, a scene switcher panel, and configurable quick actions for OBS Studio (via obs-cli and host-configured commands). |
-| [`pschmitt/osd`](./plugins/osd) | Scriptable, ad-hoc OSD/toast panels. |
 | [`pschmitt/screencast`](./plugins/screencast) | Red `REC` indicator while a portal screencast is active. |
 | [`pschmitt/syncthing`](./plugins/syncthing) | Syncthing status, controls, launcher provider, shortcut, and desktop widget. |
 | [`pschmitt/timewarrior`](./plugins/timewarrior) | Current Timewarrior task duration and detail panel. |
