@@ -6,18 +6,21 @@
 local M = {}
 
 local CACHE_KEY = "@cacheKey@"
+if CACHE_KEY:find("@") then
+  CACHE_KEY = "v2"
+end
 local SIZE = 64
 local CENTER = SIZE / 2
 local RADIUS = 24
 local STROKE_W = 4.2
 local CIRCUMFERENCE = 2 * math.pi * RADIUS
-local ARC_SPAN_DEG = 265
+local ARC_SPAN_DEG = 255
 local GAP_DEG = 360 - ARC_SPAN_DEG
 local ARC_LENGTH = (ARC_SPAN_DEG / 360.0) * CIRCUMFERENCE
 local START_ANGLE = 90 + GAP_DEG / 2.0
 
 -- 4 signal dots spaced across the bottom gap (centered around 90 deg)
-local DOT_ANGLES = { 124, 101, 79, 56 }
+local DOT_ANGLES = { 126, 102, 78, 54 }
 local DOT_RADIUS = 2.4
 
 local function sanitizeColor(hex)
@@ -73,40 +76,62 @@ local function generateSvg(batteryPct, signalPct, charging, powerSaver, netType,
     )
   end
 
-  -- Center glyph
+  -- Center connectivity glyph
+  local rInner = 7.0
+  local rOuter = 13.2
+  local swInner = 2.6
+  local swOuter = 2.8
+  local wedgeR = 2.5
+  -- Focal point so that vertical midpoint of the glyph is optically and
+  -- geometrically centered at CENTER (32.0).
+  local fy = CENTER + (rOuter + swOuter / 2.0 - 1.2) / 2.0
+
+  local dx1 = rInner * 0.7071
+  local dy1 = -rInner * 0.7071
+  local innerArc = string.format("M %.2f %.2f A %.2f %.2f 0 0 1 %.2f %.2f",
+    CENTER - dx1, fy + dy1, rInner, rInner, CENTER + dx1, fy + dy1)
+
+  local dx2 = rOuter * 0.7071
+  local dy2 = -rOuter * 0.7071
+  local outerArc = string.format("M %.2f %.2f A %.2f %.2f 0 0 1 %.2f %.2f",
+    CENTER - dx2, fy + dy2, rOuter, rOuter, CENTER + dx2, fy + dy2)
+
+  local wx = wedgeR * 0.7071
+  local wy = -wedgeR * 0.7071
+  local wedge = string.format("M %.2f %.2f L %.2f %.2f A %.2f %.2f 0 0 1 %.2f %.2f Z",
+    CENTER, fy + 1.2, CENTER - wx, fy + wy, wedgeR, wedgeR, CENTER + wx, fy + wy)
+
   local centerGlyph
   if netType == "ethernet" then
     centerGlyph = string.format([[
-    <g transform="translate(32, 29)" stroke="%s" stroke-linecap="round" stroke-linejoin="round" fill="none">
-      <rect x="-6" y="-6" width="12" height="10" rx="2" stroke-width="2.2" />
-      <path d="M -3 4 L -3 7 M 3 4 L 3 7 M -6 7 L 6 7" stroke-width="2.0" />
+    <g transform="translate(32, 32)" stroke="%s" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <rect x="-6" y="-5.5" width="12" height="9" rx="2" stroke-width="2.2" />
+      <path d="M -3 3.5 L -3 6.5 M 3 3.5 L 3 6.5 M -6 6.5 L 6 6.5" stroke-width="2.0" />
     </g>]], fgNormal)
   elseif netType == "disconnected" or netType == "none" then
     centerGlyph = string.format([[
-    <g transform="translate(32, 29)" stroke="%s" stroke-linecap="round" fill="none">
-      <circle cx="0" cy="5.2" r="1.4" fill="%s" stroke="none" />
-      <path d="M -4 1.5 A 5.5 5.5 0 0 1 4 1.5" stroke-width="2.2" stroke-opacity="0.3" />
-      <path d="M -7.5 -2.2 A 10.5 10.5 0 0 1 7.5 -2.2" stroke-width="2.4" stroke-opacity="0.3" />
-      <path d="M -11 -6 A 15.5 15.5 0 0 1 11 -6" stroke-width="2.6" stroke-opacity="0.3" />
-      <path d="M -8 -8 L 8 8" stroke="#FF3B30" stroke-width="2.4" />
-    </g>]], trackColor, trackColor)
+    <g stroke="%s" stroke-linecap="round" fill="none">
+      <path d="%s" fill="%s" stroke="none" opacity="0.35" />
+      <path d="%s" stroke-width="%.1f" opacity="0.35" />
+      <path d="%s" stroke-width="%.1f" opacity="0.35" />
+      <path d="M 23 23 L 41 41" stroke="#FF3B30" stroke-width="2.6" />
+    </g>]], trackColor, wedge, trackColor, innerArc, swInner, outerArc, swOuter)
   else
-    -- Standard 3-wave Wi-Fi
+    -- iPhone Duo 2-wave Wi-Fi + base wedge
     centerGlyph = string.format([[
-    <g transform="translate(32, 29)" stroke="%s" stroke-linecap="round" fill="none">
-      <circle cx="0" cy="5.2" r="1.4" fill="%s" stroke="none" />
-      <path d="M -4 1.5 A 5.5 5.5 0 0 1 4 1.5" stroke-width="2.2" />
-      <path d="M -7.5 -2.2 A 10.5 10.5 0 0 1 7.5 -2.2" stroke-width="2.4" />
-      <path d="M -11 -6 A 15.5 15.5 0 0 1 11 -6" stroke-width="2.6" />
-    </g>]], fgNormal, fgNormal)
+    <g stroke="%s" stroke-linecap="round" fill="none">
+      <path d="%s" fill="%s" stroke="none" />
+      <path d="%s" stroke-width="%.1f" />
+      <path d="%s" stroke-width="%.1f" />
+    </g>]], fgNormal, wedge, fgNormal, innerArc, swInner, outerArc, swOuter)
   end
 
   -- Charging lightning badge
   local boltGlyph = ""
   if charging then
     boltGlyph = string.format([[
-    <g transform="translate(44, 12)" fill="%s" stroke="%s" stroke-width="1.2">
-      <path d="M 3 -6 L -2.5 0.5 L 0.5 1 L -2.5 6 L 4 -0.5 L 1 -1 Z" />
+    <g transform="translate(44, 11)" fill="%s" stroke="%s" stroke-width="1.0">
+      <path d="M 2.5 -5 L -2 0.5 L 0.5 0.8 L -2 5 L 3.5 -0.5 L 1 -0.8 Z" />
     </g>]], colors.charging or "#34C759", bgColor)
   end
 
