@@ -160,7 +160,9 @@ local function ringCard(metrics, compact, columns)
   return ui.column({
     gap = 0,
     align = "stretch",
-    fill = "surface_variant/0.58",
+    -- Keep this wrapper transparent: filling it with the same translucent
+    -- surface as the parent card would composite a second layer and look
+    -- different from the surrounding card.
     radius = compact and 10 or 12,
     padding = compact and 7 or 10,
     flexGrow = 1,
