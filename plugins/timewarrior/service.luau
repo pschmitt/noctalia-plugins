@@ -203,7 +203,7 @@ local function dayBreakdown(intervals)
   return days
 end
 
-local function refreshSummary()
+local function refreshSummary(onIntervalsRefreshed)
   -- One export for both things the breakdown window feeds: the per-day totals
   -- and the per-day interval lists.
   runTimew({ "export", breakdownStartDate(), "-", "tomorrow" }, function(r)
@@ -211,6 +211,9 @@ local function refreshSummary()
     summary.days = dayBreakdown(intervals)
     publishSummary()
     noctalia.state.set("tw_intervals", intervalsByDate(intervals, math.floor(noctalia.nowMs() / 1000)))
+    if onIntervalsRefreshed ~= nil then
+      onIntervalsRefreshed()
+    end
   end)
 
   -- The "Week" figure keeps its own :week export rather than being summed out
@@ -231,7 +234,7 @@ local function refreshSummary()
   end)
 end
 
-local function poll()
+local function poll(onIntervalsRefreshed)
   runTimew({ "export", ":day" }, function(r)
     local intervals = parseExport(r)
     local now = math.floor(noctalia.nowMs() / 1000)
@@ -271,7 +274,7 @@ local function poll()
       since = since,
       closed = closed,
     })
-    refreshSummary()
+    refreshSummary(onIntervalsRefreshed)
   end)
 end
 
@@ -333,7 +336,17 @@ local function finishCommand(action, result)
     pending = nil
   end
   if result.exitCode == 0 then
-    if (action == "start" or action == "stop" or action == "modify" or action == "delete")
+    if (action == "modify" or action == "delete") and noctalia.getConfig("sync_after_changes") == true then
+      -- Refresh the local Timewarrior view before starting the potentially
+      -- slower remote sync, so edited times and deletions appear immediately.
+      poll(function()
+        if not runSync(true) then
+          publishAction(action, false, true, "")
+        end
+      end)
+      return
+    end
+    if (action == "start" or action == "stop")
       and noctalia.getConfig("sync_after_changes") == true
       and runSync(true)
     then

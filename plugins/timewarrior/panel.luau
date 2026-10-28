@@ -17,6 +17,7 @@ local status = noctalia.state.get("tw_status") or { active = false, duration = "
 local intervals = noctalia.state.get("tw_intervals") or {}
 local action = nil
 local pendingToggle = nil
+local pendingEdit = nil
 -- Which boundary is currently being edited, as { id, field }, or nil while the
 -- list is just being read. Only one cell is ever an input at a time.
 local editing = nil
@@ -180,6 +181,25 @@ local function clockText(epoch)
   return noctalia.formatTime(secondsPrecision() and "%H:%M:%S" or "%H:%M", epoch)
 end
 
+local function normalizedClockText(value)
+  local hour, minute, second = value:match("^(%d%d?):(%d%d):(%d%d)$")
+  if hour == nil then
+    hour, minute = value:match("^(%d%d?):(%d%d)$")
+    second = "00"
+  end
+  if hour == nil then
+    return nil
+  end
+  local h, m, s = tonumber(hour), tonumber(minute), tonumber(second)
+  if h == nil or m == nil or s == nil or h > 23 or m > 59 or s > 59 then
+    return nil
+  end
+  if secondsPrecision() then
+    return string.format("%02d:%02d:%02d", h, m, s)
+  end
+  return string.format("%02d:%02d", h, m)
+end
+
 local function breakdownTitle()
   local days = math.floor(tonumber(noctalia.getConfig("breakdown_days")) or 14)
   return `Last {days} days`
@@ -191,6 +211,9 @@ end
 
 local function timeCell(row, field, value)
   local cellWidth = timeCellWidth()
+  if pendingEdit ~= nil and pendingEdit.id == row.id and pendingEdit.field == field then
+    value = pendingEdit.value
+  end
   if editing ~= nil and editing.id == row.id and editing.field == field then
     return ui.row({ gap = 2, align = "center" }, {
       ui.input({
@@ -202,6 +225,7 @@ local function timeCell(row, field, value)
         submitOnEnter = true,
         onSubmit = function(entered)
           editing = nil
+          pendingEdit = { id = row.id, field = field, value = entered }
           sendCommand({ action = "modify", field = field, id = row.id, value = entered })
           render()
         end,
@@ -626,6 +650,25 @@ end)
 
 noctalia.state.watch("tw_intervals", function(val)
   if type(val) == "table" then
+    if pendingEdit ~= nil then
+      local target = normalizedClockText(pendingEdit.value)
+      if target ~= nil then
+        for _, rows in pairs(val) do
+          for _, row in ipairs(rows) do
+            if row.id == pendingEdit.id then
+              local epoch = pendingEdit.field == "start" and row.startEpoch or row.endEpoch
+              if epoch ~= nil and clockText(epoch) == target then
+                pendingEdit = nil
+              end
+              break
+            end
+          end
+          if pendingEdit == nil then
+            break
+          end
+        end
+      end
+    end
     if deleting ~= nil and findInterval(deleting.date, deleting.id, val) == nil then
       if noctalia.getConfig("animations_enabled") ~= false then
         fadingDelete = { date = deleting.date, row = deleting.row, elapsedMs = 0 }
@@ -702,6 +745,9 @@ noctalia.state.watch("tw_action", function(val)
     action = val
     if (val.action == "start" or val.action == "stop") and val.running ~= true and val.success == false then
       pendingToggle = nil
+    end
+    if val.action == "modify" and val.running ~= true and val.success == false then
+      pendingEdit = nil
     end
     if deleting ~= nil and val.action == "delete" and val.running ~= true and val.success == false then
       deleting = nil
