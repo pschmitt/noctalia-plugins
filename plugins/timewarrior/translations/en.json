@@ -24,6 +24,10 @@
       "label": "Sync command",
       "description": "Shell command used for manual and automatic sync, e.g. `timewsync`. Runs with TIMEWARRIORDB set and is bounded by the command timeout."
     },
+    "animations_enabled": {
+      "label": "Enable animations",
+      "description": "Allow visual animations in the plugin, including the sync spinner in the panel."
+    },
     "start_command": {
       "label": "Start command",
       "description": "Shell command run by the panel's start button. Leave empty to run `timew start`. Runs with TIMEWARRIORDB set, e.g. `~/bin/zhj tw::work-start`."

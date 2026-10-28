@@ -328,6 +328,13 @@ label_key = "settings.sync_command.label"
 description_key = "settings.sync_command.description"
 default = "timewsync"
 
+[[setting]]
+key = "animations_enabled"
+type = "bool"
+label_key = "settings.animations_enabled.label"
+description_key = "settings.animations_enabled.description"
+default = true
+
 # ── Start/stop hooks ──
 # The panel's toggle button (and the bar's middle click) run these instead of
 # `timew start` / `timew stop` when they are set, so a wrapper can own the rest
