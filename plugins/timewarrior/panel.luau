@@ -18,6 +18,7 @@ local intervals = noctalia.state.get("tw_intervals") or {}
 local action = nil
 local pendingToggle = nil
 local pendingEdit = nil
+local breakdownExpanded = false
 -- Which boundary is currently being edited, as { id, field }, or nil while the
 -- list is just being read. Only one cell is ever an input at a time.
 local editing = nil
@@ -203,6 +204,26 @@ end
 local function breakdownTitle()
   local days = math.floor(tonumber(noctalia.getConfig("breakdown_days")) or 14)
   return `Last {days} days`
+end
+
+local function breakdownHeading()
+  return ui.row({
+    gap = 6,
+    align = "center",
+    paddingV = 2,
+    tooltip = breakdownExpanded and "Collapse daily breakdown" or "Expand daily breakdown",
+    onClick = function()
+      breakdownExpanded = not breakdownExpanded
+      render()
+    end,
+  }, {
+    ui.glyph({
+      name = breakdownExpanded and "chevron-down" or "chevron-right",
+      size = 14,
+      color = "on_surface_variant",
+    }),
+    ui.label({ text = breakdownTitle(), fontSize = 14, fontWeight = "bold", flexGrow = 1 }),
+  })
 end
 
 local function timeCellWidth()
@@ -620,24 +641,31 @@ function render()
     ui.separator({}),
     intervalSection(fmt),
     ui.separator({}),
-    ui.label({ text = breakdownTitle(), fontSize = 14, fontWeight = "bold" }),
+    breakdownHeading(),
   }
 
   local days = summary.days or {}
-  if #days > 0 then
+  if breakdownExpanded and #days > 0 then
     local rows = {}
     for _, day in ipairs(days) do
       table.insert(rows, dayRow(day, fmt))
     end
-    table.insert(content, ui.scroll({ flexGrow = 1, gap = 4 }, rows))
-  else
+    local configuredDays = math.floor(tonumber(noctalia.getConfig("breakdown_days")) or 14)
+    if configuredDays <= 14 then
+      -- The content-height panel can fit the default fortnight without an
+      -- inner scroll area, so expanding it grows the popup instead.
+      table.insert(content, ui.column({ gap = 4 }, rows))
+    else
+      -- Longer configured windows can exceed max_height; keep those usable.
+      table.insert(content, ui.scroll({ flexGrow = 1, gap = 4 }, rows))
+    end
+  elseif breakdownExpanded then
     table.insert(content, ui.label({ text = "No tracked time in this window", color = "on_surface_variant", fontSize = 13 }))
   end
 
   panel.render(ui.column({
     gap = 8,
     padding = PANEL_PADDING,
-    flexGrow = 1,
   }, content))
 end
 
@@ -693,6 +721,7 @@ function onOpen(context)
   -- `noctalia msg panel-open pschmitt/timewarrior:panel 2026-09-01` can land
   -- on the day it means.
   editing = nil
+  breakdownExpanded = false
   pendingDelete = nil
   revealed = nil
   deleting = nil

@@ -491,7 +491,9 @@ id = "panel"
 entry = "panel.luau"
 width = 460
 height = "content"
-max_height = 680
+# The default 14-day list expands directly into the panel without an inner
+# scrollbar; content-height sizing still keeps it compact while collapsed.
+max_height = 760
 placement = "attached"
 position = "auto"
 open_near_click = true
