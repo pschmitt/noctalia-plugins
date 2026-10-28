@@ -27,6 +27,11 @@ local revealed = nil
 -- Deleting is irreversible, so the trash button only arms the confirmation and
 -- a second, deliberately different control commits it.
 local pendingDelete = nil
+-- A delete keeps its row visible while the command runs, then fades the row
+-- out after the service publishes the refreshed interval list.
+local deleting = nil
+local fadingDelete = nil
+local deleteFadeDurationMs = 240
 -- Which day the interval list is showing, as YYYY-MM-DD, or nil for today.
 -- Set by clicking a row in the weekly breakdown.
 local selectedDate = nil
@@ -58,8 +63,10 @@ local function syncBusy()
   return action ~= nil and action.action == "sync" and action.running == true
 end
 
-local function syncAnimationActive()
-  return syncBusy() and noctalia.getConfig("animations_enabled") ~= false
+local function animationActive()
+  local actionBusy = action ~= nil and action.running == true
+  return noctalia.getConfig("animations_enabled") ~= false
+    and (actionBusy or deleting ~= nil or fadingDelete ~= nil)
 end
 
 local function syncSpinner(size)
@@ -86,7 +93,7 @@ local function toggle()
   local label = busy and busy.text or (active and "Stop" or "Start")
 
   local children = {}
-  if busy ~= nil and action.action == "sync" then
+  if busy ~= nil then
     table.insert(children, ui.row({
       height = 44,
       flexGrow = 1,
@@ -150,6 +157,15 @@ end
 
 local function activeDate()
   return selectedDate or todayDate()
+end
+
+local function findInterval(date, id, source)
+  for _, row in ipairs((source or intervals)[date] or {}) do
+    if tostring(row.id) == tostring(id) then
+      return row
+    end
+  end
+  return nil
 end
 
 local function secondsPrecision()
@@ -219,7 +235,10 @@ local function timeCell(row, field, value)
   })
 end
 
-local function intervalRow(row, fmt)
+local function intervalRow(row, fmt, options)
+  options = options or {}
+  local isDeleting = options.deleting == true
+  local opacity = options.opacity or 1
   -- The id and the duration are the row's "handles": clicking either reveals
   -- the delete button, clicking again puts it away. Neither is an editable
   -- value, so a click on them has nothing else to mean.
@@ -257,7 +276,11 @@ local function intervalRow(row, fmt)
 
   -- An empty slot the width of the button keeps the durations in one column
   -- whether or not a row is showing its trash.
-  if revealed ~= row.id then
+  if isDeleting then
+    table.insert(children, ui.row({ width = 22, height = 22, align = "center", justify = "center" }, {
+      syncSpinner(16),
+    }))
+  elseif revealed ~= row.id then
     table.insert(children, ui.row({ width = 22 }, {}))
   elseif pendingDelete == row.id then
     table.insert(children, ui.button({
@@ -269,6 +292,8 @@ local function intervalRow(row, fmt)
       onClick = function()
         pendingDelete = nil
         revealed = nil
+        deleting = { id = row.id, date = activeDate(), row = row }
+        action = { action = "delete", running = true, message = "" }
         sendCommand({ action = "delete", id = row.id })
         render()
       end,
@@ -302,7 +327,7 @@ local function intervalRow(row, fmt)
     }))
   end
 
-  return ui.row({ key = `interval-{row.id}`, gap = 6, align = "center" }, children)
+  return ui.row({ key = `interval-{row.id}`, gap = 6, align = "center", opacity = opacity }, children)
 end
 
 -- The weekday the breakdown row was labelled with, so clicking "Fr 2026-09-04"
@@ -346,6 +371,22 @@ local function intervalSection(fmt)
   local date = activeDate()
   local isToday = date == todayDate()
   local rows = intervals[date] or {}
+  local visibleRows = {}
+  for _, row in ipairs(rows) do
+    table.insert(visibleRows, { row = row })
+  end
+  if fadingDelete ~= nil and fadingDelete.date == date then
+    local present = false
+    for _, row in ipairs(rows) do
+      if tostring(row.id) == tostring(fadingDelete.row.id) then
+        present = true
+        break
+      end
+    end
+    if not present then
+      table.insert(visibleRows, { row = fadingDelete.row, opacity = math.max(0, 1 - fadingDelete.elapsedMs / deleteFadeDurationMs) })
+    end
+  end
   local weekday = weekdayFor(date)
 
   local heading = ui.row({ align = "center", gap = 6 }, {
@@ -379,15 +420,20 @@ local function intervalSection(fmt)
   end
 
   local children = { heading }
-  if #rows == 0 then
+  if #visibleRows == 0 then
     table.insert(children, ui.label({
       text = isToday and "Nothing tracked today" or "Nothing tracked that day",
       color = "on_surface_variant",
       fontSize = 13,
     }))
   else
-    for _, row in ipairs(rows) do
-      table.insert(children, intervalRow(row, fmt))
+    for _, entry in ipairs(visibleRows) do
+      local row = entry.row
+      local isDeleting = deleting ~= nil and deleting.date == date and tostring(deleting.id) == tostring(row.id)
+      table.insert(children, intervalRow(row, fmt, {
+        deleting = isDeleting,
+        opacity = entry.opacity,
+      }))
     end
   end
 
@@ -481,7 +527,7 @@ end
 -- ui.row with no children is the "render nothing" spelling, since a nil child
 -- would be a hole in the header's child list.
 local function syncButton()
-  if noctalia.getConfig("sync_enabled") ~= true then
+  if noctalia.getConfig("sync_enabled") ~= true and not syncBusy() then
     return ui.row({ visible = false }, {})
   end
 
@@ -536,7 +582,7 @@ local function header()
 end
 
 function render()
-  panel.setNeedsFrameTick(syncAnimationActive())
+  panel.setNeedsFrameTick(animationActive())
   local fmt = currentFormat()
   local content = {
     header(),
@@ -579,6 +625,12 @@ end)
 
 noctalia.state.watch("tw_intervals", function(val)
   if type(val) == "table" then
+    if deleting ~= nil and findInterval(deleting.date, deleting.id, val) == nil then
+      if noctalia.getConfig("animations_enabled") ~= false then
+        fadingDelete = { date = deleting.date, row = deleting.row, elapsedMs = 0 }
+      end
+      deleting = nil
+    end
     intervals = val
     render()
   end
@@ -599,6 +651,8 @@ function onOpen(context)
   editing = nil
   pendingDelete = nil
   revealed = nil
+  deleting = nil
+  fadingDelete = nil
   selectedDate = nil
   if type(context) == "string" and context:match("^%d%d%d%d%-%d%d%-%d%d$") then
     selectedDate = context
@@ -611,16 +665,24 @@ function onClose()
 end
 
 function onFrameTick(deltaMs)
-  if not syncAnimationActive() then
+  if not animationActive() then
     panel.setNeedsFrameTick(false)
     return
   end
+  local elapsed = tonumber(deltaMs) or SYNC_FRAME_INTERVAL_MS
   syncElapsedMs += tonumber(deltaMs) or SYNC_FRAME_INTERVAL_MS
-  if syncElapsedMs < SYNC_FRAME_INTERVAL_MS then
-    return
+  if fadingDelete ~= nil then
+    fadingDelete.elapsedMs += elapsed
+    if fadingDelete.elapsedMs >= deleteFadeDurationMs then
+      fadingDelete = nil
+    end
   end
-  syncElapsedMs = syncElapsedMs % SYNC_FRAME_INTERVAL_MS
-  syncFrame = (syncFrame + 1) % SYNC_FRAME_COUNT
+  if action ~= nil and action.running == true then
+    if syncElapsedMs >= SYNC_FRAME_INTERVAL_MS then
+      syncElapsedMs = syncElapsedMs % SYNC_FRAME_INTERVAL_MS
+      syncFrame = (syncFrame + 1) % SYNC_FRAME_COUNT
+    end
+  end
   render()
 end
 
@@ -634,6 +696,9 @@ end)
 noctalia.state.watch("tw_action", function(val)
   if type(val) == "table" then
     action = val
+    if deleting ~= nil and val.action == "delete" and val.running ~= true and val.success == false then
+      deleting = nil
+    end
     render()
   end
 end)
