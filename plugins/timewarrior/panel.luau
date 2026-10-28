@@ -16,6 +16,7 @@ local summary = noctalia.state.get("tw_summary") or { week = "0:00", month = "0:
 local status = noctalia.state.get("tw_status") or { active = false, duration = "" }
 local intervals = noctalia.state.get("tw_intervals") or {}
 local action = nil
+local pendingToggle = nil
 -- Which boundary is currently being edited, as { id, field }, or nil while the
 -- list is just being read. Only one cell is ever an input at a time.
 local editing = nil
@@ -91,36 +92,36 @@ local function toggle()
   -- tracked, so "Stop tracking" on the button was saying it twice. The tooltip
   -- keeps the long form.
   local label = busy and busy.text or (active and "Stop" or "Start")
+  if busy ~= nil and action.action == "sync" and pendingToggle ~= nil then
+    label = (pendingToggle == "start" and "Started" or "Stopped") .. " · Syncing…"
+  elseif busy == nil and pendingToggle ~= nil then
+    label = pendingToggle == "start" and "Started" or "Stopped"
+  end
+  local targetActive = active
+  if pendingToggle ~= nil then
+    targetActive = pendingToggle == "start"
+  end
+  local buttonBusy = busy ~= nil or pendingToggle ~= nil
 
-  local children = {}
-  if busy ~= nil then
-    table.insert(children, ui.row({
-      height = 44,
-      flexGrow = 1,
-      fill = "secondary",
-      radius = 8,
-      gap = 8,
-      align = "center",
-      justify = "center",
-    }, {
-      syncSpinner(18),
-      ui.label({ text = label, fontSize = 13, color = "on_secondary" }),
-    }))
-  else
-    table.insert(children, ui.button({
+  local children = {
+    ui.button({
       text = label,
-      glyph = busy and busy.glyph or (active and "player-stop" or "player-play"),
+      glyph = busy and busy.glyph or (targetActive and "player-stop" or "player-play"),
       glyphSize = 18,
-      -- "destructive" is the error-colored button variant, so stopping reads
-      -- red the way it does in the rest of the shell; starting is the primary
-      -- accent. A command that is neither takes the neutral accent while it
-      -- runs, rather than borrowing the colour of a state it isn't changing.
-      variant = busy and busy.variant or (active and "destructive" or "primary"),
-      enabled = busy == nil,
+      -- Keep the actual control mounted while work runs. Its label explains
+      -- the current action; the adjacent spinner supplies motion without
+      -- swapping the button for a different-looking loading surface.
+      variant = busy and busy.variant or (targetActive and "destructive" or "primary"),
+      enabled = not buttonBusy,
       height = 44,
       flexGrow = 1,
-      tooltip = active and "Stop tracking" or "Start tracking",
+      tooltip = buttonBusy and label or (active and "Stop tracking" or "Start tracking"),
       onClick = "onToggle",
+    }),
+  }
+  if busy ~= nil and action.action ~= "sync" then
+    table.insert(children, ui.row({ width = 20, height = 44, align = "center", justify = "center" }, {
+      syncSpinner(18),
     }))
   end
   table.insert(children, ui.row({ justify = "center", visible = action ~= nil and (action.message or "") ~= "" }, {
@@ -131,7 +132,7 @@ local function toggle()
       maxLines = 2,
     }),
   }))
-  return ui.column({ gap = 4 }, children)
+  return ui.column({ gap = 4 }, { ui.row({ gap = 6, align = "center" }, children) })
 end
 
 local function sendCommand(cmd)
@@ -689,6 +690,9 @@ end
 noctalia.state.watch("tw_status", function(val)
   if type(val) == "table" then
     status = val
+    if (pendingToggle == "start" and val.active == true) or (pendingToggle == "stop" and val.active == false) then
+      pendingToggle = nil
+    end
     render()
   end
 end)
@@ -696,6 +700,9 @@ end)
 noctalia.state.watch("tw_action", function(val)
   if type(val) == "table" then
     action = val
+    if (val.action == "start" or val.action == "stop") and val.running ~= true and val.success == false then
+      pendingToggle = nil
+    end
     if deleting ~= nil and val.action == "delete" and val.running ~= true and val.success == false then
       deleting = nil
     end
@@ -712,6 +719,7 @@ end
 function onSync()
   -- Same optimistic feedback as the toggle: the service publishes its own
   -- "tw_action" a moment later.
+  pendingToggle = nil
   action = { action = "sync", running = true, message = "" }
   render()
   sendCommand({ action = "sync" })
@@ -720,7 +728,8 @@ end
 function onToggle()
   -- Optimistic local feedback: the service publishes its own "tw_action"
   -- moments later, but the click should look like it landed immediately.
-  action = { action = status.active and "stop" or "start", running = true, message = "" }
+  pendingToggle = status.active and "stop" or "start"
+  action = { action = pendingToggle, running = true, message = "" }
   render()
   sendCommand({ action = "toggle" })
 end
