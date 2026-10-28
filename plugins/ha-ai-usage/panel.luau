@@ -106,7 +106,8 @@ end
 -- unmatched metric is balanced with a flex spacer rather than stretching.
 local RING_DISPLAY_SIZE = 34
 local RING_DISPLAY_SIZE_COMPACT = 28
-local PANEL_METRIC_GAP = 14
+-- Leave a wider gutter between side-by-side quota columns.
+local PANEL_METRIC_GAP = 30
 
 local function panelColumns()
   return math.max(1, math.min(2, tonumber(noctalia.getConfig("panel_columns")) or 1))
