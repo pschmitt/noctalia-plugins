@@ -14,8 +14,22 @@ local isOpen = false
 local pending = {}
 local stopping = false
 local starting = false
+-- Busy feedback: the buttons of whatever is running cycle an hourglass
+-- filling up (glyphs cannot be rotated), driven by the panel's frame tick.
+local BUSY_GLYPHS = { "hourglass-empty", "hourglass-low", "hourglass-high", "hourglass" }
+local BUSY_INTERVAL_MS = 200
+local busyFrame = 1
+local busyElapsedMs = 0
 local controlService -- forward-declared: header() below closes over it
 local openGui -- forward-declared: header() below closes over it
+
+local function anyBusy()
+  return starting or stopping or next(pending) ~= nil
+end
+
+local function busyGlyph()
+  return BUSY_GLYPHS[busyFrame]
+end
 
 local function statusLabel()
   if not state.serviceActive then
@@ -52,7 +66,7 @@ local function header()
         onClick = openGui,
       }),
       ui.button({
-        glyph = "power",
+        glyph = stopping and busyGlyph() or "power",
         variant = "ghost",
         tooltip = stopping and "Stopping…" or "Stop Lan Mouse",
         enabled = not stopping and not starting,
@@ -115,6 +129,7 @@ local function toggle(peer)
     return
   end
   pending[peer.id] = true
+  render()
   local action = peer.active and "deactivate" or "activate"
   noctalia.runAsync({ "lan-mouse", "cli", action, tostring(peer.id) }, function(result)
     pending[peer.id] = nil
@@ -139,7 +154,8 @@ local function peerList()
       local remoteLabel = peer.connected and "Connected" or "Disconnected"
       local remoteColor = peer.connected and "primary" or "on_surface_variant"
       local peerActive = peer.active == true
-      local buttonText = peerPending and "…" or nil
+      local peerPending = pending[peer.id] == true
+      local buttonText = peerPending and (peerActive and "Disabling…" or "Enabling…") or nil
       if not peerPending and not peerActive then
         buttonText = "Enable"
       end
@@ -159,7 +175,7 @@ local function peerList()
           ui.label({ text = peer.position, fontSize = 11, flexGrow = 1 }),
           ui.button({
             text = buttonText,
-            glyph = peerActive and not peerPending and "plug-off" or nil,
+            glyph = peerPending and busyGlyph() or (peerActive and "plug-off" or nil),
             tooltip = peerActive and "Disable" or "Enable",
             variant = peerActive and "outline" or "primary",
             enabled = not peerPending,
@@ -177,7 +193,7 @@ local function stoppedContent()
     ui.image({ path = "assets/lan-mouse.svg", width = 48, height = 48, fit = "contain", opacity = 0.65 }),
     ui.button({
       text = starting and "Starting…" or "Start Lan Mouse",
-      glyph = "player-play",
+      glyph = starting and busyGlyph() or "player-play",
       variant = "primary",
       enabled = not starting and not stopping,
       onClick = controlService,
@@ -201,6 +217,7 @@ function render()
   if not isOpen then
     return
   end
+  panel.setNeedsFrameTick(anyBusy())
   panel.render(ui.column({
     gap = 10,
     padding = PANEL_PADDING,
@@ -226,6 +243,20 @@ end
 
 function onClose()
   isOpen = false
+  panel.setNeedsFrameTick(false)
+end
+
+function onFrameTick(deltaMs)
+  if not isOpen or not anyBusy() then
+    panel.setNeedsFrameTick(false)
+    return
+  end
+  busyElapsedMs += tonumber(deltaMs) or BUSY_INTERVAL_MS
+  if busyElapsedMs >= BUSY_INTERVAL_MS then
+    busyElapsedMs = busyElapsedMs % BUSY_INTERVAL_MS
+    busyFrame = busyFrame % #BUSY_GLYPHS + 1
+    render()
+  end
 end
 
 render()
