@@ -10,7 +10,26 @@ local activePasswordSSID = nil
 local passwordDraft = ""
 local connectError = noctalia.state.get("duo_status.connect_error")
 
+-- Pending feedback: a clicked power profile shows as selected at once, and
+-- the rescan button cycles an hourglass until fresh data arrives (or
+-- PENDING_TIMEOUT_MS passes). Glyphs cannot be rotated, so the motion is a
+-- glyph swap on the panel's frame tick, which only runs while something waits.
+local PENDING_TIMEOUT_MS = 4000
+local BUSY_GLYPHS = { "hourglass-empty", "hourglass-low", "hourglass-high", "hourglass" }
+local BUSY_INTERVAL_MS = 200
+local pendingProfile = nil -- { id, since }
+local pendingRescanSince = nil
+local busyFrame = 1
+local busyElapsedMs = 0
+
+local function pendingActive()
+  return pendingProfile ~= nil or pendingRescanSince ~= nil
+end
+
 local function sendCommand(cmd)
+  -- Without a nonce an identical command (a second rescan) is the same state
+  -- value as the last one, and a watcher has nothing new to react to.
+  cmd.n = noctalia.nowMs()
   noctalia.state.set("duo_status.command", cmd)
 end
 
@@ -51,14 +70,17 @@ local function batteryCard()
   local rightText = table.concat(rightParts, " ")
 
   local function profileBtn(id, label, icon)
-    local active = (bat.profile == id)
+    local waiting = pendingProfile ~= nil and pendingProfile.id == id
+    local active = (pendingProfile ~= nil and pendingProfile.id == id) or (pendingProfile == nil and bat.profile == id)
     return ui.button({
       variant = active and "primary" or "ghost",
       controlSize = "sm",
       flexGrow = 1,
-      glyph = icon,
+      glyph = waiting and BUSY_GLYPHS[busyFrame] or icon,
       text = label,
       onClick = function()
+        pendingProfile = { id = id, since = noctalia.nowMs() }
+        render()
         sendCommand({ action = "set_profile", profile = id })
       end,
     })
@@ -169,11 +191,14 @@ local function networkCard()
       }),
 
       ui.button({
-        glyph = "refresh",
+        glyph = pendingRescanSince ~= nil and BUSY_GLYPHS[busyFrame] or "refresh",
         variant = "ghost",
         controlSize = "sm",
         tooltip = "Rescan Wi-Fi",
+        enabled = pendingRescanSince == nil,
         onClick = function()
+          pendingRescanSince = noctalia.nowMs()
+          render()
           sendCommand({ action = "rescan" })
         end,
       }),
@@ -428,6 +453,7 @@ end
 -- ── Main Render ──────────────────────────────────────────────────────────────
 
 function render()
+  panel.setNeedsFrameTick(pendingActive())
   local children = {
     header(),
     batteryCard(),
@@ -451,11 +477,16 @@ end)
 
 noctalia.state.watch("duo_status.state", function(s)
   state = s or {}
+  local profile = state.battery and state.battery.profile
+  if pendingProfile ~= nil and profile == pendingProfile.id then
+    pendingProfile = nil
+  end
   render()
 end)
 
 noctalia.state.watch("duo_status.networks", function(n)
   networks = n or {}
+  pendingRescanSince = nil
   render()
 end)
 
@@ -470,6 +501,28 @@ function onOpen()
 end
 
 function onConfigChanged()
+  render()
+end
+
+function onClose()
+  pendingProfile = nil
+  pendingRescanSince = nil
+  panel.setNeedsFrameTick(false)
+end
+
+function onFrameTick(deltaMs)
+  local now = noctalia.nowMs()
+  if pendingProfile ~= nil and now - pendingProfile.since >= PENDING_TIMEOUT_MS then
+    pendingProfile = nil
+  end
+  if pendingRescanSince ~= nil and now - pendingRescanSince >= PENDING_TIMEOUT_MS then
+    pendingRescanSince = nil
+  end
+  busyElapsedMs += tonumber(deltaMs) or BUSY_INTERVAL_MS
+  if busyElapsedMs >= BUSY_INTERVAL_MS then
+    busyElapsedMs = busyElapsedMs % BUSY_INTERVAL_MS
+    busyFrame = busyFrame % #BUSY_GLYPHS + 1
+  end
   render()
 end
 
