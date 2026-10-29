@@ -61,6 +61,13 @@ local syncFrame = 0
 local syncElapsedMs = 0
 local SYNC_FRAME_COUNT = 12
 local SYNC_FRAME_INTERVAL_MS = 60
+-- The start/stop button's own icon cycles an hourglass filling up while its
+-- command runs. Noctalia's glyphs cannot be rotated, so the motion is a swap
+-- between glyphs, driven by the same frame tick as the spinner.
+local BUSY_GLYPH_FRAMES = { "hourglass-empty", "hourglass-low", "hourglass-high", "hourglass" }
+local BUSY_GLYPH_INTERVAL_MS = 200
+local glyphFrame = 1
+local glyphElapsedMs = 0
 
 local function syncBusy()
   return action ~= nil and action.action == "sync" and action.running == true
@@ -79,6 +86,13 @@ local function syncSpinner(size)
     height = size,
     fit = "contain",
   })
+end
+
+local function animatedBusyGlyph(busy)
+  if busy.glyph == "refresh" or noctalia.getConfig("animations_enabled") == false then
+    return busy.glyph
+  end
+  return BUSY_GLYPH_FRAMES[glyphFrame]
 end
 
 -- The panel's headline control: one big button that starts or stops tracking
@@ -108,7 +122,7 @@ local function toggle()
   local children = {
     ui.button({
       text = label,
-      glyph = busy and busy.glyph or (targetActive and "player-stop" or "player-play"),
+      glyph = busy and (animatedBusyGlyph(busy)) or (targetActive and "player-stop" or "player-play"),
       glyphSize = 18,
       -- Keep the actual control mounted while work runs. Its label explains
       -- the current action; the adjacent spinner supplies motion without
@@ -751,6 +765,11 @@ function onFrameTick(deltaMs)
     end
   end
   if action ~= nil and action.running == true then
+    glyphElapsedMs += elapsed
+    if glyphElapsedMs >= BUSY_GLYPH_INTERVAL_MS then
+      glyphElapsedMs = glyphElapsedMs % BUSY_GLYPH_INTERVAL_MS
+      glyphFrame = glyphFrame % #BUSY_GLYPH_FRAMES + 1
+    end
     if syncElapsedMs >= SYNC_FRAME_INTERVAL_MS then
       syncElapsedMs = syncElapsedMs % SYNC_FRAME_INTERVAL_MS
       syncFrame = (syncFrame + 1) % SYNC_FRAME_COUNT
