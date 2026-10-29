@@ -38,12 +38,43 @@ local render
 local fanSliderPreview = nil
 local tdpSliderPreview = nil
 
+-- Clicked controls answer at once: the target shows as selected with an
+-- hourglass glyph cycling until the service's state confirms it (or
+-- PENDING_TIMEOUT_MS passes, which also covers a command that failed).
+-- Glyphs cannot be rotated, so the motion is a glyph swap on the panel's
+-- frame tick, which only runs while something is pending.
+local PENDING_TIMEOUT_MS = 4000
+local BUSY_GLYPHS = { "hourglass-empty", "hourglass-low", "hourglass-high", "hourglass" }
+local BUSY_INTERVAL_MS = 200
+local pendingProfile = nil -- { value, since }
+local pendingFanMode = nil -- { value, since }
+local pendingCaffeine = nil -- { value, since }
+local busyFrame = 1
+local busyElapsedMs = 0
+
+local function anyPending()
+  return pendingProfile ~= nil or pendingFanMode ~= nil or pendingCaffeine ~= nil
+end
+
+local function busyGlyph()
+  if noctalia.getConfig("animations_enabled") == false then
+    return nil
+  end
+  return BUSY_GLYPHS[busyFrame]
+end
+
+local commandSerial = 0
+
+-- The nonce keeps two identical commands (the periodic refresh) distinct
+-- state values, so a watcher always sees the second one.
 local function batteryCommand(payload)
+  commandSerial += 1
+  payload.n = tostring(noctalia.nowMs()) .. "-" .. tostring(commandSerial)
   noctalia.state.set(BATTERY_COMMAND, payload)
 end
 
 local function fanCommand(payload)
-  noctalia.state.set(BATTERY_COMMAND, payload)
+  batteryCommand(payload)
 end
 
 local PROFILES = {
@@ -53,12 +84,16 @@ local PROFILES = {
 }
 
 local function profileButton(spec)
+  local waiting = pendingProfile ~= nil and pendingProfile.value == spec.profile
+  local selected = waiting or (pendingProfile == nil and details.powerProfile == spec.profile)
   return ui.button({
-    glyph = spec.glyph,
-    variant = details.powerProfile == spec.profile and "primary" or "ghost",
+    glyph = waiting and busyGlyph() or spec.glyph,
+    variant = selected and "primary" or "ghost",
     controlSize = "sm",
     tooltip = noctalia.tr(spec.label),
     onClick = function()
+      pendingProfile = { value = spec.profile, since = noctalia.nowMs() }
+      render()
       batteryCommand({ action = "set_power_profile", profile = spec.profile })
     end,
   })
@@ -211,9 +246,12 @@ end
 -- action rather than the state.
 local function footer()
   local caffeine = details.caffeineEnabled == true
+  if pendingCaffeine ~= nil then
+    caffeine = pendingCaffeine.value
+  end
   return ui.row({ gap = 8, align = "center" }, {
     ui.button({
-      glyph = "coffee",
+      glyph = pendingCaffeine ~= nil and busyGlyph() or "coffee",
       text = `{noctalia.tr("panel.caffeine")} · {noctalia.tr(caffeine and "panel.caffeine_enabled" or "panel.caffeine_disabled")}`,
       fontSize = 11,
       glyphSize = 13,
@@ -221,7 +259,10 @@ local function footer()
       controlSize = "sm",
       tooltip = noctalia.tr(caffeine and "panel.disable_caffeine" or "panel.enable_caffeine"),
       onClick = function()
-        batteryCommand({ action = "set_caffeine", enabled = not caffeine })
+        local target = not caffeine
+        pendingCaffeine = { value = target, since = noctalia.nowMs() }
+        render()
+        batteryCommand({ action = "set_caffeine", enabled = target })
       end,
     }),
     ui.row({ flexGrow = 1 }, {}),
@@ -293,12 +334,16 @@ local function fanModeButton(mode, glyph, label)
       ui.glyph({ name = glyph, size = 18, color = fan.mode == "full" and "on_error" or "on_surface" }),
     })
   end
+  local waiting = pendingFanMode ~= nil and pendingFanMode.value == mode
+  local selected = waiting or (pendingFanMode == nil and fan.mode == mode)
   return ui.button({
-    glyph = glyph,
-    variant = fan.mode == mode and "primary" or "ghost",
+    glyph = waiting and busyGlyph() or glyph,
+    variant = selected and "primary" or "ghost",
     controlSize = "sm",
     tooltip = label,
     onClick = function()
+      pendingFanMode = { value = mode, since = noctalia.nowMs() }
+      render()
       fanCommand({ action = "set_fan_mode", mode = mode })
     end,
   })
@@ -413,6 +458,7 @@ render = function()
   -- panel at max_height. A maxHeight cap keeps the header and footer in view
   -- (600 minus header, footer and padding) while the body scrolls if
   -- peripheral devices or fan controls expand.
+  panel.setNeedsFrameTick(anyPending())
   panel.render(ui.column({
     gap = 8,
     padding = PANEL_PADDING,
@@ -438,9 +484,40 @@ function onSettings()
   noctalia.openSettings()
 end
 
+function onClose()
+  pendingProfile = nil
+  pendingFanMode = nil
+  pendingCaffeine = nil
+  panel.setNeedsFrameTick(false)
+end
+
+function onFrameTick(deltaMs)
+  local now = noctalia.nowMs()
+  for _, name in ipairs({ "profile", "fan", "caffeine" }) do
+    local pending = name == "profile" and pendingProfile or (name == "fan" and pendingFanMode or pendingCaffeine)
+    if pending ~= nil and now - pending.since >= PENDING_TIMEOUT_MS then
+      if name == "profile" then pendingProfile = nil
+      elseif name == "fan" then pendingFanMode = nil
+      else pendingCaffeine = nil end
+    end
+  end
+  busyElapsedMs += tonumber(deltaMs) or BUSY_INTERVAL_MS
+  if busyElapsedMs >= BUSY_INTERVAL_MS then
+    busyElapsedMs = busyElapsedMs % BUSY_INTERVAL_MS
+    busyFrame = busyFrame % #BUSY_GLYPHS + 1
+  end
+  render()
+end
+
 noctalia.state.watch(DETAILS, function(value)
   if type(value) == "table" then
     details = value
+    if pendingProfile ~= nil and value.powerProfile == pendingProfile.value then
+      pendingProfile = nil
+    end
+    if pendingCaffeine ~= nil and (value.caffeineEnabled == true) == pendingCaffeine.value then
+      pendingCaffeine = nil
+    end
     render()
   end
 end)
@@ -458,6 +535,9 @@ noctalia.state.watch(FAN_STATE, function(value)
       fanSliderPreview = nil
     end
     fan = value
+    if pendingFanMode ~= nil and value.mode == pendingFanMode.value then
+      pendingFanMode = nil
+    end
     render()
   end
 end)
