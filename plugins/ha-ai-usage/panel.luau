@@ -226,8 +226,35 @@ local function card(card, compact, allMetrics, columns)
   }, sections)
 end
 
+-- Refreshing: the refresh buttons cycle an hourglass until fresh items (or an
+-- error) arrive, or REFRESH_TIMEOUT_MS passes. Glyphs cannot be rotated, so
+-- the motion is a glyph swap on the panel's frame tick, which only runs while
+-- a refresh is in flight.
+local REFRESH_TIMEOUT_MS = 8000
+local BUSY_GLYPHS = { "hourglass-empty", "hourglass-low", "hourglass-high", "hourglass" }
+local BUSY_INTERVAL_MS = 200
+local refreshingSince = nil
+local busyFrame = 1
+local busyElapsedMs = 0
+local commandSerial = 0
+
+local function refreshGlyph()
+  if refreshingSince ~= nil and noctalia.getConfig("animations_enabled") ~= false then
+    return BUSY_GLYPHS[busyFrame]
+  end
+  return "refresh"
+end
+
+-- The nonce keeps two identical commands distinct state values, so a second
+-- click on refresh reaches the service's watcher.
+local function sendCommand(action)
+  commandSerial += 1
+  noctalia.state.set("ha_ai_usage.command", { action = action, n = tostring(noctalia.nowMs()) .. "-" .. tostring(commandSerial) })
+end
+
 local function render()
   if not panelOpen then return end
+  panel.setNeedsFrameTick(refreshingSince ~= nil)
   local compact = noctalia.getConfig("panel_compact") == true
   local allMetrics = noctalia.getConfig("panel_all_metrics") ~= false
   local columns = panelColumns()
@@ -253,7 +280,7 @@ local function render()
       }),
     }),
     ui.row({ align = "center", gap = 2 }, {
-      ui.button({ glyph = "refresh", variant = "ghost", tooltip = "Refresh now", onClick = "onRefresh" }),
+      ui.button({ glyph = refreshGlyph(), variant = "ghost", tooltip = "Refresh now", enabled = refreshingSince == nil, onClick = "onRefresh" }),
       ui.button({ glyph = "settings", variant = "ghost", tooltip = "Plugin settings", onClick = "onSettings" }),
       ui.button({ glyph = "x", variant = "ghost", tooltip = "Close", onClick = "onCloseClicked" }),
     }),
@@ -273,10 +300,11 @@ local function render()
       ui.glyph({ name = "alert-circle", size = 12, color = "error" }),
       ui.label({ text = errorMessage, fontSize = 11, color = "error", maxLines = 1, flexGrow = 1 }),
       ui.button({
-        glyph = "refresh",
+        glyph = refreshGlyph(),
         variant = "ghost",
         controlSize = "sm",
         tooltip = "Retry connection",
+        enabled = refreshingSince == nil,
         onClick = "onRefresh",
       }),
     })
@@ -287,20 +315,42 @@ end
 
 noctalia.state.watch("ha_ai_usage.items", function(value)
   items = type(value) == "table" and value or {}
+  refreshingSince = nil
   render()
 end)
 noctalia.state.watch("ha_ai_usage.error", function(value)
   errorMessage = type(value) == "string" and value or ""
+  refreshingSince = nil
   render()
 end)
 function onConfigChanged() render() end
 function onOpen()
   panelOpen = true
-  noctalia.state.set("ha_ai_usage.command", { action = "refresh" })
+  refreshingSince = noctalia.nowMs()
+  sendCommand("refresh")
   render()
 end
-function onClose() panelOpen = false end
-function onRefresh() noctalia.state.set("ha_ai_usage.command", { action = "refresh" }) end
-function onOpenHa() noctalia.state.set("ha_ai_usage.command", { action = "open_dashboard" }) end
+function onClose()
+  panelOpen = false
+  refreshingSince = nil
+  panel.setNeedsFrameTick(false)
+end
+function onFrameTick(deltaMs)
+  if refreshingSince ~= nil and noctalia.nowMs() - refreshingSince >= REFRESH_TIMEOUT_MS then
+    refreshingSince = nil
+  end
+  busyElapsedMs += tonumber(deltaMs) or BUSY_INTERVAL_MS
+  if busyElapsedMs >= BUSY_INTERVAL_MS then
+    busyElapsedMs = busyElapsedMs % BUSY_INTERVAL_MS
+    busyFrame = busyFrame % #BUSY_GLYPHS + 1
+  end
+  render()
+end
+function onRefresh()
+  refreshingSince = noctalia.nowMs()
+  render()
+  sendCommand("refresh")
+end
+function onOpenHa() sendCommand("open_dashboard") end
 function onSettings() noctalia.openSettings() end
 function onCloseClicked() panel.close() end

@@ -113,7 +113,13 @@ local initialEntityCache = entityCache
 entityCache = {}
 rememberCachedRows(initialEntityCache, entityCache, entityCacheIds)
 
+local commandSerial = 0
+
+-- The nonce keeps two identical commands (toggling the same entity twice)
+-- distinct state values, so the service's watcher always sees the second.
 local function sendCommand(command)
+  commandSerial += 1
+  command.n = tostring(noctalia.nowMs()) .. "-" .. tostring(commandSerial)
   noctalia.state.set("ha.command", command)
 end
 

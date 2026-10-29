@@ -339,10 +339,20 @@ end
 -- each interaction setting names one of these, so left/right/middle click
 -- and scroll up/down are all independently configurable instead of hardcoded
 -- to one action apiece.
+local commandSerial = 0
+
+-- The nonce keeps two identical commands (toggling the same entity twice)
+-- distinct state values, so the service's watcher always sees the second.
+local function sendCommand(command)
+  commandSerial += 1
+  command.n = tostring(noctalia.nowMs()) .. "-" .. tostring(commandSerial)
+  noctalia.state.set("ha.command", command)
+end
+
 local ACTIONS = {
   panel = function() noctalia.togglePanel("pschmitt/ha:panel") end,
-  refresh = function() noctalia.state.set("ha.command", { action = "refresh" }) end,
-  open_dashboard = function() noctalia.state.set("ha.command", { action = "open_dashboard" }) end,
+  refresh = function() sendCommand({ action = "refresh" }) end,
+  open_dashboard = function() sendCommand({ action = "open_dashboard" }) end,
 }
 
 local DEFAULT_CONTROL_ACTIONS = {
@@ -368,7 +378,7 @@ local function runControlAction(gesture)
     action = defaults and defaults[gesture]
   end
   if action and action ~= "none" then
-    noctalia.state.set("ha.command", { action = "bar_service", entity_id = entity.entity_id, service = action })
+    sendCommand({ action = "bar_service", entity_id = entity.entity_id, service = action })
   end
 end
 
