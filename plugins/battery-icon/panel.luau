@@ -63,6 +63,11 @@ local function busyGlyph()
   return BUSY_GLYPHS[busyFrame]
 end
 
+-- Panel state updates keep arriving from the service while the popup is
+-- closed; building a whole UI tree for a panel nobody can see is wasted work,
+-- so render() only runs between onOpen and onClose.
+local panelIsOpen = false
+
 local commandSerial = 0
 
 -- The nonce keeps two identical commands (the periodic refresh) distinct
@@ -431,6 +436,7 @@ local function tdpControls()
 end
 
 render = function()
+  if not panelIsOpen then return end
   local scrollChildren = { ui.column({ gap = 6 }, batteryRows()) }
   local others = otherDevices()
   if others then
@@ -472,6 +478,7 @@ render = function()
 end
 
 function onOpen(_context)
+  panelIsOpen = true
   details = noctalia.state.get(DETAILS) or details
   fan = noctalia.state.get(FAN_STATE) or fan
   tdp = noctalia.state.get(TDP_STATE) or tdp
@@ -485,6 +492,7 @@ function onSettings()
 end
 
 function onClose()
+  panelIsOpen = false
   pendingProfile = nil
   pendingFanMode = nil
   pendingCaffeine = nil

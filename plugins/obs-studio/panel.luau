@@ -17,6 +17,11 @@ local snap = noctalia.state.get(SNAPSHOT) or {
   previewPath = "",
 }
 
+-- Panel state updates keep arriving from the service while the popup is
+-- closed; building a whole UI tree for a panel nobody can see is wasted work,
+-- so render() only runs between onOpen and onClose.
+local panelIsOpen = false
+
 local reqId = 0
 local render
 
@@ -359,6 +364,7 @@ local function screenshotPreview()
 end
 
 local function render_()
+  if not panelIsOpen then return end
   panel.setNeedsFrameTick(hasPending() and animationsOn())
   local body = {}
 
@@ -407,12 +413,14 @@ end
 render = render_
 
 function onOpen(_context)
+  panelIsOpen = true
   snap = noctalia.state.get(SNAPSHOT) or snap
   dispatch({ action = "refresh" })
   render()
 end
 
 function onClose()
+  panelIsOpen = false
   pendingToggles = {}
   panel.setNeedsFrameTick(false)
 end

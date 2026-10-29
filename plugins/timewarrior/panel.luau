@@ -12,6 +12,11 @@ local duration = require("./lib/duration.luau")
 local formats = require("./lib/formats.luau")
 local overtime = require("./lib/overtime.luau")
 
+-- Panel state updates keep arriving from the service while the popup is
+-- closed; building a whole UI tree for a panel nobody can see is wasted work,
+-- so render() only runs between onOpen and onClose.
+local panelIsOpen = false
+
 local summary = noctalia.state.get("tw_summary") or { week = "0:00", month = "0:00", year = "0:00", days = {} }
 local status = noctalia.state.get("tw_status") or { active = false, duration = "" }
 local intervals = noctalia.state.get("tw_intervals") or {}
@@ -642,6 +647,7 @@ local function header()
 end
 
 function render()
+  if not panelIsOpen then return end
   panel.setNeedsFrameTick(animationActive())
   local fmt = currentFormat()
   local content = {
@@ -729,6 +735,7 @@ function onConfigChanged()
 end
 
 function onOpen(context)
+  panelIsOpen = true
   -- A panel reopened later should read today, not sit in whatever cell was
   -- left mid-edit on whichever day was being inspected when it was dismissed.
   -- A YYYY-MM-DD context opens straight on that day instead, so a keybind or
@@ -748,6 +755,7 @@ function onOpen(context)
 end
 
 function onClose()
+  panelIsOpen = false
   panel.setNeedsFrameTick(false)
 end
 

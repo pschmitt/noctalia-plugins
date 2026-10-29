@@ -37,6 +37,11 @@ local function loadColor(value, cpuCount)
   return "on_surface_variant"
 end
 
+-- Panel state updates keep arriving from the service while the popup is
+-- closed; building a whole UI tree for a panel nobody can see is wasted work,
+-- so render() only runs between onOpen and onClose.
+local panelIsOpen = false
+
 local function dispatch(payload)
   reqId += 1
   payload.requestId = tostring(os.time()) .. "-" .. tostring(reqId)
@@ -268,6 +273,7 @@ local function header()
 end
 
 render = function()
+  if not panelIsOpen then return end
   local shown = shownPercent()
   local multiFan = (snap.fanCount or 0) > 1
   local children = { header() }
@@ -295,7 +301,12 @@ render = function()
   panel.render(ui.column({ gap = 10, padding = 10, align = "stretch" }, children))
 end
 
+function onClose()
+  panelIsOpen = false
+end
+
 function onOpen(_context)
+  panelIsOpen = true
   snap = noctalia.state.get(SNAPSHOT) or snap
   clearSliderState()
   render()

@@ -5,6 +5,11 @@
 local state = noctalia.state.get("duo_status.state") or {}
 local networks = noctalia.state.get("duo_status.networks") or {}
 local iconPath = noctalia.state.get("duo_status.icon_path")
+-- Panel state updates keep arriving from the service while the popup is
+-- closed; building a whole UI tree for a panel nobody can see is wasted work,
+-- so render() only runs between onOpen and onClose.
+local panelIsOpen = false
+
 local showAllNetworks = false
 local activePasswordSSID = nil
 local passwordDraft = ""
@@ -453,6 +458,7 @@ end
 -- ── Main Render ──────────────────────────────────────────────────────────────
 
 function render()
+  if not panelIsOpen then return end
   panel.setNeedsFrameTick(pendingActive())
   local children = {
     header(),
@@ -496,6 +502,7 @@ noctalia.state.watch("duo_status.connect_error", function(err)
 end)
 
 function onOpen()
+  panelIsOpen = true
   sendCommand({ action = "refresh" })
   render()
 end
@@ -505,6 +512,7 @@ function onConfigChanged()
 end
 
 function onClose()
+  panelIsOpen = false
   pendingProfile = nil
   pendingRescanSince = nil
   panel.setNeedsFrameTick(false)
