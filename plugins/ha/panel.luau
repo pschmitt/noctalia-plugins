@@ -127,13 +127,26 @@ local function animationsEnabled()
   return noctalia.getConfig("animations_enabled") ~= false
 end
 
+-- entityIcon asks this once per fan row, and every frame tick asks it again,
+-- so the scan over all entities is remembered per entities table (the watcher
+-- replaces the table on every update, never mutates it).
+local animatedFanSource = nil
+local animatedFanFound = false
+
 local function panelAnimationActive()
   if not animationsEnabled() or view ~= "list" then return false end
-  for _, entity in ipairs(entities) do
-    local hasOverride = type(entity.icon) == "string" and entity.icon ~= ""
-    if shared.domainOf(entity.entity_id) == "fan" and not hasOverride and shared.isOn(entity.state) then return true end
+  if animatedFanSource ~= entities then
+    animatedFanSource = entities
+    animatedFanFound = false
+    for _, entity in ipairs(entities) do
+      local hasOverride = type(entity.icon) == "string" and entity.icon ~= ""
+      if shared.domainOf(entity.entity_id) == "fan" and not hasOverride and shared.isOn(entity.state) then
+        animatedFanFound = true
+        break
+      end
+    end
   end
-  return false
+  return animatedFanFound
 end
 
 local function entityIcon(entity, size)
@@ -150,12 +163,21 @@ local function entityIcon(entity, size)
   return ui.glyph({ name = shared.glyphFor(domain, entity.icon, entity.state), size = size, color = shared.iconColor(entity) })
 end
 
+-- Browse rows look entities up one by one, so the lookup goes through an
+-- index built once per entities table instead of scanning the list per row.
+local entityIndexSource = nil
+local entityIndex = {}
+
 local function findConfiguredEntity(entityId)
   if type(entityId) ~= "string" or entityId == "" then return nil end
-  for _, entity in ipairs(entities) do
-    if entity.entity_id == entityId then return entity end
+  if entityIndexSource ~= entities then
+    entityIndexSource = entities
+    entityIndex = {}
+    for _, entity in ipairs(entities) do
+      if entityIndex[entity.entity_id] == nil then entityIndex[entity.entity_id] = entity end
+    end
   end
-  return liveSearchEntities[entityId]
+  return entityIndex[entityId] or liveSearchEntities[entityId]
 end
 
 -- navigation: "push" remembers the current details page so back returns to
