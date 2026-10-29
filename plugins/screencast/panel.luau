@@ -147,12 +147,24 @@ local function appList()
   return ui.column({ gap = 2 }, rows)
 end
 
+-- While a stop is in flight the button's glyph cycles an hourglass filling up
+-- (glyphs cannot be rotated), driven by the panel's frame tick.
+local BUSY_GLYPHS = { "hourglass-empty", "hourglass-low", "hourglass-high", "hourglass" }
+local BUSY_INTERVAL_MS = 200
+local busyFrame = 1
+local busyElapsedMs = 0
+
+local function isStopping()
+  return action ~= nil and action.action == "stop" and action.success == nil
+end
+
 local function render()
   if not isOpen then
     return
   end
 
-  local stopping = action and action.action == "stop" and action.success == nil
+  local stopping = isStopping()
+  panel.setNeedsFrameTick(stopping)
   local message = action and action.message or ""
   panel.render(ui.column({
     gap = 10,
@@ -171,7 +183,7 @@ local function render()
       maxLines = 2,
     }),
     ui.button({
-      glyph = "player-stop",
+      glyph = stopping and BUSY_GLYPHS[busyFrame] or "player-stop",
       text = stopping and "Stopping…" or "Stop sharing",
       -- The error-filled variant (same one timewarrior's own Stop uses), not
       -- outline + a content-color tint: that only reddened the text/glyph,
@@ -210,6 +222,20 @@ end
 
 function onClose()
   isOpen = false
+  panel.setNeedsFrameTick(false)
+end
+
+function onFrameTick(deltaMs)
+  if not isOpen or not isStopping() then
+    panel.setNeedsFrameTick(false)
+    return
+  end
+  busyElapsedMs += tonumber(deltaMs) or BUSY_INTERVAL_MS
+  if busyElapsedMs >= BUSY_INTERVAL_MS then
+    busyElapsedMs = busyElapsedMs % BUSY_INTERVAL_MS
+    busyFrame = busyFrame % #BUSY_GLYPHS + 1
+    render()
+  end
 end
 
 function onStop()
