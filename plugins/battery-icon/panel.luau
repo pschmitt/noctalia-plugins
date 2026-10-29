@@ -9,6 +9,7 @@ local BATTERY_COMMAND = "battery_icon.command"
 local FAN_STATE = "battery_icon.fan"
 local TDP_STATE = "battery_icon.tdp"
 local PANEL_PADDING = 10
+local BODY_MAX_HEIGHT = 440
 
 local details = noctalia.state.get(DETAILS) or {
   percent = 0,
@@ -407,9 +408,11 @@ render = function()
     table.insert(scrollChildren, tdp)
   end
 
-  -- The manifest selects the surface height. Fill that surface so the header
-  -- and the footer remain anchored while body content scrolls if peripheral
-  -- devices or fan controls expand.
+  -- The surface is content-fitted (plugin.toml height = "content"), so the
+  -- body must not flexGrow: a growing scroll measures as "fill" and pins the
+  -- panel at max_height. A maxHeight cap keeps the header and footer in view
+  -- (600 minus header, footer and padding) while the body scrolls if
+  -- peripheral devices or fan controls expand.
   panel.render(ui.column({
     gap = 8,
     padding = PANEL_PADDING,
@@ -417,7 +420,7 @@ render = function()
     flexGrow = 1,
   }, {
     header(),
-    ui.scroll({ flexGrow = 1, gap = 8 }, scrollChildren),
+    ui.scroll({ maxHeight = BODY_MAX_HEIGHT, gap = 8 }, scrollChildren),
     footer(),
   }))
 end
