@@ -20,6 +20,27 @@ local snap = noctalia.state.get(SNAPSHOT) or {
 local reqId = 0
 local render
 
+-- Toggles answer optimistically: a clicked button flips at once and pulses
+-- until the service's snapshot confirms the new state (or PENDING_TIMEOUT_MS
+-- passes, which also covers a command OBS rejected). Pulsing runs on the
+-- panel's frame tick, so a panel with nothing pending ticks not at all.
+local PENDING_TIMEOUT_MS = 3000
+local PULSE_PERIOD_MS = 900
+local pendingToggles = {}
+local pulseMs = 0
+
+local function nowMs()
+  return noctalia.nowMs()
+end
+
+local function animationsOn()
+  return noctalia.getConfig("animations_enabled") ~= false
+end
+
+local function hasPending()
+  return next(pendingToggles) ~= nil
+end
+
 local function dispatch(payload)
   reqId += 1
   payload.requestId = tostring(os.time()) .. "-" .. tostring(reqId)
@@ -109,14 +130,32 @@ local function sceneSelect()
 end
 
 local function quickActionButton(spec)
-  return ui.button({
+  local pending = pendingToggles[spec.field]
+  local active = spec.active
+  if pending ~= nil then
+    active = not pending.from
+  end
+  local button = ui.button({
     key = spec.key,
     glyph = spec.glyph,
-    variant = spec.active and "primary" or "ghost",
+    variant = active and "primary" or "ghost",
     tooltip = spec.tooltip,
     controlSize = "sm",
-    onClick = spec.onClick,
+    onClick = function()
+      if spec.field ~= nil and animationsOn() then
+        pendingToggles[spec.field] = { from = spec.active == true, since = nowMs() }
+        render()
+      end
+      spec.onClick()
+    end,
   })
+  if pending == nil or not animationsOn() then
+    return button
+  end
+  -- Pulse between 45% and 100% so the wait reads as "working", not "off".
+  local phase = (pulseMs % PULSE_PERIOD_MS) / PULSE_PERIOD_MS
+  local opacity = 0.725 + 0.275 * math.cos(phase * 2 * math.pi)
+  return ui.row({ key = spec.key .. "-pulse", opacity = opacity }, { button })
 end
 
 -- The scene dropdown and the record/stream/virtualcam/mute toggles share one
@@ -133,6 +172,7 @@ local function actionsRow()
   if noctalia.getConfig("panel_show_record_button") ~= false then
     table.insert(children, quickActionButton({
       key = "obs-action-record",
+      field = "recording",
       glyph = "player-record",
       active = snap.recording,
       tooltip = noctalia.tr("panel.record"),
@@ -143,6 +183,7 @@ local function actionsRow()
   if noctalia.getConfig("panel_show_stream_button") ~= false then
     table.insert(children, quickActionButton({
       key = "obs-action-stream",
+      field = "streaming",
       glyph = "broadcast",
       active = snap.streaming,
       tooltip = noctalia.tr("panel.stream"),
@@ -153,6 +194,7 @@ local function actionsRow()
   if noctalia.getConfig("panel_show_virtualcam_button") ~= false then
     table.insert(children, quickActionButton({
       key = "obs-action-virtualcam",
+      field = "virtualcam",
       glyph = "camera",
       active = snap.virtualcam,
       tooltip = noctalia.tr("panel.virtualcam"),
@@ -163,6 +205,7 @@ local function actionsRow()
   if noctalia.getConfig("panel_show_mute_button") ~= false then
     table.insert(children, quickActionButton({
       key = "obs-action-mute",
+      field = "micMuted",
       glyph = snap.micMuted and "microphone-off" or "microphone",
       active = snap.micMuted == true,
       tooltip = noctalia.tr("panel.mic"),
@@ -316,6 +359,7 @@ local function screenshotPreview()
 end
 
 local function render_()
+  panel.setNeedsFrameTick(hasPending() and animationsOn())
   local body = {}
 
   if snap.connected then
@@ -368,8 +412,35 @@ function onOpen(_context)
   render()
 end
 
+function onClose()
+  pendingToggles = {}
+  panel.setNeedsFrameTick(false)
+end
+
+function onFrameTick(deltaMs)
+  local now = nowMs()
+  for field, pending in pairs(pendingToggles) do
+    if now - pending.since >= PENDING_TIMEOUT_MS then
+      pendingToggles[field] = nil
+    end
+  end
+  if not hasPending() then
+    panel.setNeedsFrameTick(false)
+    render()
+    return
+  end
+  pulseMs += tonumber(deltaMs) or 16
+  render()
+end
+
 noctalia.state.watch(SNAPSHOT, function(value)
   if type(value) == "table" then
+    for field, pending in pairs(pendingToggles) do
+      -- micMuted is nil until known; compare truthiness, like the buttons do.
+      if (value[field] == true) ~= pending.from then
+        pendingToggles[field] = nil
+      end
+    end
     snap = value
     render()
   end
