@@ -1,17 +1,20 @@
 {
   lib,
-  stdenvNoCC,
+  stdenv,
+  pkg-config,
+  libpulseaudio,
 }:
 let
   pname = "noctalia-mic-state";
   inherit (lib.importTOML ../../plugins/mic-state/plugin.toml) version;
 in
-stdenvNoCC.mkDerivation {
+stdenv.mkDerivation {
   inherit pname version;
 
   src = lib.fileset.toSource {
     root = ../../plugins/mic-state;
     fileset = lib.fileset.unions [
+      ../../plugins/mic-state/mic-meter.c
       ../../plugins/mic-state/plugin.toml
       ../../plugins/mic-state/service.luau
       ../../plugins/mic-state/bar.luau
@@ -22,13 +25,21 @@ stdenvNoCC.mkDerivation {
   };
 
   dontConfigure = true;
-  dontBuild = true;
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ libpulseaudio ];
+
+  buildPhase = ''
+    runHook preBuild
+    $CC -O2 -Wall -Wextra -o noctalia-mic-meter mic-meter.c $(pkg-config --cflags --libs libpulse-simple) -lm
+    runHook postBuild
+  '';
 
   installPhase = ''
     runHook preInstall
 
     dest=$out/share/noctalia-plugins/mic-state
     mkdir -p "$dest"
+    install -m755 noctalia-mic-meter "$dest/noctalia-mic-meter"
     cp plugin.toml service.luau bar.luau panel.luau README.md "$dest"/
     mkdir -p "$dest/translations"
     cp translations/en.json "$dest/translations/"

@@ -6,8 +6,9 @@ local state = noctalia.state.get("mic_state") or { known = false, muted = false,
 local previewVolume = nil
 local lastObservedVolume = tonumber(state.volume)
 local meterLevels = {}
-local metersStarted = {}
-local meterDataDir = nil
+local meterSource = nil
+local meterLease = nil
+local meterSerial = 0
 local panelOpen = false
 local commandSerial = 0
 local volumeRowHovered = false
@@ -33,96 +34,43 @@ local function sourceName(name)
   return "No active hardware input"
 end
 
-local function meterConfigPath(sourceName)
-  if not meterDataDir then
-    meterDataDir = noctalia.pluginDataDir()
-  end
-  if not meterDataDir then return nil end
-  local safeName = sourceName:gsub("[^%w%-_]", "_")
-  return meterDataDir .. "/voice-meter-" .. safeName .. ".conf"
-end
-
-local function meterPidPath(sourceName)
-  local configPath = meterConfigPath(sourceName)
-  return configPath and configPath:gsub("%.conf$", ".pid") or nil
-end
-
 local function shellQuote(value)
   return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
 end
 
-local function writeMeterConfig(sourceName)
-  local configPath = meterConfigPath(sourceName)
-  if not configPath then return nil end
-  local config = [[
-[general]
-live-config = 1
-bars = 1
-framerate = 15
-autosens = 2
-
-[input]
-method = pulse
-source = ]] .. sourceName .. [[
-
-[output]
-method = raw
-raw_target = /dev/stdout
-data_format = ascii
-ascii_max_range = 1000
-bar_delimiter = 59
-frame_delimiter = 10
-channels = mono
-
-[smoothing]
-noise_reduction = 0
-]]
-  if noctalia.writeFile(configPath, config) then
-    return configPath
-  end
-  return nil
+local function stopMeter()
+  if meterLease then noctalia.removeFile(meterLease) end
+  meterLease = nil
+  meterSource = nil
+  meterLevels = {}
 end
 
-local function startMeters()
-  if not panelOpen then return end
-  for _, source in ipairs(state.sources or {}) do
-    local sourceName = source.name
-    if sourceName ~= "" and not metersStarted[sourceName] then
-      local configPath = writeMeterConfig(sourceName)
-      local pidPath = meterPidPath(sourceName)
-      if configPath and pidPath then
-        local commandPath = table.concat({
-          "pid_file=", shellQuote(pidPath), "; ",
-          "config=", shellQuote(configPath), "; ",
-          "child=; cleanup() { if [ -n \"$child\" ]; then kill \"$child\" 2>/dev/null || true; fi; rm -f \"$pid_file\"; }; ",
-          "trap cleanup EXIT; trap 'exit 0' TERM INT; ",
-          "printf '%s\\n' \"$$\" > \"$pid_file\"; ",
-          "cava -p \"$config\" & child=$!; wait \"$child\"",
-        })
-        metersStarted[sourceName] = noctalia.runStream(commandPath, function(line)
-          local value = tonumber(line:match("%d+"))
-          if value then
-            meterLevels[sourceName] = math.clamp(value / 1000, 0, 1)
-            render()
-          end
-        end)
+local function startMeter()
+  local source = state.activeSource or ""
+  if not panelOpen or meterSource == source then return end
+  stopMeter()
+  if source == "" then return end
+  local dataDir = noctalia.pluginDataDir()
+  if not dataDir then return end
+  meterSerial += 1
+  local lease = dataDir .. "/voice-meter-" .. tostring(noctalia.nowMs()) .. "-" .. tostring(meterSerial)
+  if not noctalia.writeFile(lease, "") then return end
+  meterLease = lease
+  meterSource = source
+  local pluginDir = noctalia.pluginDir()
+  if not pluginDir then stopMeter(); return end
+  local command = shellQuote(pluginDir .. "/noctalia-mic-meter") .. " " .. shellQuote(source) .. " " .. shellQuote(lease)
+  if not noctalia.runStream(command, function(line)
+    if panelOpen and meterLease == lease then
+      local value = tonumber(line)
+      if value then
+        meterLevels[source] = math.clamp(value, 0, 1)
+        render()
       end
     end
+  end) then
+    stopMeter()
   end
-end
-
-local function stopMeters()
-  for sourceName in pairs(metersStarted) do
-    local pidPath = meterPidPath(sourceName)
-    local rawPid = pidPath and noctalia.readFile(pidPath)
-    local pid = rawPid and tonumber(rawPid:match("%d+"))
-    if pid then
-      noctalia.runAsync({ "sh", "-c", "kill -TERM " .. tostring(math.floor(pid)) })
-    end
-    if pidPath then noctalia.removeFile(pidPath) end
-  end
-  metersStarted = {}
-  meterLevels = {}
 end
 
 local function header()
@@ -246,14 +194,6 @@ local function deviceCard()
         ui.label({ text = source.description, fontSize = 12, fontWeight = selected and "semibold" or "normal", maxLines = 1 }),
         ui.row({ align = "center", gap = 6 }, {
           ui.label({ text = selected and "Feeding RNNoise" or "Hardware input", fontSize = 10, color = "on_surface_variant" }),
-          ui.progress({
-            progress = meterLevels[source.name] or 0,
-            height = 3,
-            fill = source.muted and "error" or "primary",
-            track = "on_surface/0.14",
-            radius = 3,
-            flexGrow = 1,
-          }),
         }),
       }),
       selected and ui.glyph({ name = "check", size = 16, color = "primary" }) or ui.button({
@@ -309,7 +249,7 @@ noctalia.state.watch("mic_state", function(value)
       lastObservedVolume = observedVolume
     end
     state = value
-    startMeters()
+    startMeter()
     render()
   end
 end)
@@ -317,13 +257,13 @@ end)
 function onOpen()
   panelOpen = true
   command("refresh")
-  startMeters()
+  startMeter()
   render()
 end
 
 function onClose()
   panelOpen = false
-  stopMeters()
+  stopMeter()
   render()
 end
 

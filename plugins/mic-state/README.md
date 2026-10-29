@@ -7,7 +7,7 @@ can still reach calls while the physical microphone is muted.
 
 Left-click the widget to open the microphone panel; right-click toggles mute.
 Click the microphone icon in the panel header to toggle mute. The panel
-includes volume controls, a live voice level meter, the actual physical
+includes volume controls, a live peak meter for the selected physical microphone, the actual physical
 PipeWire capture devices, and a selector for the RNNoise filter's capture device. Virtual
 sources and monitor sources are filtered out. Device selection leaves the
 meeting mix as the default source and persists across restarts. Mute and
@@ -23,3 +23,10 @@ OSD with the new level.
 
 The panel uses Noctalia's Material styling, surface containers, theme colors,
 and compact status rows, following the upstream audio and Duo Status panels.
+
+The meter captures only the selected microphone while the panel is open. It shows
+the peak sample level on a fixed linear scale, with full scale representing 0 dBFS.
+The Nix package builds the `noctalia-mic-meter` helper alongside the plugin. It
+uses the PulseAudio interface provided by PipeWire. For other installations,
+compile `mic-meter.c` with `pkg-config --cflags --libs libpulse-simple` and
+install the resulting executable as `noctalia-mic-meter` in the plugin directory.
