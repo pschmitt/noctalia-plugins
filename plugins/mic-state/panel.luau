@@ -64,7 +64,11 @@ local function startMeter()
     if panelOpen and meterLease == lease then
       local value = tonumber(line)
       if value then
-        meterLevels[source] = math.clamp(value, 0, 1)
+        -- Fast attack, slow release: the bar jumps up with the voice and eases
+        -- back down instead of snapping between ~15 Hz peak readings.
+        local previous = meterLevels[source] or 0
+        local peak = math.clamp(value, 0, 1)
+        meterLevels[source] = peak >= previous and peak or previous * 0.7 + peak * 0.3
         render()
       end
     end

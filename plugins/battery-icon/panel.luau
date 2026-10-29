@@ -377,7 +377,7 @@ local function fanControls()
       controlSize = "sm",
       width = 230,
       onChange = function(nextValue)
-        fanSliderPreview = tonumber(nextValue) or value
+        fanSliderPreview = tonumber(nextValue) or fanSliderPreview
         render()
       end,
       onDragEnd = function(value)
