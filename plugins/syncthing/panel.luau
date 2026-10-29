@@ -29,6 +29,17 @@ local deviceQr = nil
 local deviceQrLoading = false
 local render
 
+-- A folder rescan has no spinner of its own to wait on, so the rescan button
+-- cycles an hourglass until the next folder detail or snapshot arrives (or
+-- RESCAN_TIMEOUT_MS passes). Glyphs cannot be rotated, so the motion is a
+-- glyph swap on the panel's frame tick, which only runs while a rescan waits.
+local RESCAN_TIMEOUT_MS = 5000
+local BUSY_GLYPHS = { "hourglass-empty", "hourglass-low", "hourglass-high", "hourglass" }
+local BUSY_INTERVAL_MS = 200
+local rescanSince = nil
+local busyFrame = 1
+local busyElapsedMs = 0
+
 -- Hover handlers exist only to keep the indicator buttons' input areas live
 -- (see folderRow); there is nothing to do when the pointer arrives.
 function noop() end
@@ -282,13 +293,15 @@ local function header()
       onClick = primaryOnClick,
     }),
     ui.button({
-      glyph = "refresh",
+      glyph = rescanSince ~= nil and BUSY_GLYPHS[busyFrame] or "refresh",
       variant = "ghost",
       controlSize = "sm",
-      enabled = folder ~= nil and not folder.paused,
+      enabled = folder ~= nil and not folder.paused and rescanSince == nil,
       tooltip = tr("panel.folder-rescan"),
       visible = folder ~= nil,
       onClick = function()
+        rescanSince = noctalia.nowMs()
+        render()
         sendCmd("folder_rescan_details", folder.id)
       end,
     }),
@@ -913,6 +926,7 @@ render = function()
   if not offline then
     table.insert(children, ratesLabel())
   end
+  panel.setNeedsFrameTick(rescanSince ~= nil)
   panel.render(ui.column({ gap = 10, padding = PANEL_PADDING, flexGrow = 1 }, children))
 end
 
@@ -928,6 +942,7 @@ noctalia.state.watch("st.folder-detail", function(encoded)
   if detail and detail.folderId == selectedFolderId then
     folderDetail = detail
     folderDetailLoading = false
+    rescanSince = nil
     render()
   end
 end)
@@ -949,8 +964,27 @@ function onOpen(_context)
   sendCmd("refresh")
 end
 
+function onFrameTick(deltaMs)
+  if rescanSince == nil or not isOpen then
+    rescanSince = nil
+    panel.setNeedsFrameTick(false)
+    return
+  end
+  if noctalia.nowMs() - rescanSince >= RESCAN_TIMEOUT_MS then
+    rescanSince = nil
+  end
+  busyElapsedMs += tonumber(deltaMs) or BUSY_INTERVAL_MS
+  if busyElapsedMs >= BUSY_INTERVAL_MS then
+    busyElapsedMs = busyElapsedMs % BUSY_INTERVAL_MS
+    busyFrame = busyFrame % #BUSY_GLYPHS + 1
+  end
+  render()
+end
+
 function onClose()
   isOpen = false
+  rescanSince = nil
+  panel.setNeedsFrameTick(false)
   view = "folders"
   selectedFolderId = nil
   selectedDeviceId = nil
