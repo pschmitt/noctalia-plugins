@@ -220,33 +220,46 @@ local function dayBreakdown(intervals)
 end
 
 local function refreshSummary(onIntervalsRefreshed)
+  -- Every state.set runs its watchers (bar, panel) synchronously inside the
+  -- callback that made it, and that time is charged to the callback's CPU
+  -- budget. Publishing after each of the four results used to run them four
+  -- times per refresh, which on a busy machine pushed callbacks over the
+  -- budget; the summary is published once, when the last result is in.
+  local remaining = 4
+  local function partDone()
+    remaining -= 1
+    if remaining == 0 then
+      publishSummary()
+    end
+  end
+
   -- One export for both things the breakdown window feeds: the per-day totals
   -- and the per-day interval lists.
   runTimew({ "export", breakdownStartDate(), "-", "tomorrow" }, function(r)
     local intervals = parseExport(r)
     summary.days = dayBreakdown(intervals)
-    publishSummary()
     noctalia.state.set("tw_intervals", intervalsByDate(intervals, math.floor(noctalia.nowMs() / 1000)))
     if onIntervalsRefreshed ~= nil then
       onIntervalsRefreshed()
     end
+    partDone()
   end)
 
   -- The "Week" figure keeps its own :week summary rather than being summed out
   -- of the window above: `timew` owns where the week starts.
   runTimew({ "summary", ":week" }, function(r)
     summary.week = summaryTotal(r)
-    publishSummary()
+    partDone()
   end)
 
   runTimew({ "summary", ":month" }, function(r)
     summary.month = summaryTotal(r)
-    publishSummary()
+    partDone()
   end)
 
   runTimew({ "summary", ":year" }, function(r)
     summary.year = summaryTotal(r)
-    publishSummary()
+    partDone()
   end)
 end
 
