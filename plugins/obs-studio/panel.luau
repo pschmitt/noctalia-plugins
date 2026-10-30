@@ -277,7 +277,7 @@ local function customButtonWidget(button, index)
     radius = 8,
     align = "center",
     justify = "center",
-    fill = button.bg or "surface_variant",
+    fill = button.bg or "surface_container",
     border = active and "primary" or nil,
     borderWidth = active and 2 or nil,
   }, {

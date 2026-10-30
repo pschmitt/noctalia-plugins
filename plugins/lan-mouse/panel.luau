@@ -159,7 +159,7 @@ local function peerList()
       if not peerPending and not peerActive then
         buttonText = "Enable"
       end
-      table.insert(rows, ui.column({ gap = 7, padding = 8, fill = "surface_variant/0.5", radius = 8 }, {
+      table.insert(rows, ui.column({ gap = 7, padding = 8, fill = "surface_container/0.5", radius = 8 }, {
         ui.row({ gap = 8, align = "center" }, {
           ui.glyph({
             name = peerActive and "plug-connected" or "plug",

@@ -546,7 +546,7 @@ local function statBox(label, kind, value)
     gap = 2,
     align = "center",
     padding = 10,
-    fill = "surface_variant",
+    fill = "surface_container",
     radius = 8,
   }, {
     ui.label({ text = value, fontSize = 18, fontWeight = "bold" }),
@@ -570,7 +570,7 @@ local function dayRow(day, fmt)
     align = "center",
     padding = 3,
     radius = 6,
-    fill = selected and "surface_variant" or "#00000000",
+    fill = selected and "surface_container" or "#00000000",
     onClick = function()
       selectedDate = (selectedDate == date or date == todayDate()) and nil or date
       editing = nil

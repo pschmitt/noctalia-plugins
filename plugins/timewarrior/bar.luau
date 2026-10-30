@@ -176,7 +176,7 @@ local function badgeModeIcon(kind, color)
     -- common non-overtime case resolves to a light, low-saturation
     -- "on_surface" grey, which put the (equally light) glyph on an
     -- indistinguishable same-colour circle when the circle used it too.
-    badgeBgColor = resolveColor.resolve("surface_variant", "#1E1F27"),
+    badgeBgColor = resolveColor.resolve("surface_container", "#1E1F27"),
     logoSvgPath = LOGO_SIMPLE_SVG,
     assetsDir = assetsDir,
     size = size,

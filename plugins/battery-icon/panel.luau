@@ -9,7 +9,6 @@ local BATTERY_COMMAND = "battery_icon.command"
 local FAN_STATE = "battery_icon.fan"
 local TDP_STATE = "battery_icon.tdp"
 local PANEL_PADDING = 10
-local BODY_MAX_HEIGHT = 440
 
 local details = noctalia.state.get(DETAILS) or {
   percent = 0,
@@ -461,9 +460,8 @@ render = function()
 
   -- The surface is content-fitted (plugin.toml height = "content"), so the
   -- body must not flexGrow: a growing scroll measures as "fill" and pins the
-  -- panel at max_height. A maxHeight cap keeps the header and footer in view
-  -- (600 minus header, footer and padding) while the body scrolls if
-  -- peripheral devices or fan controls expand.
+  -- panel at max_height. ui.scroll has no maxHeight prop (the host ignores it
+  -- with a warning), so plugin.toml's max_height is the only bound.
   panel.setNeedsFrameTick(anyPending())
   panel.render(ui.column({
     gap = 8,
@@ -472,7 +470,7 @@ render = function()
     flexGrow = 1,
   }, {
     header(),
-    ui.scroll({ maxHeight = BODY_MAX_HEIGHT, gap = 8 }, scrollChildren),
+    ui.scroll({ gap = 8 }, scrollChildren),
     footer(),
   }))
 end

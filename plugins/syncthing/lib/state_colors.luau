@@ -3,7 +3,7 @@
 local DEFAULTS = {
   idle = "primary",
   syncing = "secondary",
-  paused = "outline",
+  paused = "outline_variant",
   disconnected = "secondary",
   offline = "error",
   unauthorized = "error",

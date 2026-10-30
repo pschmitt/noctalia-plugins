@@ -63,7 +63,7 @@ local history = noctalia.state.get("ha.history") or {}
 local historyLoading = false
 local historyErrorMessage = noctalia.state.get("ha.history_error") or ""
 local historyHover = nil
-local CARD_STYLE = { fill = "surface_variant/0.58", radius = 12, padding = 10, gap = 2 }
+local CARD_STYLE = { fill = "surface_container/0.58", radius = 12, padding = 10, gap = 2 }
 
 local function sectionHeading(glyph, text, fontSize)
   return ui.row({ align = "center", gap = 6 }, {
@@ -342,7 +342,7 @@ local function searchBox(query, focusRevision, focus, onChange, onDomainClick, o
   return ui.row({
     align = "center",
     gap = 6,
-    fill = "surface_variant/0.35",
+    fill = "surface_container/0.35",
     border = "outline/0.45",
     borderWidth = 1,
     radius = 8,
@@ -1119,7 +1119,7 @@ local function activityEntry(entity, entry, isLast)
     }),
   }
   if not isLast then
-    rail[#rail + 1] = ui.box({ width = 2, height = 10, flexGrow = 1, fill = "outline/0.55" })
+    rail[#rail + 1] = ui.box({ width = 2, height = 10, flexGrow = 1, fill = "outline_variant/0.55" })
   end
   local activityText = {
     ui.label({ text = tostring(logbookMessage(entry)), fontSize = 12, maxLines = 8 }),
@@ -1625,7 +1625,7 @@ local function entityRow(entity, isOther, isSelected)
   if isSelected then
     cardStyle.border = "primary"
     cardStyle.borderWidth = 1
-    cardStyle.fill = "surface_variant/0.85"
+    cardStyle.fill = "surface_container/0.85"
   else
     cardStyle.border = "outline/0"
     cardStyle.borderWidth = 0
@@ -1865,7 +1865,7 @@ local function listView()
         if isSectionSelected then
           headerStyle.border = "primary"
           headerStyle.borderWidth = 1
-          headerStyle.fill = "surface_variant/0.85"
+          headerStyle.fill = "surface_container/0.85"
         else
           headerStyle.border = "outline/0"
           headerStyle.borderWidth = 0

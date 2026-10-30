@@ -219,7 +219,7 @@ local function card(card, compact, allMetrics, columns)
     sections[#sections + 1] = ringCard(ordered, compact, columns)
   end
   return ui.column({
-    fill = "surface_variant/0.58",
+    fill = "surface_container/0.58",
     radius = compact and 11 or 14,
     padding = compact and 8 or 12,
     gap = compact and 6 or 9,

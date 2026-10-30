@@ -35,7 +35,7 @@ local function render()
     gap = 6,
     align = "center",
     padding = 8,
-    fill = "surface_variant/0.4",
+    fill = "surface_container/0.4",
     radius = 12,
     visible = visible,
     onClick = function()

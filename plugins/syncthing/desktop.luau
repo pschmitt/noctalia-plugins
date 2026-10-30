@@ -65,7 +65,7 @@ local function render()
     }))
   end
 
-  desktopWidget.render(ui.column({ gap = 8, padding = 10, fill = "surface_variant/0.4", radius = 12 }, children))
+  desktopWidget.render(ui.column({ gap = 8, padding = 10, fill = "surface_container/0.4", radius = 12 }, children))
 end
 
 noctalia.state.watch("st.snapshot", function(encoded)

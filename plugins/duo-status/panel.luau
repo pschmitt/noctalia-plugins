@@ -408,7 +408,7 @@ local function networkRows()
     padding = 8,
     gap = 2,
   }, {
-    ui.scroll({ maxHeight = 280, gap = 2 }, rows),
+    ui.scroll({ gap = 2 }, rows),
   })
 end
 

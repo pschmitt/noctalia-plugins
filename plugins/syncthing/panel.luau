@@ -407,7 +407,7 @@ local function folderRow(folder)
     gap = 8,
     padding = 8,
     align = "center",
-    fill = "surface_variant/0.5",
+    fill = "surface_container/0.5",
     radius = 8,
     onClick = function()
       openFolderDetails(folder)
@@ -502,7 +502,7 @@ local function deviceRow(device)
     gap = 8,
     padding = 8,
     align = "center",
-    fill = "surface_variant/0.5",
+    fill = "surface_container/0.5",
     radius = 8,
     opacity = device.connected and 1 or 0.7,
     onClick = function()
@@ -617,7 +617,7 @@ local function detailSection(title, rows, emptyText, glyph)
       table.insert(children, row)
     end
   end
-  return ui.column({ gap = 5, padding = 8, fill = "surface_variant/0.5", radius = 8 }, children)
+  return ui.column({ gap = 5, padding = 8, fill = "surface_container/0.5", radius = 8 }, children)
 end
 
 local function detailFileRow(name, subtitle, color)
@@ -703,7 +703,7 @@ local function changeEntry(item, isLast)
     }),
   }
   if not isLast then
-    table.insert(rail, ui.box({ width = 2, height = 10, flexGrow = 1, fill = "outline/0.55" }))
+    table.insert(rail, ui.box({ width = 2, height = 10, flexGrow = 1, fill = "outline_variant/0.55" }))
   end
   return {
     date = date,
@@ -733,7 +733,7 @@ local function folderDetailsView()
   end
 
   local children = {
-    ui.column({ gap = 2, padding = 8, fill = "surface_variant/0.5", radius = 8 }, {
+    ui.column({ gap = 2, padding = 8, fill = "surface_container/0.5", radius = 8 }, {
       ui.label({ text = tr("panel.folder-path"), fontSize = 10, color = "on_surface/0.6" }),
       ui.label({
         text = folder.path ~= "" and folder.path or tr("panel.folder-no-path"),
@@ -814,7 +814,7 @@ local function deviceDetailsView()
 
   local connection = tr(`device.conn-{rowIcons.connKind(device)}`)
   local children = {
-    ui.column({ gap = 4, padding = 8, fill = "surface_variant/0.5", radius = 8 }, {
+    ui.column({ gap = 4, padding = 8, fill = "surface_container/0.5", radius = 8 }, {
       ui.label({ text = tr("panel.device-id"), fontSize = 10, color = "on_surface/0.6" }),
       ui.row({ gap = 6, align = "center" }, {
         ui.label({ text = device.id, fontSize = 11, flexGrow = 1, maxLines = 2 }),
@@ -867,7 +867,7 @@ local function deviceDetailsView()
   if deviceQrLoading then
     table.insert(children, ui.label({ text = tr("panel.device-qr-loading"), fontSize = 11, color = "on_surface/0.6" }))
   elseif deviceQr and deviceQr.path then
-    table.insert(children, ui.column({ gap = 5, align = "center", padding = 8, fill = "surface_variant/0.5", radius = 8 }, {
+    table.insert(children, ui.column({ gap = 5, align = "center", padding = 8, fill = "surface_container/0.5", radius = 8 }, {
       ui.label({ text = tr("panel.device-qr"), fontSize = 12, fontWeight = "bold" }),
       ui.image({ path = deviceQr.path, width = 180, height = 180, fit = "contain" }),
     }))
