@@ -22,6 +22,12 @@ local status = noctalia.state.get("tw_status") or { active = false, duration = "
 local intervals = noctalia.state.get("tw_intervals") or {}
 local action = nil
 local pendingToggle = nil
+-- When every command finished while a toggle was still waiting for the status
+-- to confirm it. A start hook can succeed without tracking beginning (no timew
+-- task wired up on that machine), and the panel must not sit in its optimistic
+-- "Started" state forever, so after SETTLE_MS it shows what the tracker says.
+local pendingSettleSince = nil
+local SETTLE_MS = 3000
 local pendingEdit = nil
 local breakdownExpanded = false
 -- Which boundary is currently being edited, as { id, field }, or nil while the
@@ -672,7 +678,7 @@ end
 
 function render()
   if not panelIsOpen then return end
-  panel.setNeedsFrameTick(animationActive())
+  panel.setNeedsFrameTick(animationActive() or pendingSettleSince ~= nil)
   local fmt = currentFormat()
   local content = {
     header(),
@@ -767,6 +773,12 @@ function onOpen(context)
   -- on the day it means.
   editing = nil
   breakdownExpanded = false
+  -- A reopened panel shows the tracker's real state unless a command is still
+  -- running (its busy state covers that).
+  if action == nil or action.running ~= true then
+    pendingToggle = nil
+  end
+  pendingSettleSince = nil
   pendingDelete = nil
   revealed = nil
   deleting = nil
@@ -784,8 +796,13 @@ function onClose()
 end
 
 function onFrameTick(deltaMs)
+  if pendingSettleSince ~= nil and noctalia.nowMs() - pendingSettleSince >= SETTLE_MS then
+    pendingToggle = nil
+    pendingSettleSince = nil
+    render()
+  end
   if not animationActive() then
-    panel.setNeedsFrameTick(false)
+    panel.setNeedsFrameTick(pendingSettleSince ~= nil)
     return
   end
   local elapsed = tonumber(deltaMs) or SYNC_FRAME_INTERVAL_MS
@@ -825,6 +842,7 @@ noctalia.state.watch("tw_status", function(val)
     status = val
     if (pendingToggle == "start" and val.active == true) or (pendingToggle == "stop" and val.active == false) then
       pendingToggle = nil
+      pendingSettleSince = nil
     end
     render()
   end
@@ -833,8 +851,14 @@ end)
 noctalia.state.watch("tw_action", function(val)
   if type(val) == "table" then
     action = val
+    if val.running == true then
+      pendingSettleSince = nil
+    elseif pendingToggle ~= nil and pendingSettleSince == nil then
+      pendingSettleSince = noctalia.nowMs()
+    end
     if (val.action == "start" or val.action == "stop") and val.running ~= true and val.success == false then
       pendingToggle = nil
+      pendingSettleSince = nil
     end
     if val.action == "modify" and val.running ~= true and val.success == false then
       pendingEdit = nil
