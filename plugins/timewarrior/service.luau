@@ -122,14 +122,24 @@ local function summaryTotal(result)
     noctalia.log("timew summary failed: " .. trim(result.stderr))
     return formatDuration(0)
   end
-  local last = nil
-  for line in string.gmatch(result.stdout or "", "[^\r\n]+") do
-    local trimmed = trim(line)
-    if trimmed ~= "" then
-      last = trimmed
-    end
+  -- A year of summary is one block per day, hundreds of lines, so the last
+  -- line is found by scanning backwards from the end rather than walking (and
+  -- trimming) every line.
+  local out = result.stdout or ""
+  local lineEnd = #out
+  while lineEnd > 0 and string.byte(out, lineEnd) <= 32 do
+    lineEnd -= 1
   end
-  local hours, minutes, seconds = (last or ""):match("^(%d+):(%d%d):(%d%d)$")
+  local lineStart = lineEnd
+  while lineStart > 0 do
+    local byte = string.byte(out, lineStart)
+    if byte == 10 or byte == 13 then
+      break
+    end
+    lineStart -= 1
+  end
+  local last = trim(string.sub(out, lineStart + 1, lineEnd))
+  local hours, minutes, seconds = last:match("^(%d+):(%d%d):(%d%d)$")
   if hours == nil then
     return formatDuration(0)
   end
