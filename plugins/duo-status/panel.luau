@@ -19,7 +19,9 @@ local connectError = noctalia.state.get("duo_status.connect_error")
 -- the rescan button cycles an hourglass until fresh data arrives (or
 -- PENDING_TIMEOUT_MS passes). Glyphs cannot be rotated, so the motion is a
 -- glyph swap on the panel's frame tick, which only runs while something waits.
-local PENDING_TIMEOUT_MS = 4000
+-- Generous on purpose: `powerprofilesctl set` plus the follow-up poll was seen
+-- taking over 4s, and a shorter timeout let the old value flash back first.
+local PENDING_TIMEOUT_MS = 8000
 local BUSY_GLYPHS = { "hourglass-empty", "hourglass-low", "hourglass-high", "hourglass" }
 local BUSY_INTERVAL_MS = 200
 local pendingProfile = nil -- { id, since }
