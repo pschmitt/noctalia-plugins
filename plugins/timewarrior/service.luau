@@ -111,6 +111,31 @@ local function parseExport(result)
   return type(decoded) == "table" and decoded or {}
 end
 
+-- The week/month/year figures only need a total, and decoding a year of
+-- `timew export` (65 KB of JSON at ~1400 tracked hours) inside a callback
+-- exceeded Noctalia's per-callback CPU budget, killing the poll. `timew
+-- summary` prints the grand total as its last line (H:MM:SS, hours unbounded)
+-- and takes ~25 ms, so the total is read straight from that line. No data
+-- prints a "No filtered data found" notice instead, which counts as zero.
+local function summaryTotal(result)
+  if result.exitCode ~= 0 then
+    noctalia.log("timew summary failed: " .. trim(result.stderr))
+    return formatDuration(0)
+  end
+  local last = nil
+  for line in string.gmatch(result.stdout or "", "[^\r\n]+") do
+    local trimmed = trim(line)
+    if trimmed ~= "" then
+      last = trimmed
+    end
+  end
+  local hours, minutes, seconds = (last or ""):match("^(%d+):(%d%d):(%d%d)$")
+  if hours == nil then
+    return formatDuration(0)
+  end
+  return formatDuration(tonumber(hours) * 3600 + tonumber(minutes) * 60 + tonumber(seconds))
+end
+
 local function intervalDuration(interval, now)
   local start = utcEpoch(interval.start or "")
   if not start then
@@ -118,15 +143,6 @@ local function intervalDuration(interval, now)
   end
   local finish = utcEpoch(interval["end"] or "") or now
   return math.max(0, finish - start)
-end
-
-local function totalDuration(intervals)
-  local now = math.floor(noctalia.nowMs() / 1000)
-  local total = 0
-  for _, interval in ipairs(intervals) do
-    total += intervalDuration(interval, now)
-  end
-  return formatDuration(total)
 end
 
 local function publishSummary()
@@ -216,20 +232,20 @@ local function refreshSummary(onIntervalsRefreshed)
     end
   end)
 
-  -- The "Week" figure keeps its own :week export rather than being summed out
+  -- The "Week" figure keeps its own :week summary rather than being summed out
   -- of the window above: `timew` owns where the week starts.
-  runTimew({ "export", ":week" }, function(r)
-    summary.week = totalDuration(parseExport(r))
+  runTimew({ "summary", ":week" }, function(r)
+    summary.week = summaryTotal(r)
     publishSummary()
   end)
 
-  runTimew({ "export", ":month" }, function(r)
-    summary.month = totalDuration(parseExport(r))
+  runTimew({ "summary", ":month" }, function(r)
+    summary.month = summaryTotal(r)
     publishSummary()
   end)
 
-  runTimew({ "export", ":year" }, function(r)
-    summary.year = totalDuration(parseExport(r))
+  runTimew({ "summary", ":year" }, function(r)
+    summary.year = summaryTotal(r)
     publishSummary()
   end)
 end
