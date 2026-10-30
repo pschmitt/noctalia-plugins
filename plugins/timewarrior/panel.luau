@@ -65,7 +65,7 @@ local BUSY_STATES = {
 local syncFrame = 0
 local syncElapsedMs = 0
 local SYNC_FRAME_COUNT = 12
-local SYNC_FRAME_INTERVAL_MS = 60
+local SYNC_FRAME_INTERVAL_MS = 100
 -- The start/stop button's own icon cycles an hourglass filling up while its
 -- command runs. Noctalia's glyphs cannot be rotated, so the motion is a swap
 -- between glyphs, driven by the same frame tick as the spinner.
