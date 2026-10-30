@@ -783,25 +783,35 @@ function onFrameTick(deltaMs)
     return
   end
   local elapsed = tonumber(deltaMs) or SYNC_FRAME_INTERVAL_MS
-  syncElapsedMs += tonumber(deltaMs) or SYNC_FRAME_INTERVAL_MS
+  syncElapsedMs += elapsed
+  -- The tick fires every display frame, but the spinner image only advances
+  -- every SYNC_FRAME_INTERVAL_MS and the busy glyph every
+  -- BUSY_GLYPH_INTERVAL_MS. Rebuilding the whole tree on the frames in
+  -- between measurably costs CPU (about 11% of a core while syncing), so only
+  -- render when something visible changed. The delete fade changes opacity
+  -- every frame and so always renders.
+  local changed = false
   if fadingDelete ~= nil then
     fadingDelete.elapsedMs += elapsed
     if fadingDelete.elapsedMs >= deleteFadeDurationMs then
       fadingDelete = nil
     end
+    changed = true
   end
   if action ~= nil and action.running == true then
     glyphElapsedMs += elapsed
     if glyphElapsedMs >= BUSY_GLYPH_INTERVAL_MS then
       glyphElapsedMs = glyphElapsedMs % BUSY_GLYPH_INTERVAL_MS
       glyphFrame = glyphFrame % #BUSY_GLYPH_FRAMES + 1
+      changed = true
     end
     if syncElapsedMs >= SYNC_FRAME_INTERVAL_MS then
       syncElapsedMs = syncElapsedMs % SYNC_FRAME_INTERVAL_MS
       syncFrame = (syncFrame + 1) % SYNC_FRAME_COUNT
+      changed = true
     end
   end
-  render()
+  if changed then render() end
 end
 
 noctalia.state.watch("tw_status", function(val)
