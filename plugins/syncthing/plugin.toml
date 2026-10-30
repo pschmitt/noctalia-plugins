@@ -178,6 +178,13 @@ advanced = true
 
 # ── Entries ──────────────────────────────────────────────────────────────────
 
+[[setting]]
+key = "animations_enabled"
+type = "bool"
+label_key = "settings.animations_enabled.label"
+description_key = "settings.animations_enabled.description"
+default = true
+
 [[service]]
 id = "poller"
 entry = "service.luau"

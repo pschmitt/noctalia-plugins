@@ -75,6 +75,8 @@
   "panel.tab-devices": "Devices",
   "panel.tab-folders": "Folders",
   "panel.title": "Syncthing",
+  "settings.animations_enabled.description": "Animate busy and pending states in the popup, such as the cycling hourglass on buttons while a command runs.",
+  "settings.animations_enabled.label": "Enable animations",
   "settings.api_key.description": "Syncthing REST API key. Leave empty to autodetect from config.xml.",
   "settings.api_key.label": "API key",
   "settings.config_path.description": "Explicit path to Syncthing's config.xml for autodetection.",

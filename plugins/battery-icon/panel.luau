@@ -501,20 +501,27 @@ end
 
 function onFrameTick(deltaMs)
   local now = noctalia.nowMs()
-  for _, name in ipairs({ "profile", "fan", "caffeine" }) do
-    local pending = name == "profile" and pendingProfile or (name == "fan" and pendingFanMode or pendingCaffeine)
-    if pending ~= nil and now - pending.since >= PENDING_TIMEOUT_MS then
-      if name == "profile" then pendingProfile = nil
-      elseif name == "fan" then pendingFanMode = nil
-      else pendingCaffeine = nil end
-    end
+  local changed = false
+  if pendingProfile ~= nil and now - pendingProfile.since >= PENDING_TIMEOUT_MS then
+    pendingProfile = nil
+    changed = true
+  end
+  if pendingFanMode ~= nil and now - pendingFanMode.since >= PENDING_TIMEOUT_MS then
+    pendingFanMode = nil
+    changed = true
+  end
+  if pendingCaffeine ~= nil and now - pendingCaffeine.since >= PENDING_TIMEOUT_MS then
+    pendingCaffeine = nil
+    changed = true
   end
   busyElapsedMs += tonumber(deltaMs) or BUSY_INTERVAL_MS
   if busyElapsedMs >= BUSY_INTERVAL_MS then
     busyElapsedMs = busyElapsedMs % BUSY_INTERVAL_MS
     busyFrame = busyFrame % #BUSY_GLYPHS + 1
+    changed = true
   end
-  render()
+  -- The glyph only changes every BUSY_INTERVAL_MS; skip the frames between.
+  if changed then render() end
 end
 
 noctalia.state.watch(DETAILS, function(value)

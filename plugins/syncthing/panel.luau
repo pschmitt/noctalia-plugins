@@ -970,15 +970,19 @@ function onFrameTick(deltaMs)
     panel.setNeedsFrameTick(false)
     return
   end
+  local changed = false
   if noctalia.nowMs() - rescanSince >= RESCAN_TIMEOUT_MS then
     rescanSince = nil
+    changed = true
   end
   busyElapsedMs += tonumber(deltaMs) or BUSY_INTERVAL_MS
   if busyElapsedMs >= BUSY_INTERVAL_MS then
     busyElapsedMs = busyElapsedMs % BUSY_INTERVAL_MS
     busyFrame = busyFrame % #BUSY_GLYPHS + 1
+    changed = true
   end
-  render()
+  -- The glyph only changes every BUSY_INTERVAL_MS; skip the frames between.
+  if changed then render() end
 end
 
 function onClose()

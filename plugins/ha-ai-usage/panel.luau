@@ -336,15 +336,20 @@ function onClose()
   panel.setNeedsFrameTick(false)
 end
 function onFrameTick(deltaMs)
+  local changed = false
   if refreshingSince ~= nil and noctalia.nowMs() - refreshingSince >= REFRESH_TIMEOUT_MS then
     refreshingSince = nil
+    changed = true
   end
   busyElapsedMs += tonumber(deltaMs) or BUSY_INTERVAL_MS
   if busyElapsedMs >= BUSY_INTERVAL_MS then
     busyElapsedMs = busyElapsedMs % BUSY_INTERVAL_MS
     busyFrame = busyFrame % #BUSY_GLYPHS + 1
+    changed = true
   end
-  render()
+  -- The tick fires every display frame; the glyph only changes every
+  -- BUSY_INTERVAL_MS, so rebuilding the tree on the frames in between is waste.
+  if changed then render() end
 end
 function onRefresh()
   refreshingSince = noctalia.nowMs()

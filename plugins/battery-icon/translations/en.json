@@ -40,6 +40,7 @@
     "time_to_full": "Time to full"
   },
   "settings": {
+    "animations_enabled": { "label": "Enable animations", "description": "Animate busy and pending states in the popup, such as the cycling hourglass on buttons while a command runs." },
     "action": {
       "description": "What this bar-widget interaction does",
       "options": {

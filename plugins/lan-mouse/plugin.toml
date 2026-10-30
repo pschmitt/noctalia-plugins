@@ -62,6 +62,13 @@ label_key = "settings.gui_command.label"
 description_key = "settings.gui_command.description"
 default = ""
 
+[[setting]]
+key = "animations_enabled"
+type = "bool"
+label_key = "settings.animations_enabled.label"
+description_key = "settings.animations_enabled.description"
+default = true
+
 [[service]]
 id = "poller"
 entry = "service.luau"

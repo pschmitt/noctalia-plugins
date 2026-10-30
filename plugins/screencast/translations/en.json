@@ -1,5 +1,6 @@
 {
   "settings": {
+    "animations_enabled": { "label": "Enable animations", "description": "Animate busy and pending states in the popup, such as the cycling hourglass on buttons while a command runs." },
     "poll_interval": {
       "label": "Poll interval (seconds)",
       "description": "How often to query PipeWire for active portal screencasts."

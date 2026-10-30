@@ -84,6 +84,13 @@ default = 1200
 min = 300
 max = 5000
 
+[[setting]]
+key = "animations_enabled"
+type = "bool"
+label_key = "settings.animations_enabled.label"
+description_key = "settings.animations_enabled.description"
+default = true
+
 [[service]]
 id = "poller"
 entry = "service.luau"

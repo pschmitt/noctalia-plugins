@@ -520,18 +520,23 @@ end
 
 function onFrameTick(deltaMs)
   local now = noctalia.nowMs()
+  local changed = false
   if pendingProfile ~= nil and now - pendingProfile.since >= PENDING_TIMEOUT_MS then
     pendingProfile = nil
+    changed = true
   end
   if pendingRescanSince ~= nil and now - pendingRescanSince >= PENDING_TIMEOUT_MS then
     pendingRescanSince = nil
+    changed = true
   end
   busyElapsedMs += tonumber(deltaMs) or BUSY_INTERVAL_MS
   if busyElapsedMs >= BUSY_INTERVAL_MS then
     busyElapsedMs = busyElapsedMs % BUSY_INTERVAL_MS
     busyFrame = busyFrame % #BUSY_GLYPHS + 1
+    changed = true
   end
-  render()
+  -- The glyph only changes every BUSY_INTERVAL_MS; skip the frames between.
+  if changed then render() end
 end
 
 render()

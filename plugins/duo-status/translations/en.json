@@ -1,5 +1,6 @@
 {
   "settings": {
+    "animations_enabled": { "label": "Enable animations", "description": "Animate busy and pending states in the popup, such as the cycling hourglass on buttons while a command runs." },
     "battery_device": {
       "label": "Battery Device",
       "description": "The power supply device name in sysfs (e.g., BAT0 or BAT1)."
