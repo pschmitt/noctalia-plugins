@@ -118,15 +118,28 @@ local function parseConfigXml()
     if xml then
       -- Locate the <gui> block by index rather than with a non-greedy pattern:
       -- `(.-)</gui>` rescans the tail of the file for every starting position.
-      local _, attrsEnd, guiAttrs = xml:find("<gui([^>]*)>")
+      -- Plain substring searches only: the pattern form of this lookup was
+      -- the call that crossed the callback CPU budget on a loaded machine.
+      local guiAttrs = ""
       local guiBlock = ""
-      if attrsEnd then
-        local closeAt = xml:find("</gui>", attrsEnd + 1, true)
-        if closeAt then
-          guiBlock = xml:sub(attrsEnd + 1, closeAt - 1)
+      local guiAt = xml:find("<gui", 1, true)
+      while guiAt do
+        local after = xml:sub(guiAt + 4, guiAt + 4)
+        if after == " " or after == ">" or after == "\n" or after == "\t" then
+          break
+        end
+        guiAt = xml:find("<gui", guiAt + 4, true)
+      end
+      if guiAt then
+        local attrsEnd = xml:find(">", guiAt, true)
+        if attrsEnd then
+          guiAttrs = xml:sub(guiAt + 4, attrsEnd - 1)
+          local closeAt = xml:find("</gui>", attrsEnd + 1, true)
+          if closeAt then
+            guiBlock = xml:sub(attrsEnd + 1, closeAt - 1)
+          end
         end
       end
-      guiAttrs = guiAttrs or ""
       configXml = {
         path = noctalia.expandPath(candidate),
         enabled = guiAttrs:match('enabled%s*=%s*"false"') == nil,
