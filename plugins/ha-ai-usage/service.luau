@@ -19,12 +19,29 @@ local function intervalMs()
   return math.max(10, math.min(3600, seconds)) * 1000
 end
 
+-- Secrets are read from disk through a short per-path cache. Every request
+-- used to re-read the server and token files, and a synchronous readFile on a
+-- busy disk (seen on a loaded laptop) stalled the callback past Noctalia's CPU
+-- budget. They only change when sops-nix rotates them, so a minute is plenty;
+-- failures are never cached.
+local SECRET_TTL_MS = 60000
+local secretCache = {}
+
 local function readSecret(setting)
   local path = shared.trim(noctalia.getConfig(setting))
   if path == "" then return nil, "not configured" end
+  local cached = secretCache[path]
+  local now = noctalia.nowMs()
+  if cached ~= nil and now - cached.at < SECRET_TTL_MS then
+    return cached.value
+  end
   local content, err = noctalia.readFile(path)
   local value = content and shared.trim(content) or ""
-  if value == "" then return nil, err or "empty or unreadable" end
+  if value == "" then
+    secretCache[path] = nil
+    return nil, err or "empty or unreadable"
+  end
+  secretCache[path] = { value = value, at = now }
   return value
 end
 
