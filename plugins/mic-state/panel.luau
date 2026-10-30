@@ -138,7 +138,7 @@ local function voiceCard()
     text = tostring(volume) .. "%",
     fontSize = 11,
     color = boosted and "tertiary" or "on_surface_variant",
-    minWidth = 34,
+    width = 34,
   })
   return ui.column({ fill = "surface_container", radius = 14, padding = 12, gap = 10 }, {
     ui.row({ align = "center", justify = "space_between" }, {
@@ -174,7 +174,7 @@ local function voiceCard()
       ui.row({ align = "center", gap = 6 }, volumeReadout),
     }),
     ui.row({ align = "center", gap = 8 }, {
-      ui.label({ text = "Voice level", fontSize = 10, color = "on_surface_variant", minWidth = 62 }),
+      ui.label({ text = "Voice level", fontSize = 10, color = "on_surface_variant", width = 62 }),
       ui.progress({
         progress = meterLevels[state.activeSource] or 0,
         height = 5,
