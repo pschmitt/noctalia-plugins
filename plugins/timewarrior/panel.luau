@@ -163,15 +163,21 @@ local function toggle()
       syncSpinner(18),
     }))
   end
-  table.insert(children, ui.row({ justify = "center", visible = action ~= nil and (action.message or "") ~= "" }, {
-    ui.label({
-      text = action and action.message or "",
-      fontSize = 11,
-      color = "error",
-      maxLines = 2,
+  -- The failure message goes under the button row, not in it: inside the row
+  -- a long message (a failing start hook's error) took the button's width,
+  -- squeezed the button to a sliver, overlapped its label and pushed the whole
+  -- popup wider.
+  return ui.column({ gap = 4 }, {
+    ui.row({ gap = 6, align = "center" }, children),
+    ui.row({ justify = "center", visible = action ~= nil and (action.message or "") ~= "" }, {
+      ui.label({
+        text = action and action.message or "",
+        fontSize = 11,
+        color = "error",
+        maxLines = 2,
+      }),
     }),
-  }))
-  return ui.column({ gap = 4 }, { ui.row({ gap = 6, align = "center" }, children) })
+  })
 end
 
 local function sendCommand(cmd)
