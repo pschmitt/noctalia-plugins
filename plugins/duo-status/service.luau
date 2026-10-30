@@ -133,6 +133,10 @@ local function pollBattery()
       local prof = noctalia.string.trim(res.stdout)
       state.battery.profile = prof
       state.battery.powerSaver = (prof == "power-saver")
+      -- Publish right away. This callback races the upower one below, and the
+      -- state was only published from that one, so a freshly switched profile
+      -- reached the panel a whole poll late.
+      updateIcon()
     end
   end)
 
