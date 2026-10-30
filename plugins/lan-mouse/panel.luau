@@ -190,7 +190,6 @@ end
 
 local function stoppedContent()
   return ui.column({ gap = 14, paddingV = 8, align = "center", justify = "center" }, {
-    ui.image({ path = "assets/lan-mouse.svg", width = 48, height = 48, fit = "contain", opacity = 0.65 }),
     ui.button({
       text = starting and "Starting…" or "Start Lan Mouse",
       glyph = starting and busyGlyph() or "player-play",
