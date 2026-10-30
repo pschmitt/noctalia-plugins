@@ -109,7 +109,8 @@ On a live shell:
 - For responsiveness, sample the shell's CPU (`/proc/<pid>/stat` utime+stime
   over a few seconds) with the popup closed, open and idle, and animating.
   Numbers are noisy; repeat them.
-- **Do the interactive testing on gk4, not on the machine the user is working
+- **Do the interactive testing on the designated test workstation (see the
+  `brkn-infra` skill), not on the machine the user is working
   on** (ask which one that is). Clicking moves the real cursor. Do not trigger
   actions with real side effects (the timewarrior start/stop hooks run the
   user's work ritual) without asking.
