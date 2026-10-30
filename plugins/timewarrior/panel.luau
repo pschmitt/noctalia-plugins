@@ -140,6 +140,24 @@ local function toggle()
       onClick = "onToggle",
     }),
   }
+  if busy ~= nil and action.action == "sync" and noctalia.getConfig("animations_enabled") ~= false then
+    -- A button's glyph cannot rotate, so while a sync runs the button is drawn
+    -- as a row of the same size and colour with the spinning sync frames in
+    -- place of its static icon.
+    children[1] = ui.row({
+      key = "toggle-syncing",
+      gap = 8,
+      height = 44,
+      flexGrow = 1,
+      align = "center",
+      justify = "center",
+      fill = "secondary",
+      radius = 10,
+    }, {
+      syncSpinner(20),
+      ui.label({ text = label, fontSize = 14, fontWeight = "bold", color = "on_secondary" }),
+    })
+  end
   if busy ~= nil and action.action ~= "sync" then
     table.insert(children, ui.row({ width = 20, height = 44, align = "center", justify = "center" }, {
       syncSpinner(18),
