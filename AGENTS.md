@@ -1,5 +1,17 @@
 # Agent instructions
 
+## Project and validation
+
+This repository packages personal Noctalia plugins as a Nix flake. Follow the
+plugin-specific README files and treat the performance and responsive-UI rules
+below as requirements.
+
+- Run `nix flake check` and the targeted verification steps below for the
+  plugin being changed.
+- Before changing workflows, check for reusable workflows or actions in
+  [ci-workflows](https://github.com/pschmitt/ci-workflows) and preserve
+  existing triggers, parameters, and check coverage.
+
 Personal [Noctalia](https://github.com/noctalia-dev/noctalia) plugins (Luau),
 packaged as a Nix flake. Two things matter more than anything else here:
 
