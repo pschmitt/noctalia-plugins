@@ -6,7 +6,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-lan-mouse";
-  version = (lib.importTOML ../../plugins/lan-mouse/plugin.toml).version;
+  inherit (lib.importTOML ../../plugins/lan-mouse/plugin.toml) version;
 
   src = lib.fileset.toSource {
     root = ../../plugins/lan-mouse;

@@ -5,7 +5,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-fan-control";
-  version = (lib.importTOML ../../plugins/fan-control/plugin.toml).version;
+  inherit (lib.importTOML ../../plugins/fan-control/plugin.toml) version;
 
   src = lib.fileset.toSource {
     root = ../../plugins/fan-control;

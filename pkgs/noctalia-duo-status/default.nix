@@ -6,7 +6,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-duo-status";
-  version = (lib.importTOML ../../plugins/duo-status/plugin.toml).version;
+  inherit (lib.importTOML ../../plugins/duo-status/plugin.toml) version;
 
   src = lib.fileset.toSource {
     root = ../../plugins/duo-status;

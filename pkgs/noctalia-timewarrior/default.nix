@@ -8,7 +8,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-timewarrior";
-  version = (lib.importTOML ../../plugins/timewarrior/plugin.toml).version;
+  inherit (lib.importTOML ../../plugins/timewarrior/plugin.toml) version;
 
   src = lib.fileset.toSource {
     root = ../../plugins/timewarrior;

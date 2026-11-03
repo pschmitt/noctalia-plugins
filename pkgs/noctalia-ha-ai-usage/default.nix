@@ -6,7 +6,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-ha-ai-usage";
-  version = (lib.importTOML ../../plugins/ha-ai-usage/plugin.toml).version;
+  inherit (lib.importTOML ../../plugins/ha-ai-usage/plugin.toml) version;
 
   src = lib.fileset.toSource {
     root = ../../plugins/ha-ai-usage;

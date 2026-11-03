@@ -13,7 +13,7 @@
 
 stdenvNoCC.mkDerivation {
   pname = "noctalia-battery-icon";
-  version = (lib.importTOML ../../plugins/battery-icon/plugin.toml).version;
+  inherit (lib.importTOML ../../plugins/battery-icon/plugin.toml) version;
 
   src = lib.fileset.toSource {
     root = ../../plugins/battery-icon;
