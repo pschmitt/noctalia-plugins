@@ -30,6 +30,8 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
     mkdir -p "$out/share/noctalia-plugins/touch-keyboard" "$out/bin"
     cp plugin.toml *.luau "$out/share/noctalia-plugins/touch-keyboard/"
+    substituteInPlace "$out/share/noctalia-plugins/touch-keyboard/service.luau" \
+      --replace-fail '"touch-keyboard", action' '"${controller}/bin/touch-keyboard", action'
     ln -s ${controller}/bin/touch-keyboard "$out/bin/touch-keyboard"
     runHook postInstall
   '';
