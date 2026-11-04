@@ -1,0 +1,22 @@
+id = "pschmitt/touch-keyboard"
+name = "Touch Keyboard"
+version = "0.1.0"
+plugin_api = 42
+author = "pschmitt"
+license = "GPL-3.0-only"
+tags = ["bar", "utility", "accessibility"]
+icon = "keyboard"
+description = "Show and dismiss the Squeekboard touch keyboard."
+dependencies = ["touch-keyboard"]
+
+[[service]]
+id = "controller"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[widget.actions]
+left = "plugin pschmitt/touch-keyboard:controller all toggle"
+right = "plugin pschmitt/touch-keyboard:controller all hide"

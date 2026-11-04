@@ -45,6 +45,7 @@
           noctalia-obs-studio = pkgs.callPackage ./pkgs/noctalia-obs-studio { };
           noctalia-screencast = pkgs.callPackage ./pkgs/noctalia-screencast { };
           noctalia-syncthing = pkgs.callPackage ./pkgs/noctalia-syncthing { };
+          noctalia-touch-keyboard = pkgs.callPackage ./pkgs/noctalia-touch-keyboard { };
           noctalia-timewarrior = pkgs.callPackage ./pkgs/noctalia-timewarrior { };
           default = pkgs.symlinkJoin {
             name = "noctalia-plugins";
@@ -60,6 +61,7 @@
               (pkgs.callPackage ./pkgs/noctalia-obs-studio { })
               (pkgs.callPackage ./pkgs/noctalia-screencast { })
               (pkgs.callPackage ./pkgs/noctalia-syncthing { })
+              (pkgs.callPackage ./pkgs/noctalia-touch-keyboard { })
               (pkgs.callPackage ./pkgs/noctalia-timewarrior { })
             ];
           };
