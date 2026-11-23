@@ -303,10 +303,12 @@ end
 
 function onClose()
   panelIsOpen = false
+  dispatch({ action = "panel_visible", open = false })
 end
 
 function onOpen(_context)
   panelIsOpen = true
+  dispatch({ action = "panel_visible", open = true })
   snap = noctalia.state.get(SNAPSHOT) or snap
   clearSliderState()
   render()

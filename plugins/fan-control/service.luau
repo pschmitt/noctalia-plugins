@@ -22,7 +22,10 @@ local HWMON_ROOT = "/sys/class/hwmon"
 local KNOWN_HWMON_NAMES = { dell_smm = true, gpdfan = true }
 local MAX_HWMON_CHANNELS = 8
 
-local POLL_MS = 2500
+-- Fast cadence only while the panel is open (it shows live RPM and temperature);
+-- otherwise the slow poll_interval keeps the idle cost negligible.
+local FAST_POLL_MS = 2500
+local panelOpen = false
 local READ_TIMEOUT_MS = 4000
 local WRITE_TIMEOUT_MS = 4000
 local SEP = "__NTF_SEP__"
@@ -371,9 +374,13 @@ readPowerProfile = function()
     return
   end
   readingPowerProfile = true
-  local launched = noctalia.runAsync("powerprofilesctl get 2>/dev/null", function(res)
+  -- A busctl property read is far cheaper than the Python powerprofilesctl.
+  local readCmd = "busctl --system get-property net.hadess.PowerProfiles /net/hadess/PowerProfiles "
+    .. "net.hadess.PowerProfiles ActiveProfile 2>/dev/null || powerprofilesctl get 2>/dev/null"
+  local launched = noctalia.runAsync(readCmd, function(res)
     readingPowerProfile = false
     local profile = noctalia.string.trim(res.stdout or "")
+    profile = profile:match('^s "([^"]*)"$') or profile
     snapshot.powerProfile = POWER_PROFILES[profile] and profile or ""
     publish()
   end, READ_TIMEOUT_MS)
@@ -507,8 +514,21 @@ local function applyPowerProfile(profile)
   end, WRITE_TIMEOUT_MS)
 end
 
+local function applyPollInterval()
+  local idleSec = math.max(1, tonumber(noctalia.getConfig("poll_interval")) or 10)
+  noctalia.setUpdateInterval(panelOpen and FAST_POLL_MS or idleSec * 1000)
+end
+
 noctalia.state.watch(COMMAND, function(cmd)
   if type(cmd) ~= "table" then
+    return
+  end
+  if cmd.action == "panel_visible" then
+    panelOpen = cmd.open == true
+    applyPollInterval()
+    if panelOpen then
+      poll()
+    end
     return
   end
   if noctalia.getConfig("alt_mode") == true then
@@ -534,10 +554,11 @@ end
 function onConfigChanged()
   reading = false
   detected = false
+  applyPollInterval()
   poll()
 end
 
-noctalia.setUpdateInterval(POLL_MS)
+applyPollInterval()
 
 publish()
 poll()

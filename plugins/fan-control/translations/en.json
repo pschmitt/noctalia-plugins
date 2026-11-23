@@ -118,6 +118,10 @@
       "description": "Granularity of manual speed changes: the slider's step size, and how much the increase/decrease actions change it by",
       "label": "Speed step (%)"
     },
+    "poll_interval": {
+      "description": "Seconds between background reads of fan speed and temperature while the panel is closed. The panel refreshes every 2.5 s while it is open.",
+      "label": "Idle poll interval (s)"
+    },
     "rpm_high_color": {
       "description": "Color at or above the high fan-speed threshold (color_trigger = Fan speed). Empty uses the theme's error/warning color.",
       "label": "High-speed color"
