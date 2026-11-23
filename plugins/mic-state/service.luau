@@ -301,16 +301,18 @@ function onIpc(event)
 end
 
 -- pactl subscribe reports source volume and mute changes made by other apps
--- (including pavucontrol). Keep the periodic poll as a fallback, and queue a
+-- (including pavucontrol), and source-output/server/card events cover the
+-- processed source being re-linked. The periodic poll is only a slow safety
+-- net (default 5 s, it used to be 500 ms). Queue a
 -- follow-up if an event arrives while a source snapshot is already in flight.
 noctalia.runStream("pactl subscribe", function(line)
-  if line:match("on source #") then poll() end
+  if line:match("on source") or line:match("on server") or line:match("on card") then poll() end
 end)
 
 poll()
 
 function update()
-  local interval = tonumber(noctalia.getConfig("poll_interval_ms")) or 500
+  local interval = tonumber(noctalia.getConfig("poll_interval_ms")) or 5000
   noctalia.setUpdateInterval(interval)
   poll()
 end
@@ -319,4 +321,4 @@ function onConfigChanged()
   poll()
 end
 
-noctalia.setUpdateInterval(tonumber(noctalia.getConfig("poll_interval_ms")) or 500)
+noctalia.setUpdateInterval(tonumber(noctalia.getConfig("poll_interval_ms")) or 5000)
