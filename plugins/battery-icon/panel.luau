@@ -68,6 +68,7 @@ end
 -- closed; building a whole UI tree for a panel nobody can see is wasted work,
 -- so render() only runs between onOpen and onClose.
 local panelIsOpen = false
+local refreshTick = 0
 
 local commandSerial = 0
 
@@ -479,6 +480,8 @@ end
 
 function onOpen(_context)
   panelIsOpen = true
+  refreshTick = 0
+  panel.setWantsSecondTicks(true)
   details = noctalia.state.get(DETAILS) or details
   fan = noctalia.state.get(FAN_STATE) or fan
   tdp = noctalia.state.get(TDP_STATE) or tdp
@@ -493,6 +496,7 @@ end
 
 function onClose()
   panelIsOpen = false
+  panel.setWantsSecondTicks(false)
   pendingProfile = nil
   pendingFanMode = nil
   pendingCaffeine = nil
@@ -569,9 +573,13 @@ end)
 
 -- The service normally polls at a relaxed interval. While this panel is open,
 -- refresh telemetry frequently enough for RPM and temperature to feel live.
-panel.setWantsSecondTicks(true)
-local refreshTick = 0
+-- Second ticks are requested only while the panel is open: asking for them at
+-- load made the host call update() every second while closed, which re-polled
+-- the whole service (about a dozen process spawns) every 2 s, all day.
 function update()
+  if not panelIsOpen then
+    return
+  end
   refreshTick += 1
   if refreshTick % 2 == 0 then
     batteryCommand({ action = "refresh" })

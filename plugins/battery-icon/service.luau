@@ -314,7 +314,9 @@ printf 'LOAD:%s %s %s\n' "$one" "$five" "$fifteen"
 end
 
 local function readFan()
-  if readingFan then
+  -- Fan data only feeds the panel's fan controls: skip the probe script
+  -- entirely when they are switched off.
+  if noctalia.getConfig("show_fan_controls") == false or readingFan then
     return
   end
   readingFan = true
@@ -1006,6 +1008,18 @@ local function setTdp(value)
   end, 5000)
 end
 
+-- `powerprofilesctl get` is a Python script (~50 ms of CPU per call); the
+-- same answer is one cheap busctl property read. powerprofilesctl stays as
+-- the fallback for a daemon that only exposes the newer bus name.
+local PROFILE_READ_CMD = "@busctl@ --system get-property net.hadess.PowerProfiles /net/hadess/PowerProfiles "
+  .. "net.hadess.PowerProfiles ActiveProfile 2>/dev/null || @powerprofilesctl@ get 2>/dev/null"
+
+-- busctl prints `s "balanced"`; powerprofilesctl prints a bare `balanced`.
+local function parseProfile(output)
+  local text = trim(output)
+  return text:match('^s "([^"]*)"$') or text
+end
+
 local function poll()
   readFan()
   readTdp()
@@ -1064,8 +1078,8 @@ local function poll()
         local limit, limitSource = effectiveLimit(cfg, reportedLimit)
         cfg.fullAt = limit
 
-        noctalia.runAsync("@powerprofilesctl@ get", function(profileResult)
-          local profile = trim(profileResult.stdout)
+        noctalia.runAsync(PROFILE_READ_CMD, function(profileResult)
+          local profile = parseProfile(profileResult.stdout)
           local powerSaver
           if profile == "" then
             powerSaver = lastPowerSaver
