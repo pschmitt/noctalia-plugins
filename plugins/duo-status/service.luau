@@ -98,6 +98,9 @@ end
 
 -- ── Battery polling ──────────────────────────────────────────────────────────
 
+local PROFILE_READ_CMD = "busctl --system get-property net.hadess.PowerProfiles /net/hadess/PowerProfiles "
+  .. "net.hadess.PowerProfiles ActiveProfile 2>/dev/null || powerprofilesctl get 2>/dev/null"
+
 local function pollBattery()
   local device = noctalia.getConfig("battery_device") or "BAT0"
   local root = "/sys/class/power_supply/" .. device
@@ -128,9 +131,11 @@ local function pollBattery()
   end
 
   -- Power profiles
-  noctalia.runAsync("powerprofilesctl get 2>/dev/null", function(res)
+  -- A busctl property read is far cheaper than the Python powerprofilesctl.
+  noctalia.runAsync(PROFILE_READ_CMD, function(res)
     if res.exitCode == 0 and res.stdout ~= "" then
       local prof = noctalia.string.trim(res.stdout)
+      prof = prof:match('^s "([^"]*)"$') or prof
       state.battery.profile = prof
       state.battery.powerSaver = (prof == "power-saver")
       -- Publish right away. This callback races the upower one below, and the
@@ -346,7 +351,7 @@ end
 tick()
 scanNetworks()
 
-local intervalSec = tonumber(noctalia.getConfig("poll_interval")) or 5
+local intervalSec = tonumber(noctalia.getConfig("poll_interval")) or 30
 noctalia.setUpdateInterval(math.max(1000, intervalSec * 1000))
 
 function update()
