@@ -1,12 +1,20 @@
 --!nonstrict
--- Read a complete local daemon snapshot each tick. No cross-host SSH and
--- no replay of edge hooks: a fresh widget immediately recovers current state.
+-- Local daemon snapshots only. No cross-host SSH and no replay of edge hooks:
+-- a fresh widget immediately recovers current state.
+--
+-- Snapshots are streamed (`lan-mouse cli input-state --watch` prints one JSON
+-- line per routing change), so an idle shell spawns nothing per second. While
+-- lan-mouse.service is inactive the stream script only re-checks the unit
+-- every STREAM_RETRY_S seconds. poll_interval is a slow safety net that
+-- re-reads a snapshot when the unit is known to be running.
 local polling = false
 local generation = 0
 local serviceActive = false
+local STREAM_RETRY_S = 10
+local lastSentinel = nil
 
 local function pollMs()
-  return math.clamp(math.floor(tonumber(noctalia.getConfig("poll_interval")) or 1), 1, 30) * 1000
+  return math.clamp(math.floor(tonumber(noctalia.getConfig("poll_interval")) or 30), 1, 300) * 1000
 end
 
 local function publish(snapshot, active)
@@ -56,10 +64,49 @@ local function poll()
   end, 1500)
 end
 
+local function validSnapshot(snapshot)
+  return type(snapshot) == "table" and type(snapshot.incoming) == "table" and type(snapshot.peers) == "table"
+end
+
+-- Stdout lines: a JSON snapshot, "inactive" (unit stopped) or "down" (unit
+-- running but the watch ended / IPC unavailable). Sentinels repeat while the
+-- condition lasts, so only publish when one changes.
+local function onStreamLine(line)
+  if line == "inactive" or line == "down" then
+    if lastSentinel == line then
+      return
+    end
+    lastSentinel = line
+    generation += 1
+    polling = false
+    publish(nil, line == "down")
+    return
+  end
+  local ok, snapshot = pcall(noctalia.json.decode, line)
+  if ok and validSnapshot(snapshot) then
+    lastSentinel = nil
+    generation += 1
+    polling = false
+    publish(snapshot, true)
+  end
+end
+
+local STREAM_SCRIPT = "while :; do "
+  .. "if @systemctl@ --user is-active --quiet lan-mouse.service; then "
+  .. "lan-mouse cli input-state --watch 2>/dev/null; "
+  .. "if @systemctl@ --user is-active --quiet lan-mouse.service; then echo down; else echo inactive; fi; "
+  .. "else echo inactive; fi; "
+  .. "sleep " .. tostring(STREAM_RETRY_S) .. "; done"
+
 publish(nil, false)
-poll()
+noctalia.runStream("sh -c '" .. STREAM_SCRIPT .. "'", onStreamLine)
 
 function update()
   noctalia.setUpdateInterval(pollMs())
+  -- The stream reports the unit stopping within STREAM_RETRY_S; skip the
+  -- safety-net read while it is known to be inactive.
+  if lastSentinel == "inactive" then
+    return
+  end
   poll()
 end

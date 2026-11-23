@@ -16,9 +16,9 @@ key = "poll_interval"
 type = "int"
 label_key = "settings.poll_interval.label"
 description_key = "settings.poll_interval.description"
-default = 1
+default = 30
 min = 1
-max = 30
+max = 300
 
 [[setting]]
 key = "icon_color"

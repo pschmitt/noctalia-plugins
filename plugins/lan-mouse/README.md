@@ -1,7 +1,9 @@
 # Lan Mouse
 
-The bar and panel read `lan-mouse cli input-state` from the local daemon once
-per configured poll interval (one second by default). Requires the input-state
+The bar and panel follow `lan-mouse cli input-state --watch` from the local
+daemon (one snapshot per routing change); the poll interval (30 seconds by
+default) is only a safety net, and nothing runs but a cheap unit check every
+10 seconds while the service is inactive. Requires the input-state
 IPC extension supplied by nixos-config. No SSH is used for status.
 
 The snapshot separates enabled peers, live connections, acknowledged outgoing

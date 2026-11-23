@@ -3,7 +3,7 @@
     "animations_enabled": { "label": "Enable animations", "description": "Animate busy and pending states in the popup, such as the cycling hourglass on buttons while a command runs." },
     "poll_interval": {
       "label": "Poll interval (s)",
-      "description": "How often to request a fresh input-routing snapshot from the local Lan Mouse daemon."
+      "description": "Safety-net interval for re-reading the input-routing snapshot. Changes normally arrive instantly from the daemon, so a slow value is fine."
     },
     "icon_color": {
       "label": "Icon color",
